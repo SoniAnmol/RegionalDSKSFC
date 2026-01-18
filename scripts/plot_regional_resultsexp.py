@@ -30,8 +30,8 @@ NATIONAL_COLS: List[str] = [
     "D_en",                    # 8 (D_en_TOT)
     "LS",                      # 9
     "K_sum",                   # 10 (K.Sum)
-    "A1_en_ratio",             # 11 (dead/survive)
-    "A2_en_ratio",             # 12 (dead/survive)
+    "A1_en_ratio",             # 11 A1p_en_dead / A1p_en_survive
+    "A2_en_ratio",             # 12 A2_en_dead / A2_en_survive
     "Am_en",                   # 13
     "Am_a",                    # 14
     "exit_marketshare2_sum",   # 15
@@ -39,19 +39,19 @@ NATIONAL_COLS: List[str] = [
     "exit_equity2_sum",        # 17
     "exiting_1_count",         # 18
     "Bailout",                 # 19
-    "baddebt_b_gdp",           # 20
+    "baddebt_b_gdp",           # 20 baddebt_b.Sum() / (GDP_n(1) * 4)
     "counter_bankfailure",     # 21
-    "CapitalStock_gdp",        # 22
-    "NW_cb_gdp",               # 23
-    "NW_h_gdp",                # 24
-    "NW_2_gdp",                # 25
-    "NW_b_gdp",                # 26
-    "BankProfits",             # 27
-    "Loans_2_gdp",             # 28
-    "CreditDemand_to_Supply",  # 29
-    "NW_gov_gdp",              # 30
-    "NW_e_gdp",                # 31
-    "NW_1_gdp",                # 32
+    "CapitalStock_gdp",        # 22 CapitalStock.Row(1).Sum() / (GDP_n(1) * 4)
+    "NW_cb_gdp",               # 23 NW_cb(1) / (GDP_n(1) * 4)
+    "NW_h_gdp",                # 24 NW_h(1) / (GDP_n(1) * 4)
+    "NW_2_gdp",                # 25 NW_2.Row(1).Sum() / (GDP_n(1) * 4)
+    "NW_b_gdp",                # 26 NW_b.Row(1).Sum() / (GDP_n(1) * 4)
+    "BankProfits_sum",         # 27
+    "Loans_2_gdp",             # 28 Loans_2.Row(1).Sum() / (GDP_n(1) * 4)
+    "CreditDemand_to_Supply",  # 29 CreditDemand_all / CreditSupply_all
+    "NW_gov_gdp",              # 30 NW_gov(1) / (GDP_n(1) * 4)
+    "NW_e_gdp",                # 31  NW_e(1) / (GDP_n(1) * 4)
+    "NW_1_gdp",                # 32 NW_1.Row(1).Sum() / (GDP_n(1) * 4)
     "counter_bankfailure_cap",  # 33 (min(1,counter))
     "cpi",                     # 34
     "exp_quota",               # 35
@@ -69,7 +69,7 @@ NATIONAL_COLS: List[str] = [
     "Tmixed",                  # 47
     "EnergyPayments",          # 48
     "FuelCost_GDP",            # 49
-    "K_green_share",           # 50 (K_gelag/(K_gelag+K_delag))
+    "K_green_share_lag",       # 50 (lagged K_gelag/(K_gelag+K_delag))
     "Deposits_e_gdp",          # 51
     "CapitalStock_e_gdp",      # 52
     "Pitot1",                  # 53
@@ -96,7 +96,7 @@ NATIONAL_COLS: List[str] = [
     "wage_income_share",       # 74
 ]
 
-# Column names for regional resultsexp rows (34 columns)
+# Column names for regional resultsexp rows (35 columns)
 REGION_COLS: List[str] = [
     "t",                  # 1
     "reg_GDP_r",          # 2
@@ -113,7 +113,7 @@ REGION_COLS: List[str] = [
     "reg_D_en",           # 13
     "reg_dirty_cap",      # 14
     "reg_green_cap",      # 15
-    "reg_green_share",    # 16
+    "reg_green_share",    # 16 (current, non-lagged)
     "reg_Am1",            # 17
     "reg_Am2",            # 18
     "reg_A1en_ratio",     # 19
@@ -132,6 +132,7 @@ REGION_COLS: List[str] = [
     "reg_Deposits2",      # 32
     "reg_CapStock1",      # 33
     "reg_CapStock2",      # 34
+    "reg_green_share_lag",  # 35 (lagged regional green capacity share)
 ]
 
 # Map regional variables to national counterparts for overlay
@@ -149,7 +150,9 @@ REG_TO_NAT: Dict[str, str] = {
     "reg_Emiss_en": "Emiss_en",
     "reg_D_en": "D_en",
     "reg_dirty_cap": "K_dirty_share",  # Not in national cols, but this is the best available
-    "reg_green_cap": "K_green_share",  # Not in national cols, but this is the best available
+    "reg_green_cap": "K_green_share_lag",  # National lagged green share for comparison
+    "reg_green_share": "K_green_share_lag",  # Regional current green share vs national lagged
+    "reg_green_share_lag": "K_green_share_lag",  # Regional lagged green share vs national lagged (direct comparison)
     "reg_Am1": "Am1",
     "reg_Am2": "Am2",
     "reg_A1en_ratio": "A1_en_ratio",
@@ -186,7 +189,8 @@ VAR_LABELS: Dict[str, str] = {
     "reg_D_en": "Regional Energy Demand",
     "reg_dirty_cap": "Regional Dirty Energy Capacity",
     "reg_green_cap": "Regional Green Energy Capacity",
-    "reg_green_share": "Regional Green Capacity Share",
+    "reg_green_share": "Regional Green Capacity Share (current)",
+    "reg_green_share_lag": "Regional Green Capacity Share (lagged)",
     "reg_Am1": "Regional Avg K-firm Productivity",
     "reg_Am2": "Regional Avg C-firm Productivity",
     "reg_A1en_ratio": "Regional K-firm Energy Productivity Ratio",

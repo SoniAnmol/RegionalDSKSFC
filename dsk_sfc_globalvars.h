@@ -527,7 +527,7 @@ double subsidy_ge_exp; // Subsidy rate for expansion of green energy capacity
 double uu1_en_g;       // Boost to R&D effectiveness from public support
 double uu2_en_g;       // Boost to R&D effectiveness from public support
 
-// Regions (derivative-only layer)
+// Regions
 int NR;                                               // Number of regions
 RowVector region_K_shares;                            // Shares of K-firm initial locations by region
 RowVector region_C_shares;                            // Shares of C-firm initial locations by region
@@ -540,11 +540,28 @@ RowVector de_growth_probability;                      // Probabilities for alloc
 std::vector<int> region_firm_assignment_K;            // Region index for each K-firm (1-based regions)
 std::vector<int> region_firm_assignment_C;            // Region index for each C-firm (1-based regions)
 std::vector<double> region_labor_supply;              // Regional labour supply levels
-std::vector<double> region_unemployment;              // Regional unemployment levels
+std::vector<double> region_unemployment;              // Regional unemployment levels (deprecated: use reg_U)
 std::vector<std::string> region_resultsexp_names;     // Filenames for regional resultsexp outputs
 std::vector<std::ofstream> region_resultsexp_streams; // Persistent streams for regional resultsexp outputs
 std::vector<double> region_dirty_capacity;            // Regional dirty capacity stocks (derivative tracking)
 std::vector<double> region_green_capacity;            // Regional green capacity stocks (derivative tracking)
+std::vector<double> region_dirty_capacity_lag;        // Lagged regional dirty capacity stocks
+std::vector<double> region_green_capacity_lag;        // Lagged regional green capacity stocks
+
+// Regional Accounting Variables
+std::vector<double> reg_GDP_r;         // Regional real GDP
+std::vector<double> reg_Consumption_r; // Regional total real consumption
+std::vector<double> reg_Investment_r;  // Regional total real investment
+std::vector<double> reg_U;             // Regional unemployment rate
+std::vector<double> reg_Am;            // Regional mean productivity (weighted avg of K and C-firm productivity)
+std::vector<double> reg_Loans_2;       // Regional loans of C-firms
+std::vector<double> reg_Inventories;   // Regional nominal value of C-firms' inventories
+std::vector<double> reg_N;             // Regional real inventories
+std::vector<double> reg_GDP_n;         // Regional nominal GDP
+std::vector<double> reg_Qge;           // Regional quantity of green energy produced
+std::vector<double> reg_D_en_TOT;      // Regional total energy demand
+std::vector<double> reg_Emiss_TOT;     // Regional total emissions
+std::vector<double> reg_Cum_emissions; // Regional cumulative emissions
 
 // Climate
 RowVector Tmixed(2);             // Temperature in the mixed layer

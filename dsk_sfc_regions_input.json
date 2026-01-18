@@ -190,7 +190,7 @@
   ],
   "flags": [
     {
-      "flag_shockexperiment": 1,
+      "flag_shockexperiment": 0,
       "flag_exogenousshocks": 1,
       "flag_cum_emissions": 0,
       "flag_tax_CO2": 4,
