@@ -1647,6 +1647,16 @@ void SETVARS(void)
   Am_en(1) = 0;
   ftot = 0;
   Consumption_r = 0;
+
+  // Reset regional consumption
+  if (NR > 0)
+  {
+    for (int rr = 0; rr < NR; ++rr)
+    {
+      reg_Consumption_r[rr] = 0;
+    }
+  }
+
   A_mi = 0;
   A1_mi = 0;
   A2_en_mi = 0;
@@ -4375,6 +4385,57 @@ void ALLOC(void)
     Consumption_r += S2(1, j) / p2(j);
   }
 
+  // Compute regional consumption immediately after national consumption
+  if (NR > 0 && t <= 5) // Debug: only for first 5 periods
+  {
+    double total_check = 0;
+    std::cerr << "DEBUG Period " << t << " Consumption:" << endl
+              << std::flush;
+    std::cerr << "  National Consumption_r = " << Consumption_r << endl
+              << std::flush;
+
+    for (j = 1; j <= N2; j++)
+    {
+      int rr = region_firm_assignment_C[j - 1];
+      double firm_consumption = S2(1, j) / p2(j);
+
+      // If firm has invalid region (rr=0 or out of range), assign to region 1 as default
+      if (rr < 1 || rr > NR)
+      {
+        std::cerr << "  Firm " << j << " invalid region " << rr << endl
+                  << std::flush;
+        rr = 1;
+      }
+
+      reg_Consumption_r[rr - 1] += firm_consumption;
+      total_check += firm_consumption;
+    }
+
+    std::cerr << "  Loop total: " << total_check << endl
+              << std::flush;
+    std::cerr << "  Regional: R1=" << reg_Consumption_r[0]
+              << " R2=" << reg_Consumption_r[1]
+              << " R3=" << reg_Consumption_r[2] << endl
+              << std::flush;
+    std::cerr << "  Sum: " << (reg_Consumption_r[0] + reg_Consumption_r[1] + reg_Consumption_r[2]) << endl
+              << std::flush;
+  }
+  else if (NR > 0)
+  {
+    for (j = 1; j <= N2; j++)
+    {
+      int rr = region_firm_assignment_C[j - 1];
+      double firm_consumption = S2(1, j) / p2(j);
+
+      if (rr < 1 || rr > NR)
+      {
+        rr = 1;
+      }
+
+      reg_Consumption_r[rr - 1] += firm_consumption;
+    }
+  }
+
   // Households pay for consumption
   Deposits_h(1) -= Consumption;
 
@@ -6926,10 +6987,11 @@ void SAVE(void)
       double reg_NW1 = 0, reg_NW2 = 0;
       double reg_Deposits1 = 0, reg_Deposits2 = 0;
       double reg_CapitalStock1 = 0, reg_CapitalStock2 = 0;
-      double reg_Loans2_sum = 0;        // Loans of C-firms (nominal)
-      double reg_Inventories_nom = 0;   // Inventories nominal (C-firms)
-      double reg_N_real_sum = 0;        // Inventories real (C-firms)
-      double reg_Consumption_r_val = 0; // Real consumption (initialized here)
+      double reg_Loans2_sum = 0;      // Loans of C-firms (nominal)
+      double reg_Inventories_nom = 0; // Inventories nominal (C-firms)
+      double reg_N_real_sum = 0;      // Inventories real (C-firms)
+      // Use pre-computed regional consumption from global variable
+      double reg_Consumption_r_val = reg_Consumption_r[region - 1];
       double reg_A1_sum = 0, reg_A2_sum = 0, reg_A1_weight = 0, reg_A2_weight = 0;
       double reg_A1en_dead = 0, reg_A1en_survive = 0, reg_A2en_dead = 0, reg_A2en_survive = 0;
 
@@ -6968,8 +7030,7 @@ void SAVE(void)
         {
           reg_S2 += S2(1, j);
           // Q2 already aggregated in reg_Q2_val
-          // Real consumption uses same formula as national: S2/p2
-          reg_Consumption_r_val += S2(1, j) / p2(j);
+          // Regional consumption already computed globally after national Consumption_r
           reg_K += K(j);
           reg_Investment += I(j);
           reg_EI += EI(1, j);
