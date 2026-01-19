@@ -217,7 +217,12 @@ extern std::vector<int> region_firm_assignment_K;
 extern std::vector<int> region_firm_assignment_C;
 extern std::vector<double> reg_N1;
 extern std::vector<double> reg_N2;
+extern std::vector<double> reg_Q1;
+extern std::vector<double> reg_Q2;
 extern std::vector<double> reg_U;
 extern std::vector<double> reg_Am;
+extern std::vector<double> reg_D1_en;
+extern std::vector<double> reg_D2_en;
+extern std::vector<double> reg_D_en_TOT;
 
 #endif

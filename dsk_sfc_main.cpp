@@ -1111,6 +1111,8 @@ void RESIZE(void)
     // Regional accounting variables
     reg_N1.assign(NR, 0.0);
     reg_N2.assign(NR, 0.0);
+    reg_Q1.assign(NR, 0.0);
+    reg_Q2.assign(NR, 0.0);
     reg_GDP_r.assign(NR, 0.0);
     reg_Consumption_r.assign(NR, 0.0);
     reg_Investment_r.assign(NR, 0.0);
@@ -1121,6 +1123,8 @@ void RESIZE(void)
     reg_N.assign(NR, 0.0);
     reg_GDP_n.assign(NR, 0.0);
     reg_Qge.assign(NR, 0.0);
+    reg_D1_en.assign(NR, 0.0);
+    reg_D2_en.assign(NR, 0.0);
     reg_D_en_TOT.assign(NR, 0.0);
     reg_Emiss_TOT.assign(NR, 0.0);
     reg_Cum_emissions.assign(NR, 0.0);
@@ -1180,6 +1184,8 @@ void INITIALIZE(int Exseed)
     reg_N.assign(NR, 0.0);
     reg_GDP_n.assign(NR, 0.0);
     reg_Qge.assign(NR, 0.0);
+    reg_D1_en.assign(NR, 0.0);
+    reg_D2_en.assign(NR, 0.0);
     reg_D_en_TOT.assign(NR, 0.0);
     reg_Emiss_TOT.assign(NR, 0.0);
     reg_Cum_emissions.assign(NR, 0.0);
@@ -2578,6 +2584,7 @@ void PRODMACH(void)
     if (A1p_en(i) > 0)
     {
       D1_en(i) = Q1(i) / ((1 - shocks_eneff1(i)) * A1p_en(i));
+      // TODO Include computation of regional demand
     }
     else
     {
@@ -2592,6 +2599,7 @@ void PRODMACH(void)
     if (A2e_en(j) > 0)
     {
       D2_en(j) = Q2(j) / A2e_en(j);
+      // TODO inlude computatoin of regional energy demand
     }
     else
     {
@@ -3216,6 +3224,7 @@ void ADJUSTEMISSENLAB(void)
   if (A2e_en2(j) > 0)
   {
     D2_en(j) = Q2(j) / A2e_en2(j);
+    // TODO inlude computatoin of regional energy demand
   }
   else
   {
@@ -3228,6 +3237,7 @@ void ADJUSTEMISSENLAB(void)
     else
     {
       D2_en(j) = 0;
+      // TODO inlude computatoin of regional energy demand: set zero
     }
   }
 
@@ -6898,7 +6908,10 @@ void SAVE(void)
     auto write_regional_row = [&](std::ostream &target, int region)
     {
       // Aggregate production and accounting variables for this region
-      double reg_S1 = 0, reg_S2 = 0, reg_Q1 = 0, reg_Q2 = 0;
+      double reg_S1 = 0, reg_S2 = 0;
+      // Use pre-calculated reg_Q1 and reg_Q2 from MACRO()
+      double reg_Q1_val = reg_Q1[region - 1];
+      double reg_Q2_val = reg_Q2[region - 1];
       double reg_K = 0, reg_Investment = 0, reg_EI = 0, reg_SI = 0;
       double reg_Ld1 = 0, reg_Ld2 = 0, reg_LS_used = 0;
       double reg_Emiss1 = 0, reg_Emiss2 = 0;
@@ -6919,7 +6932,7 @@ void SAVE(void)
         if (region_firm_assignment_K[i - 1] == region)
         {
           reg_S1 += S1(i);
-          reg_Q1 += Q1(i);
+          // Q1 already aggregated in reg_Q1_val
           reg_Ld1 += Ld1(i);
           reg_Pi1 += Pi1(i);
           reg_NW1 += NW_1(1, i);
@@ -6947,7 +6960,7 @@ void SAVE(void)
         if (region_firm_assignment_C[j - 1] == region)
         {
           reg_S2 += S2(1, j);
-          reg_Q2 += Q2(j);
+          // Q2 already aggregated in reg_Q2_val
           // Real consumption uses same formula as national: S2/p2
           reg_Consumption_r_val += S2(1, j) / p2(j);
           reg_K += K(j);
@@ -6985,8 +6998,8 @@ void SAVE(void)
                                    ? (reg_A1_sum + reg_A2_sum) / (reg_A1_weight + reg_A2_weight)
                                    : 0;
 
-      // Regional GDP (real): sum of real output produced
-      double reg_GDP_r = reg_Q1 * dim_mach + reg_Q2;
+      // Regional GDP (real): sum of real output produced (use pre-calculated values)
+      double reg_GDP_r = reg_Q1_val * dim_mach + reg_Q2_val;
 
       // Regional GDP (nominal): calculate using same formula as national
       double reg_GDP_n_val = 0;
@@ -7012,7 +7025,6 @@ void SAVE(void)
 
       // Regional energy sector
       double reg_Emiss_en = 0;
-      double reg_D_en = 0;
       double reg_dirty_cap = region_dirty_capacity[region - 1];
       double reg_green_cap = region_green_capacity[region - 1];
       double reg_total_cap = reg_dirty_cap + reg_green_cap;
@@ -7021,12 +7033,14 @@ void SAVE(void)
       double reg_total_cap_lag = reg_green_cap_lag + reg_dirty_cap_lag;
       double reg_green_share = (reg_total_cap_lag > 0) ? reg_green_cap_lag / reg_total_cap_lag : 0;
 
-      // Approximate regional energy emissions and demand as share of total based on capacity
+      // Use pre-calculated regional energy demand from EN_DEM()
+      double reg_D_en_val = reg_D_en_TOT[region - 1];
+
+      // Approximate regional energy emissions as share of total based on capacity
       if (K_delag + K_gelag > 0)
       {
         double cap_share = reg_total_cap / (K_delag + K_gelag);
         reg_Emiss_en = Emiss_en * cap_share;
-        reg_D_en = D_en_TOT(1) * cap_share;
       }
 
       // Regional green energy production proportional to green capacity
@@ -7073,13 +7087,17 @@ void SAVE(void)
       target.width(60);
       target << reg_GDP_n_val; // 10: reg_GDP_n (Nominal GDP)
       target.width(60);
-      target << ((reg_D_en > 0) ? (reg_Qge_val / reg_D_en) : 0); // 11: reg_Qge / reg_D_en (Green energy share of demand)
+      target << ((reg_D_en_val > 0) ? (reg_Qge_val / reg_D_en_val) : 0); // 11: reg_Qge / reg_D_en (Green energy share of demand)
       target.width(60);
-      target << reg_D_en; // 12: reg_D_en_TOT(1) (Total energy demand)
+      target << reg_D_en_val; // 12: reg_D_en_TOT (Total energy demand)
       target.width(60);
       target << reg_Emiss_total; // 13: reg_Emiss_TOT(1) (Total emissions)
       target.width(60);
-      target << reg_Cum_emission_val << endl; // 14: reg_Cum_emission (Cumulative emissions)
+      target << reg_Cum_emission_val; // 14: reg_Cum_emission (Cumulative emissions)
+      target.width(60);
+      target << reg_Q1_val; // 15: reg_Q1 (K-firm production)
+      target.width(60);
+      target << reg_Q2_val << endl; // 16: reg_Q2 (C-firm production)
     };
 
     for (int rr = 1; rr <= NR; ++rr)
@@ -7462,7 +7480,11 @@ void SAVE(void)
     inv_ymc.width(60);
     inv_ymc << Cum_emissions; // 27
     inv_ymc.width(60);
-    inv_ymc << Tmixed(1) << endl; // 28
+    inv_ymc << Tmixed(1); // 28
+    inv_ymc.width(60);
+    inv_ymc << Q1tot; // 29
+    inv_ymc.width(60);
+    inv_ymc << Q2tot << endl; // 30
     inv_ymc.close();
   }
 }

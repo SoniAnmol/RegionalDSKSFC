@@ -7,10 +7,51 @@ void EN_DEM(void)
     D2_en_TOT = D2_en.Sum();
 
     D_en_TOT(1) = ROUND(D1_en_TOT + D2_en_TOT);
+
+    // Compute regional energy demands
+    if (NR > 0)
+    {
+        // Reset regional energy demands
+        for (int rr = 0; rr < NR; ++rr)
+        {
+            reg_D1_en[rr] = 0;
+            reg_D2_en[rr] = 0;
+            reg_D_en_TOT[rr] = 0;
+        }
+
+        // Aggregate K-firm energy demand by region
+        for (int ii = 1; ii <= N1; ++ii)
+        {
+            int rr = region_firm_assignment_K[ii - 1];
+            if (rr >= 1 && rr <= NR)
+            {
+                reg_D1_en[rr - 1] += D1_en(ii);
+            }
+        }
+
+        // Aggregate C-firm energy demand by region
+        for (int jj = 1; jj <= N2; ++jj)
+        {
+            int rr = region_firm_assignment_C[jj - 1];
+            if (rr >= 1 && rr <= NR)
+            {
+                reg_D2_en[rr - 1] += D2_en(jj);
+            }
+        }
+
+        // Calculate total regional energy demand
+        for (int rr = 0; rr < NR; ++rr)
+        {
+            reg_D_en_TOT[rr] = reg_D1_en[rr] + reg_D2_en[rr];
+        }
+    }
 }
 
 void ENERGY(void)
 {
+    // Aggregate energy demands first
+    EN_DEM();
+
     double ge_before = G_ge(t);
     double de_before = G_de(t);
 

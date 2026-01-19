@@ -106,6 +106,18 @@ void LABOR(void)
 
 void MACRO(void)
 {
+	// Reset regional accounting variables at the start of each period
+	if (NR > 0)
+	{
+		for (int rr = 0; rr < NR; ++rr)
+		{
+			reg_Q1[rr] = 0;
+			reg_Q2[rr] = 0;
+			reg_N1[rr] = 0;
+			reg_N2[rr] = 0;
+		}
+	}
+
 	// Calculate macroeconomic aggregates, mean values etc
 	ExpansionInvestment_r = EI.Row(1).Sum();
 	ExpansionInvestment_n = EI_n.Sum();
@@ -117,6 +129,30 @@ void MACRO(void)
 	Q2dtot = Qd.Sum();
 	D2tot = D2.Row(1).Sum();
 	Q1tot = Q1.Sum();
+
+	// Calculate regional production if regions are defined
+	if (NR > 0)
+	{
+		// Aggregate K-firm production by region
+		for (int ii = 1; ii <= N1; ++ii)
+		{
+			int rr = region_firm_assignment_K[ii - 1];
+			if (rr >= 1 && rr <= NR)
+			{
+				reg_Q1[rr - 1] += Q1(ii);
+			}
+		}
+
+		// Aggregate C-firm production by region
+		for (int jj = 1; jj <= N2; ++jj)
+		{
+			int rr = region_firm_assignment_C[jj - 1];
+			if (rr >= 1 && rr <= NR)
+			{
+				reg_Q2[rr - 1] += Q2(jj);
+			}
+		}
+	}
 
 	for (j = 1; j <= N2; j++)
 	{
@@ -185,13 +221,7 @@ void MACRO(void)
 	// Calculate regional firm counts and average productivity if regions are defined
 	if (NR > 0)
 	{
-		// First, count firms in each region
-		for (int rr = 1; rr <= NR; ++rr)
-		{
-			reg_N1[rr - 1] = 0;
-			reg_N2[rr - 1] = 0;
-		}
-
+		// Count firms in each region
 		for (int ii = 1; ii <= N1; ++ii)
 		{
 			int rr = region_firm_assignment_K[ii - 1];

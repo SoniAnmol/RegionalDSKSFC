@@ -551,6 +551,8 @@ std::vector<double> region_green_capacity_lag;        // Lagged regional green c
 // Regional Accounting Variables
 std::vector<double> reg_N1;            // Regional number of K-firms
 std::vector<double> reg_N2;            // Regional number of C-firms
+std::vector<double> reg_Q1;            // Regional production of K-firms
+std::vector<double> reg_Q2;            // Regional production of C-firms
 std::vector<double> reg_GDP_r;         // Regional real GDP
 std::vector<double> reg_Consumption_r; // Regional total real consumption
 std::vector<double> reg_Investment_r;  // Regional total real investment
@@ -561,6 +563,8 @@ std::vector<double> reg_Inventories;   // Regional nominal value of C-firms' inv
 std::vector<double> reg_N;             // Regional real inventories
 std::vector<double> reg_GDP_n;         // Regional nominal GDP
 std::vector<double> reg_Qge;           // Regional quantity of green energy produced
+std::vector<double> reg_D1_en;         // Regional K-firms energy demand
+std::vector<double> reg_D2_en;         // Regional C-firms energy demand
 std::vector<double> reg_D_en_TOT;      // Regional total energy demand
 std::vector<double> reg_Emiss_TOT;     // Regional total emissions
 std::vector<double> reg_Cum_emissions; // Regional cumulative emissions

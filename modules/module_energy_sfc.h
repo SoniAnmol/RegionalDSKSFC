@@ -71,6 +71,8 @@ extern std::vector<double> region_dirty_capacity;
 extern std::vector<double> region_green_capacity;
 extern std::vector<double> region_dirty_capacity_lag;
 extern std::vector<double> region_green_capacity_lag;
+extern std::vector<int> region_firm_assignment_K;
+extern std::vector<int> region_firm_assignment_C;
 
 // -- Regional Accounting Variables -- //
 extern std::vector<double> reg_GDP_r;
@@ -83,6 +85,8 @@ extern std::vector<double> reg_Inventories;
 extern std::vector<double> reg_N;
 extern std::vector<double> reg_GDP_n;
 extern std::vector<double> reg_Qge;
+extern std::vector<double> reg_D1_en;
+extern std::vector<double> reg_D2_en;
 extern std::vector<double> reg_D_en_TOT;
 extern std::vector<double> reg_Emiss_TOT;
 extern std::vector<double> reg_Cum_emissions;
@@ -93,6 +97,9 @@ extern RowVector D2_en;
 extern double D1_en_TOT;
 extern double D2_en_TOT;
 extern RowVector D_en_TOT;
+extern int N1;
+extern int N2;
+extern int NR;
 extern int i;
 extern int j;
 extern double tolerance;

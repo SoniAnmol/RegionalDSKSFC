@@ -27,6 +27,8 @@ REG_TITLES = {
     12: 'reg_D_en_TOT(1)',
     13: 'reg_Emiss_TOT(1)',
     14: 'reg_Cum_emissions',
+    15: 'reg_Q1',
+    16: 'reg_Q2',
 }
 
 # Find latest ymc file by modification time
@@ -71,6 +73,8 @@ REG_TITLES = {
     12: 'Total energy demand',
     13: 'Total emissions',
     14: 'Cumulative emissions',
+    15: 'K-firm production (Q1)',
+    16: 'C-firm production (Q2)',
 }
 
 YMC_BY_REGION_COL = {
@@ -87,6 +91,8 @@ YMC_BY_REGION_COL = {
     12: 25,  # D_en_TOT(1)
     13: 26,  # Emiss_TOT(1)
     14: 27,  # Cum_emissions
+    15: 29,  # Q1tot
+    16: 30,  # Q2tot
 }
 
 # Time axis from ymc and regional; align by length
