@@ -119,21 +119,23 @@ int main(int argc, char *argv[])
     {
       GENFILESHOCKPARS(filepath, "/shockpars", runname, seednumber);
     }
+  }
 
-    if (NR > 0)
+  // Create regional output files if NR > 0, regardless of flag_shockexperiment
+  if (NR > 0)
+  {
+    region_resultsexp_names.resize(NR);
+    region_resultsexp_streams.resize(NR);
+    for (int rr = 1; rr <= NR; ++rr)
     {
-      region_resultsexp_names.resize(NR);
-      region_resultsexp_streams.resize(NR);
-      for (int rr = 1; rr <= NR; ++rr)
-      {
-        std::ostringstream oss;
-        oss << filepath << "/resultsexp_reg" << rr << "_" << runname << "_" << seednumber << ".txt";
-        region_resultsexp_names[rr - 1] = oss.str();
-        region_resultsexp_streams[rr - 1].open(region_resultsexp_names[rr - 1], std::ios::out | std::ios::trunc);
-      }
+      std::ostringstream oss;
+      oss << filepath << "/resultsexp_reg" << rr << "_" << runname << "_" << seednumber << ".txt";
+      region_resultsexp_names[rr - 1] = oss.str();
+      region_resultsexp_streams[rr - 1].open(region_resultsexp_names[rr - 1], std::ios::out | std::ios::trunc);
     }
   }
-  else if (flag_validation == 1)
+
+  if (flag_validation == 1)
   {
     GENFILEVALIDATION1(filepath, "/validation1", seednumber);
     GENFILEVALIDATION2(filepath, "/validation2", seednumber);
@@ -6833,229 +6835,6 @@ void SAVE(void)
 
     write_resultsexp_row(inv_res);
 
-    if (NR > 0)
-    {
-      auto write_regional_row = [&](std::ostream &target, int region)
-      {
-        // Aggregate production and accounting variables for this region
-        double reg_S1 = 0, reg_S2 = 0, reg_Q1 = 0, reg_Q2 = 0;
-        double reg_K = 0, reg_Investment = 0, reg_EI = 0, reg_SI = 0;
-        double reg_Ld1 = 0, reg_Ld2 = 0, reg_LS_used = 0;
-        double reg_Emiss1 = 0, reg_Emiss2 = 0;
-        double reg_Pi1 = 0, reg_Pi2 = 0;
-        double reg_NW1 = 0, reg_NW2 = 0;
-        double reg_Deposits1 = 0, reg_Deposits2 = 0;
-        double reg_CapitalStock1 = 0, reg_CapitalStock2 = 0;
-        double reg_Loans2_sum = 0;        // Loans of C-firms (nominal)
-        double reg_Inventories_nom = 0;   // Inventories nominal (C-firms)
-        double reg_N_real_sum = 0;        // Inventories real (C-firms)
-        double reg_Consumption_r_val = 0; // Real consumption (initialized here)
-        double reg_A1_sum = 0, reg_A2_sum = 0, reg_A1_weight = 0, reg_A2_weight = 0;
-        double reg_A1en_dead = 0, reg_A1en_survive = 0, reg_A2en_dead = 0, reg_A2en_survive = 0;
-
-        // Aggregate K-firms
-        for (int i = 1; i <= N1; ++i)
-        {
-          if (region_firm_assignment_K[i - 1] == region)
-          {
-            reg_S1 += S1(i);
-            reg_Q1 += Q1(i);
-            reg_Ld1 += Ld1(i);
-            reg_Pi1 += Pi1(i);
-            reg_NW1 += NW_1(1, i);
-            reg_Deposits1 += Deposits_1(1, i);
-            reg_CapitalStock1 += CapitalStock(1, i);
-            // exit counts not reported in the reduced regional output
-            if (nclient(i) >= 1)
-            {
-              reg_A1_sum += A1p(i) * S1(i);
-              reg_A1_weight += S1(i);
-            }
-            if (A1p_en_survive > 0)
-            {
-              if (exiting_1(i) == 1 && nclient(i) >= 1)
-                reg_A1en_dead += A1p_en(i);
-              else if (nclient(i) >= 1)
-                reg_A1en_survive += A1p_en(i);
-            }
-          }
-        }
-
-        // Aggregate C-firms
-        for (int j = 1; j <= N2; ++j)
-        {
-          if (region_firm_assignment_C[j - 1] == region)
-          {
-            reg_S2 += S2(1, j);
-            reg_Q2 += Q2(j);
-            // Real consumption uses same formula as national: S2/p2
-            reg_Consumption_r_val += S2(1, j) / p2(j);
-            reg_K += K(j);
-            reg_Investment += I(j);
-            reg_EI += EI(1, j);
-            reg_SI += SI(j);
-            reg_Ld2 += Ld2(j);
-            reg_Emiss2 += Emiss2(j);
-            reg_Pi2 += Pi2(j);
-            reg_NW2 += NW_2(1, j);
-            reg_Deposits2 += Deposits_2(1, j);
-            reg_CapitalStock2 += CapitalStock(1, j);
-            // Accumulators specific to requested accounting variables
-            reg_Loans2_sum += Loans_2(1, j);
-            reg_Inventories_nom += Inventories(1, j);
-            reg_N_real_sum += N(1, j);
-            reg_A2_sum += A2(j) * S2(1, j);
-            reg_A2_weight += S2(1, j);
-            if (A2_en_survive > 0)
-            {
-              if (exiting_2(j) == 1)
-                reg_A2en_dead += A2_en(j);
-              else
-                reg_A2en_survive += A2_en(j);
-            }
-          }
-        }
-
-        reg_LS_used = reg_Ld1 + reg_Ld2;
-
-        // Calculate regional labor demand including R&D and energy sector proportionally
-        // Regional share of total firm labor demand
-        double reg_LD_firms = reg_LS_used;       // Ld1 + Ld2 for this region
-        double total_LD_firms = LD1tot + LD2tot; // Total Ld1 + Ld2 across all firms
-
-        // Allocate R&D and energy sector labor proportionally to regional firm labor demand
-        double reg_LD_rd = 0;
-        double reg_LD_en = 0;
-        if (total_LD_firms > 0)
-        {
-          reg_LD_rd = LD1rdtot * (reg_LD_firms / total_LD_firms);
-          reg_LD_en = LDentot * (reg_LD_firms / total_LD_firms);
-        }
-
-        // Total regional labor demand
-        double reg_LD = reg_LD_firms + reg_LD_rd + reg_LD_en;
-
-        // Allocate regional labor supply proportionally to total labor demand
-        double reg_LS = (LD > 0 && LS > 0) ? LS * (reg_LD / LD) : 0;
-
-        // Regional employment rate = regional LD / regional LS
-        double reg_employment_rate = (reg_LS > 0) ? reg_LD / reg_LS : 0;
-
-        // Persist unemployment to global vector for consistency (reg_U = unemployment)
-        if ((int)reg_U.size() >= region)
-          reg_U[region - 1] = 1.0 - reg_employment_rate;
-        double reg_Am1 = (reg_A1_weight > 0) ? reg_A1_sum / reg_A1_weight : 0;
-        double reg_Am2 = (reg_A2_weight > 0) ? reg_A2_sum / reg_A2_weight : 0;
-        double reg_Am_combined = (reg_A1_weight + reg_A2_weight > 0)
-                                     ? (reg_A1_sum + reg_A2_sum) / (reg_A1_weight + reg_A2_weight)
-                                     : 0;
-
-        // Regional GDP (real): sum of real output produced
-        double reg_GDP_r = reg_Q1 * dim_mach + reg_Q2;
-
-        // Regional GDP (nominal): calculate using same formula as national
-        double reg_GDP_n_val = 0;
-        for (int i = 1; i <= N1; ++i)
-        {
-          if (region_firm_assignment_K[i - 1] == region)
-          {
-            reg_GDP_n_val += Q1(i) * dim_mach * p1(i) * a;
-          }
-        }
-        for (int j = 1; j <= N2; ++j)
-        {
-          if (region_firm_assignment_C[j - 1] == region)
-          {
-            reg_GDP_n_val += Q2(j) * p2(j);
-          }
-        }
-
-        // Regional real investment: use same formula as national (EI + SI)
-        double reg_Investment_r = reg_EI + reg_SI;
-
-        // Regional real consumption: already calculated as sum of S2/p2 in C-firm loop
-
-        // Regional energy sector
-        double reg_Emiss_en = 0;
-        double reg_D_en = 0;
-        double reg_dirty_cap = region_dirty_capacity[region - 1];
-        double reg_green_cap = region_green_capacity[region - 1];
-        double reg_total_cap = reg_dirty_cap + reg_green_cap;
-        double reg_green_cap_lag = region_green_capacity_lag[region - 1];
-        double reg_dirty_cap_lag = region_dirty_capacity_lag[region - 1];
-        double reg_total_cap_lag = reg_green_cap_lag + reg_dirty_cap_lag;
-        double reg_green_share = (reg_total_cap_lag > 0) ? reg_green_cap_lag / reg_total_cap_lag : 0;
-
-        // Approximate regional energy emissions and demand as share of total based on capacity
-        if (K_delag + K_gelag > 0)
-        {
-          double cap_share = reg_total_cap / (K_delag + K_gelag);
-          reg_Emiss_en = Emiss_en * cap_share;
-          reg_D_en = D_en_TOT(1) * cap_share;
-        }
-
-        // Regional green energy production proportional to green capacity
-        double reg_Qge_val = 0;
-        if (K_ge > 0)
-        {
-          reg_Qge_val = Q_ge * (reg_green_cap / K_ge);
-        }
-
-        // Regional total emissions
-        double reg_Emiss_total = reg_Emiss1 + reg_Emiss2 + reg_Emiss_en;
-
-        // Approximate regional cumulative emissions as share of national cumulative emissions
-        double national_emiss_tot = Emiss1_TOT + Emiss2_TOT + Emiss_en;
-        double reg_Cum_emission_val = 0;
-        if (national_emiss_tot > 0 && Cum_emissions > 0)
-        {
-          double share = reg_Emiss_total / national_emiss_tot;
-          reg_Cum_emission_val = Cum_emissions * share;
-        }
-
-        // Write regional resultsexp row (only requested variables, 14 columns)
-        target.setf(ios::fixed);
-        target.precision(10);
-        target.setf(ios::right);
-        target.width(60);
-        target << t; // 1: time
-        target.width(60);
-        target << reg_GDP_r; // 2: reg_GDP_r (Real GDP)
-        target.width(60);
-        target << reg_Consumption_r_val; // 3: reg_Consumption_r (Total real consumption)
-        target.width(60);
-        target << reg_Investment_r; // 4: reg_Investment_r (Total real investment)
-        target.width(60);
-        target << (1.0 - reg_U[region - 1]); // 5: 1 - reg_U(1) (Employment rate)
-        target.width(60);
-        target << reg_Am_combined; // 6: reg_Am(1) (Mean productivity across K and C-firms)
-        target.width(60);
-        target << reg_Loans2_sum; // 7: reg_Loans_2 (Loans of C-firms)
-        target.width(60);
-        target << reg_Inventories_nom; // 8: reg_Inventories (Nominal value of C-firms' inventories)
-        target.width(60);
-        target << reg_N_real_sum; // 9: reg_N.Row(1).sum (Inventories real)
-        target.width(60);
-        target << reg_GDP_n_val; // 10: reg_GDP_n (Nominal GDP)
-        target.width(60);
-        target << ((reg_D_en > 0) ? (reg_Qge_val / reg_D_en) : 0); // 11: reg_Qge / reg_D_en (Green energy share of demand)
-        target.width(60);
-        target << reg_D_en; // 12: reg_D_en_TOT(1) (Total energy demand)
-        target.width(60);
-        target << reg_Emiss_total; // 13: reg_Emiss_TOT(1) (Total emissions)
-        target.width(60);
-        target << reg_Cum_emission_val << endl; // 14: reg_Cum_emission (Cumulative emissions)
-      };
-
-      for (int rr = 1; rr <= NR; ++rr)
-      {
-        if (region_resultsexp_streams[rr - 1].is_open())
-        {
-          write_regional_row(region_resultsexp_streams[rr - 1], rr);
-        }
-      }
-    }
-
     inv_res.close();
 
     if (flag_exogenousshocks == 0)
@@ -7105,7 +6884,207 @@ void SAVE(void)
       inv_shockpars.close();
     }
   }
-  else if (flag_validation == 1)
+
+  // Write regional output files
+  if (NR > 0)
+  {
+    auto write_regional_row = [&](std::ostream &target, int region)
+    {
+      // Aggregate production and accounting variables for this region
+      double reg_S1 = 0, reg_S2 = 0, reg_Q1 = 0, reg_Q2 = 0;
+      double reg_K = 0, reg_Investment = 0, reg_EI = 0, reg_SI = 0;
+      double reg_Ld1 = 0, reg_Ld2 = 0, reg_LS_used = 0;
+      double reg_Emiss1 = 0, reg_Emiss2 = 0;
+      double reg_Pi1 = 0, reg_Pi2 = 0;
+      double reg_NW1 = 0, reg_NW2 = 0;
+      double reg_Deposits1 = 0, reg_Deposits2 = 0;
+      double reg_CapitalStock1 = 0, reg_CapitalStock2 = 0;
+      double reg_Loans2_sum = 0;        // Loans of C-firms (nominal)
+      double reg_Inventories_nom = 0;   // Inventories nominal (C-firms)
+      double reg_N_real_sum = 0;        // Inventories real (C-firms)
+      double reg_Consumption_r_val = 0; // Real consumption (initialized here)
+      double reg_A1_sum = 0, reg_A2_sum = 0, reg_A1_weight = 0, reg_A2_weight = 0;
+      double reg_A1en_dead = 0, reg_A1en_survive = 0, reg_A2en_dead = 0, reg_A2en_survive = 0;
+
+      // Aggregate K-firms
+      for (int i = 1; i <= N1; ++i)
+      {
+        if (region_firm_assignment_K[i - 1] == region)
+        {
+          reg_S1 += S1(i);
+          reg_Q1 += Q1(i);
+          reg_Ld1 += Ld1(i);
+          reg_Pi1 += Pi1(i);
+          reg_NW1 += NW_1(1, i);
+          reg_Deposits1 += Deposits_1(1, i);
+          reg_CapitalStock1 += CapitalStock(1, i);
+          // exit counts not reported in the reduced regional output
+          if (nclient(i) >= 1)
+          {
+            reg_A1_sum += A1p(i) * S1(i);
+            reg_A1_weight += S1(i);
+          }
+          if (A1p_en_survive > 0)
+          {
+            if (exiting_1(i) == 1 && nclient(i) >= 1)
+              reg_A1en_dead += A1p_en(i);
+            else if (nclient(i) >= 1)
+              reg_A1en_survive += A1p_en(i);
+          }
+        }
+      }
+
+      // Aggregate C-firms
+      for (int j = 1; j <= N2; ++j)
+      {
+        if (region_firm_assignment_C[j - 1] == region)
+        {
+          reg_S2 += S2(1, j);
+          reg_Q2 += Q2(j);
+          // Real consumption uses same formula as national: S2/p2
+          reg_Consumption_r_val += S2(1, j) / p2(j);
+          reg_K += K(j);
+          reg_Investment += I(j);
+          reg_EI += EI(1, j);
+          reg_SI += SI(j);
+          reg_Ld2 += Ld2(j);
+          reg_Emiss2 += Emiss2(j);
+          reg_Pi2 += Pi2(j);
+          reg_NW2 += NW_2(1, j);
+          reg_Deposits2 += Deposits_2(1, j);
+          reg_CapitalStock2 += CapitalStock(1, j);
+          // Accumulators specific to requested accounting variables
+          reg_Loans2_sum += Loans_2(1, j);
+          reg_Inventories_nom += Inventories(1, j);
+          reg_N_real_sum += N(1, j);
+          reg_A2_sum += A2(j) * S2(1, j);
+          reg_A2_weight += S2(1, j);
+          if (A2_en_survive > 0)
+          {
+            if (exiting_2(j) == 1)
+              reg_A2en_dead += A2_en(j);
+            else
+              reg_A2en_survive += A2_en(j);
+          }
+        }
+      }
+
+      reg_LS_used = reg_Ld1 + reg_Ld2;
+
+      // Note: reg_U is already calculated in MACRO() function right after U(1) calculation
+      double reg_Am1 = (reg_A1_weight > 0) ? reg_A1_sum / reg_A1_weight : 0;
+      double reg_Am2 = (reg_A2_weight > 0) ? reg_A2_sum / reg_A2_weight : 0;
+      double reg_Am_combined = (reg_A1_weight + reg_A2_weight > 0)
+                                   ? (reg_A1_sum + reg_A2_sum) / (reg_A1_weight + reg_A2_weight)
+                                   : 0;
+
+      // Regional GDP (real): sum of real output produced
+      double reg_GDP_r = reg_Q1 * dim_mach + reg_Q2;
+
+      // Regional GDP (nominal): calculate using same formula as national
+      double reg_GDP_n_val = 0;
+      for (int i = 1; i <= N1; ++i)
+      {
+        if (region_firm_assignment_K[i - 1] == region)
+        {
+          reg_GDP_n_val += Q1(i) * dim_mach * p1(i) * a;
+        }
+      }
+      for (int j = 1; j <= N2; ++j)
+      {
+        if (region_firm_assignment_C[j - 1] == region)
+        {
+          reg_GDP_n_val += Q2(j) * p2(j);
+        }
+      }
+
+      // Regional real investment: use same formula as national (EI + SI)
+      double reg_Investment_r = reg_EI + reg_SI;
+
+      // Regional real consumption: already calculated as sum of S2/p2 in C-firm loop
+
+      // Regional energy sector
+      double reg_Emiss_en = 0;
+      double reg_D_en = 0;
+      double reg_dirty_cap = region_dirty_capacity[region - 1];
+      double reg_green_cap = region_green_capacity[region - 1];
+      double reg_total_cap = reg_dirty_cap + reg_green_cap;
+      double reg_green_cap_lag = region_green_capacity_lag[region - 1];
+      double reg_dirty_cap_lag = region_dirty_capacity_lag[region - 1];
+      double reg_total_cap_lag = reg_green_cap_lag + reg_dirty_cap_lag;
+      double reg_green_share = (reg_total_cap_lag > 0) ? reg_green_cap_lag / reg_total_cap_lag : 0;
+
+      // Approximate regional energy emissions and demand as share of total based on capacity
+      if (K_delag + K_gelag > 0)
+      {
+        double cap_share = reg_total_cap / (K_delag + K_gelag);
+        reg_Emiss_en = Emiss_en * cap_share;
+        reg_D_en = D_en_TOT(1) * cap_share;
+      }
+
+      // Regional green energy production proportional to green capacity
+      double reg_Qge_val = 0;
+      if (K_ge > 0)
+      {
+        reg_Qge_val = Q_ge * (reg_green_cap / K_ge);
+      }
+
+      // Regional total emissions
+      double reg_Emiss_total = reg_Emiss1 + reg_Emiss2 + reg_Emiss_en;
+
+      // Approximate regional cumulative emissions as share of national cumulative emissions
+      double national_emiss_tot = Emiss1_TOT + Emiss2_TOT + Emiss_en;
+      double reg_Cum_emission_val = 0;
+      if (national_emiss_tot > 0 && Cum_emissions > 0)
+      {
+        double share = reg_Emiss_total / national_emiss_tot;
+        reg_Cum_emission_val = Cum_emissions * share;
+      }
+
+      // Write regional resultsexp row (only requested variables, 14 columns)
+      target.setf(ios::fixed);
+      target.precision(10);
+      target.setf(ios::right);
+      target.width(60);
+      target << t; // 1: time
+      target.width(60);
+      target << reg_GDP_r; // 2: reg_GDP_r (Real GDP)
+      target.width(60);
+      target << reg_Consumption_r_val; // 3: reg_Consumption_r (Total real consumption)
+      target.width(60);
+      target << reg_Investment_r; // 4: reg_Investment_r (Total real investment)
+      target.width(60);
+      target << (1.0 - reg_U[region - 1]) / NR; // 5: 1 - reg_U(1) (Employment rate)
+      target.width(60);
+      target << reg_Am_combined; // 6: reg_Am(1) (Mean productivity across K and C-firms)
+      target.width(60);
+      target << reg_Loans2_sum; // 7: reg_Loans_2 (Loans of C-firms)
+      target.width(60);
+      target << reg_Inventories_nom; // 8: reg_Inventories (Nominal value of C-firms' inventories)
+      target.width(60);
+      target << reg_N_real_sum; // 9: reg_N.Row(1).sum (Inventories real)
+      target.width(60);
+      target << reg_GDP_n_val; // 10: reg_GDP_n (Nominal GDP)
+      target.width(60);
+      target << ((reg_D_en > 0) ? (reg_Qge_val / reg_D_en) : 0); // 11: reg_Qge / reg_D_en (Green energy share of demand)
+      target.width(60);
+      target << reg_D_en; // 12: reg_D_en_TOT(1) (Total energy demand)
+      target.width(60);
+      target << reg_Emiss_total; // 13: reg_Emiss_TOT(1) (Total emissions)
+      target.width(60);
+      target << reg_Cum_emission_val << endl; // 14: reg_Cum_emission (Cumulative emissions)
+    };
+
+    for (int rr = 1; rr <= NR; ++rr)
+    {
+      if (region_resultsexp_streams[rr - 1].is_open())
+      {
+        write_regional_row(region_resultsexp_streams[rr - 1], rr);
+      }
+    }
+  }
+
+  if (flag_validation == 1)
   {
     ofstream inv_val1(nomefile16, ios::app);
     inv_val1.setf(ios::fixed);

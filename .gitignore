@@ -1,4 +1,49 @@
-CMakeFiles/dsk_SFC.dir/compiler_depend.internal
+# Compiled executable
+dsk_SFC
+
+# CMake build files and cache
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+CMakeFiles/
+
+# Output files (simulation results)
 output/
-scripts/__pycache__/plot_regional_resultsexp.cpython-310.pyc
-CMakeFiles/dsk_SFC.dir/modules/module_energy_sfc.cpp.o
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Compiled object files
+*.o
+*.obj
+*.lo
+*.so
+*.dylib
+*.dll
+*.exe
+
+# R session files
+.RData
+.Rhistory
+
+# Local configuration or temporary files
+*.log
+*.tmp
+*.bak
+*~
+
+# Excel temp files
+~$*.xlsx
+~$*.xls
