@@ -204,6 +204,8 @@ extern double reduction;
 extern double Ipast;
 extern RowVector K;
 extern RowVector nclient;
+extern RowVector S1;
+extern Matrix S2;
 extern double r_a;
 extern double Taxes_e_shock;
 extern double Taxes_f_shock;
@@ -213,6 +215,9 @@ extern double Transfer_shock;
 extern int NR;
 extern std::vector<int> region_firm_assignment_K;
 extern std::vector<int> region_firm_assignment_C;
+extern std::vector<double> reg_N1;
+extern std::vector<double> reg_N2;
 extern std::vector<double> reg_U;
+extern std::vector<double> reg_Am;
 
 #endif

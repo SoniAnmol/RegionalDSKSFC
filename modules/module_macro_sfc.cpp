@@ -182,6 +182,63 @@ void MACRO(void)
 	A1_ef_mi /= N1r;
 	H1 = (H1 - 1 / N1r) / (1 - 1 / N1r);
 
+	// Calculate regional firm counts and average productivity if regions are defined
+	if (NR > 0)
+	{
+		// First, count firms in each region
+		for (int rr = 1; rr <= NR; ++rr)
+		{
+			reg_N1[rr - 1] = 0;
+			reg_N2[rr - 1] = 0;
+		}
+
+		for (int ii = 1; ii <= N1; ++ii)
+		{
+			int rr = region_firm_assignment_K[ii - 1];
+			if (rr >= 1 && rr <= NR)
+			{
+				reg_N1[rr - 1]++;
+			}
+		}
+
+		for (int jj = 1; jj <= N2; ++jj)
+		{
+			int rr = region_firm_assignment_C[jj - 1];
+			if (rr >= 1 && rr <= NR)
+			{
+				reg_N2[rr - 1]++;
+			}
+		}
+
+		// Now calculate regional productivity using same method as national
+		for (int rr = 1; rr <= NR; ++rr)
+		{
+			double reg_A_sum = 0;
+
+			// Aggregate productivity from K-firms in this region (with factor 'a')
+			for (int ii = 1; ii <= N1; ++ii)
+			{
+				if (region_firm_assignment_K[ii - 1] == rr)
+				{
+					reg_A_sum += A1p(ii) * a;
+				}
+			}
+
+			// Aggregate productivity from C-firms in this region
+			for (int jj = 1; jj <= N2; ++jj)
+			{
+				if (region_firm_assignment_C[jj - 1] == rr)
+				{
+					reg_A_sum += A2(jj);
+				}
+			}
+
+			// Calculate regional average productivity: Am = sum / (reg_N1 + reg_N2)
+			double reg_firm_count = reg_N1[rr - 1] + reg_N2[rr - 1];
+			reg_Am[rr - 1] = (reg_firm_count > 0) ? (reg_A_sum / reg_firm_count) : 0;
+		}
+	}
+
 	CreditSupply_all = BaselBankCredit.Sum();
 	CreditDemand_all = CreditDemand.Sum();
 

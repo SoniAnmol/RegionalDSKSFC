@@ -98,21 +98,32 @@ for reg_col, ymc_col in YMC_BY_REGION_COL.items():
     # Get variable name for title
     var_name = REG_TITLES.get(reg_col, f'Column {reg_col}')
 
-    # Prepare regional data for stacked area plot
-    x_reg = None
-    y_regions = []
-    labels_regions = []
-    for r in regions:
-        df = region_dfs[r]
-        if x_reg is None:
-            x_reg = df.iloc[:, 0].to_numpy()
-        y_reg = df.iloc[:, reg_col - 1].to_numpy()
-        y_regions.append(y_reg)
-        labels_regions.append(f'Region {r}')
+    # For Mean productivity (reg_col 6), use line plot; for others, use stacked area
+    if reg_col == 6:  # Mean productivity
+        # Prepare regional data for line plot
+        x_reg = None
+        for r in regions:
+            df = region_dfs[r]
+            if x_reg is None:
+                x_reg = df.iloc[:, 0].to_numpy()
+            y_reg = df.iloc[:, reg_col - 1].to_numpy()
+            plt.plot(x_reg, y_reg, label=f'Region {r}', linewidth=1.5, alpha=0.8)
+    else:
+        # Prepare regional data for stacked area plot
+        x_reg = None
+        y_regions = []
+        labels_regions = []
+        for r in regions:
+            df = region_dfs[r]
+            if x_reg is None:
+                x_reg = df.iloc[:, 0].to_numpy()
+            y_reg = df.iloc[:, reg_col - 1].to_numpy()
+            y_regions.append(y_reg)
+            labels_regions.append(f'Region {r}')
 
-    # Stacked area plot for regions
-    if x_reg is not None and y_regions:
-        plt.stackplot(x_reg, *y_regions, labels=labels_regions, alpha=0.7)
+        # Stacked area plot for regions
+        if x_reg is not None and y_regions:
+            plt.stackplot(x_reg, *y_regions, labels=labels_regions, alpha=0.7)
 
     # National series as line (on top)
     y_nat = ymc.iloc[:, ymc_col - 1].to_numpy()

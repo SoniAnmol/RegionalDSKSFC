@@ -1109,6 +1109,8 @@ void RESIZE(void)
     region_dirty_capacity_lag.assign(NR, 0.0);
     region_green_capacity_lag.assign(NR, 0.0);
     // Regional accounting variables
+    reg_N1.assign(NR, 0.0);
+    reg_N2.assign(NR, 0.0);
     reg_GDP_r.assign(NR, 0.0);
     reg_Consumption_r.assign(NR, 0.0);
     reg_Investment_r.assign(NR, 0.0);
@@ -1166,6 +1168,8 @@ void INITIALIZE(int Exseed)
     region_dirty_capacity_lag.assign(NR, 0.0);
     region_green_capacity_lag.assign(NR, 0.0);
     // Regional accounting variables
+    reg_N1.assign(NR, 0.0);
+    reg_N2.assign(NR, 0.0);
     reg_GDP_r.assign(NR, 0.0);
     reg_Consumption_r.assign(NR, 0.0);
     reg_Investment_r.assign(NR, 0.0);
@@ -1248,6 +1252,9 @@ void INITIALIZE(int Exseed)
   p2 = (1 + mi2) * (w0 / A0 + mi_en0 / A0_en);
   p1 = (1 + mi1) * (w0 / (A0 * pm * a) + mi_en0 / A0_en);
   Am(2) = (A0 * N2 + A0 * a * pm * N1) / (N1 + N2);
+
+  // TODO Place holder for computing regional mean productivity
+
   // Households & Energy sector deposits should be positive at begining
   Deposits_h = D_h0;
   Deposits_e = D_e0;

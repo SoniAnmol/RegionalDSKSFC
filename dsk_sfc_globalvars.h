@@ -549,6 +549,8 @@ std::vector<double> region_dirty_capacity_lag;        // Lagged regional dirty c
 std::vector<double> region_green_capacity_lag;        // Lagged regional green capacity stocks
 
 // Regional Accounting Variables
+std::vector<double> reg_N1;            // Regional number of K-firms
+std::vector<double> reg_N2;            // Regional number of C-firms
 std::vector<double> reg_GDP_r;         // Regional real GDP
 std::vector<double> reg_Consumption_r; // Regional total real consumption
 std::vector<double> reg_Investment_r;  // Regional total real investment
