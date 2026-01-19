@@ -29,6 +29,11 @@ REG_TITLES = {
     14: 'reg_Cum_emissions',
     15: 'reg_Q1',
     16: 'reg_Q2',
+    17: 'reg_N1',
+    18: 'reg_N2',
+    19: 'reg_LS',
+    20: 'reg_Qge',
+    21: 'reg_Qde',
 }
 
 # Find latest ymc file by modification time
@@ -75,6 +80,11 @@ REG_TITLES = {
     14: 'Cumulative emissions',
     15: 'K-firm production (Q1)',
     16: 'C-firm production (Q2)',
+    17: 'Number of K-firms (N1)',
+    18: 'Number of C-firms (N2)',
+    19: 'Labor supply (LS)',
+    20: 'Green energy produced (Q_ge)',
+    21: 'Dirty energy produced (Q_de)',
 }
 
 YMC_BY_REGION_COL = {
@@ -93,6 +103,11 @@ YMC_BY_REGION_COL = {
     14: 27,  # Cum_emissions
     15: 29,  # Q1tot
     16: 30,  # Q2tot
+    17: 31,  # N1r
+    18: 32,  # N2r
+    19: 33,  # LS
+    20: 34,  # Q_ge
+    21: 35,  # Q_de
 }
 
 # Time axis from ymc and regional; align by length

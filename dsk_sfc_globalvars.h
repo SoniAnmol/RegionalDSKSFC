@@ -563,6 +563,8 @@ std::vector<double> reg_Inventories;   // Regional nominal value of C-firms' inv
 std::vector<double> reg_N;             // Regional real inventories
 std::vector<double> reg_GDP_n;         // Regional nominal GDP
 std::vector<double> reg_Qge;           // Regional quantity of green energy produced
+std::vector<double> reg_Q_ge;          // Regional green energy production (from demand-capacity logic)
+std::vector<double> reg_Q_de;          // Regional dirty energy production (from demand-capacity logic)
 std::vector<double> reg_D1_en;         // Regional K-firms energy demand
 std::vector<double> reg_D2_en;         // Regional C-firms energy demand
 std::vector<double> reg_D_en_TOT;      // Regional total energy demand

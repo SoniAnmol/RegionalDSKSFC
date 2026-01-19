@@ -78,6 +78,29 @@ void ENERGY(void)
                 region_dirty_capacity[rr - 1] = dirty_share * G_de(t);
                 region_green_capacity[rr - 1] = green_share * G_ge(t);
             }
+
+            // Compute regional Q_ge and Q_de (initialization)
+            // Distribute national Q proportionally to regional capacities
+            double total_green_cap = 0;
+            double total_dirty_cap = 0;
+            for (int rr = 0; rr < NR; ++rr)
+            {
+                total_green_cap += region_green_capacity[rr];
+                total_dirty_cap += region_dirty_capacity[rr];
+            }
+
+            for (int rr = 0; rr < NR; ++rr)
+            {
+                if (total_green_cap > 0)
+                    reg_Q_ge[rr] = Q_ge * (region_green_capacity[rr] / total_green_cap);
+                else
+                    reg_Q_ge[rr] = 0;
+
+                if (total_dirty_cap > 0)
+                    reg_Q_de[rr] = (D_en_TOT(1) - Q_ge) * (region_dirty_capacity[rr] / total_dirty_cap);
+                else
+                    reg_Q_de[rr] = 0;
+            }
         }
 
         ge_before = G_ge(t);
@@ -258,6 +281,25 @@ void ENERGY(void)
     {
         Q_de = 0;
         Q_ge = D_en_TOT(1);
+
+        // Compute regional Q_ge and Q_de (green sufficient case)
+        // Distribute national Q proportionally to regional capacities
+        if (NR > 0)
+        {
+            double total_green_cap = 0;
+            for (int rr = 0; rr < NR; ++rr)
+                total_green_cap += region_green_capacity[rr];
+
+            for (int rr = 0; rr < NR; ++rr)
+            {
+                if (total_green_cap > 0)
+                    reg_Q_ge[rr] = Q_ge * (region_green_capacity[rr] / total_green_cap);
+                else
+                    reg_Q_ge[rr] = 0;
+                reg_Q_de[rr] = 0; // No dirty energy needed
+            }
+        }
+
         // constant marginal cost for green energy
         c_infra = 0;
         // Energy mark-up shock
@@ -284,6 +326,33 @@ void ENERGY(void)
     else
     {
         Q_ge = K_ge;
+
+        // Compute regional Q_ge and Q_de (dirty needed case)
+        // Distribute national Q proportionally to regional capacities
+        if (NR > 0)
+        {
+            double total_green_cap = 0;
+            double total_dirty_cap = 0;
+            for (int rr = 0; rr < NR; ++rr)
+            {
+                total_green_cap += region_green_capacity[rr];
+                total_dirty_cap += region_dirty_capacity[rr];
+            }
+
+            for (int rr = 0; rr < NR; ++rr)
+            {
+                if (total_green_cap > 0)
+                    reg_Q_ge[rr] = Q_ge * (region_green_capacity[rr] / total_green_cap);
+                else
+                    reg_Q_ge[rr] = 0;
+
+                if (total_dirty_cap > 0)
+                    reg_Q_de[rr] = Q_de * (region_dirty_capacity[rr] / total_dirty_cap);
+                else
+                    reg_Q_de[rr] = 0;
+            }
+        }
+
         for (tt = 1; tt <= t; tt++)
         {
             C_de(tt) = pf / A_de(tt) + t_CO2_en * EM_de(tt);

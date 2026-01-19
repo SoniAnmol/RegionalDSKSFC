@@ -1123,6 +1123,8 @@ void RESIZE(void)
     reg_N.assign(NR, 0.0);
     reg_GDP_n.assign(NR, 0.0);
     reg_Qge.assign(NR, 0.0);
+    reg_Q_ge.assign(NR, 0.0);
+    reg_Q_de.assign(NR, 0.0);
     reg_D1_en.assign(NR, 0.0);
     reg_D2_en.assign(NR, 0.0);
     reg_D_en_TOT.assign(NR, 0.0);
@@ -1184,6 +1186,8 @@ void INITIALIZE(int Exseed)
     reg_N.assign(NR, 0.0);
     reg_GDP_n.assign(NR, 0.0);
     reg_Qge.assign(NR, 0.0);
+    reg_Q_ge.assign(NR, 0.0);
+    reg_Q_de.assign(NR, 0.0);
     reg_D1_en.assign(NR, 0.0);
     reg_D2_en.assign(NR, 0.0);
     reg_D_en_TOT.assign(NR, 0.0);
@@ -7043,12 +7047,12 @@ void SAVE(void)
         reg_Emiss_en = Emiss_en * cap_share;
       }
 
-      // Regional green energy production proportional to green capacity
-      double reg_Qge_val = 0;
-      if (K_ge > 0)
-      {
-        reg_Qge_val = Q_ge * (reg_green_cap / K_ge);
-      }
+      // Regional green and dirty energy production from demand-capacity logic
+      double reg_Qge_val = reg_Q_ge[region - 1];
+      double reg_Qde_val = reg_Q_de[region - 1];
+
+      // Regional labor supply (proportional to labor demand)
+      double reg_LS_val = (LD > 0 && LS > 0) ? LS * (reg_LS_used / LD) : 0;
 
       // Regional total emissions
       double reg_Emiss_total = reg_Emiss1 + reg_Emiss2 + reg_Emiss_en;
@@ -7097,7 +7101,17 @@ void SAVE(void)
       target.width(60);
       target << reg_Q1_val; // 15: reg_Q1 (K-firm production)
       target.width(60);
-      target << reg_Q2_val << endl; // 16: reg_Q2 (C-firm production)
+      target << reg_Q2_val; // 16: reg_Q2 (C-firm production)
+      target.width(60);
+      target << reg_N1[region - 1]; // 17: reg_N1 (Number of K-firms)
+      target.width(60);
+      target << reg_N2[region - 1]; // 18: reg_N2 (Number of C-firms)
+      target.width(60);
+      target << reg_LS_val; // 19: reg_LS (Labor supply)
+      target.width(60);
+      target << reg_Qge_val; // 20: reg_Qge (Green energy produced)
+      target.width(60);
+      target << reg_Qde_val << endl; // 21: reg_Qde (Dirty energy produced)
     };
 
     for (int rr = 1; rr <= NR; ++rr)
@@ -7484,7 +7498,17 @@ void SAVE(void)
     inv_ymc.width(60);
     inv_ymc << Q1tot; // 29
     inv_ymc.width(60);
-    inv_ymc << Q2tot << endl; // 30
+    inv_ymc << Q2tot; // 30
+    inv_ymc.width(60);
+    inv_ymc << N1r; // 31
+    inv_ymc.width(60);
+    inv_ymc << N2r; // 32
+    inv_ymc.width(60);
+    inv_ymc << LS; // 33
+    inv_ymc.width(60);
+    inv_ymc << Q_ge; // 34
+    inv_ymc.width(60);
+    inv_ymc << Q_de << endl; // 35
     inv_ymc.close();
   }
 }

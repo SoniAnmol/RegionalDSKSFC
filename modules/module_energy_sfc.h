@@ -85,6 +85,8 @@ extern std::vector<double> reg_Inventories;
 extern std::vector<double> reg_N;
 extern std::vector<double> reg_GDP_n;
 extern std::vector<double> reg_Qge;
+extern std::vector<double> reg_Q_ge;
+extern std::vector<double> reg_Q_de;
 extern std::vector<double> reg_D1_en;
 extern std::vector<double> reg_D2_en;
 extern std::vector<double> reg_D_en_TOT;
