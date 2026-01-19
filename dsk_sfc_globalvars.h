@@ -568,6 +568,9 @@ std::vector<double> reg_Q_de;          // Regional dirty energy production (from
 std::vector<double> reg_D1_en;         // Regional K-firms energy demand
 std::vector<double> reg_D2_en;         // Regional C-firms energy demand
 std::vector<double> reg_D_en_TOT;      // Regional total energy demand
+std::vector<double> reg_Emiss1_TOT;    // Regional K-firms emissions
+std::vector<double> reg_Emiss2_TOT;    // Regional C-firms emissions
+std::vector<double> reg_Emiss_en;      // Regional energy sector emissions
 std::vector<double> reg_Emiss_TOT;     // Regional total emissions
 std::vector<double> reg_Cum_emissions; // Regional cumulative emissions
 

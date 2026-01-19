@@ -34,6 +34,9 @@ REG_TITLES = {
     19: 'reg_LS',
     20: 'reg_Qge',
     21: 'reg_Qde',
+    22: 'reg_Emiss1_TOT',
+    23: 'reg_Emiss2_TOT',
+    24: 'reg_Emiss_en',
 }
 
 # Find latest ymc file by modification time
@@ -85,6 +88,9 @@ REG_TITLES = {
     19: 'Labor supply (LS)',
     20: 'Green energy produced (Q_ge)',
     21: 'Dirty energy produced (Q_de)',
+    22: 'K-firm emissions (Emiss1_TOT)',
+    23: 'C-firm emissions (Emiss2_TOT)',
+    24: 'Energy sector emissions (Emiss_en)',
 }
 
 YMC_BY_REGION_COL = {
@@ -108,6 +114,9 @@ YMC_BY_REGION_COL = {
     19: 33,  # LS
     20: 34,  # Q_ge
     21: 35,  # Q_de
+    22: 36,  # Emiss1_TOT
+    23: 37,  # Emiss2_TOT
+    24: 38,  # Emiss_en
 }
 
 # Time axis from ymc and regional; align by length
@@ -162,4 +171,5 @@ for reg_col, ymc_col in YMC_BY_REGION_COL.items():
     plt.savefig(out_png, dpi=150)
     plt.close()
 
-print(f'Generated 13 plots in {PLOTS_DIR}')
+num_plots = len(YMC_BY_REGION_COL)
+print(f'Generated {num_plots} plots in {PLOTS_DIR}')

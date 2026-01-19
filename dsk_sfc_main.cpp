@@ -1191,6 +1191,9 @@ void INITIALIZE(int Exseed)
     reg_D1_en.assign(NR, 0.0);
     reg_D2_en.assign(NR, 0.0);
     reg_D_en_TOT.assign(NR, 0.0);
+    reg_Emiss1_TOT.assign(NR, 0.0);
+    reg_Emiss2_TOT.assign(NR, 0.0);
+    reg_Emiss_en.assign(NR, 0.0);
     reg_Emiss_TOT.assign(NR, 0.0);
     reg_Cum_emissions.assign(NR, 0.0);
   }
@@ -7028,7 +7031,6 @@ void SAVE(void)
       // Regional real consumption: already calculated as sum of S2/p2 in C-firm loop
 
       // Regional energy sector
-      double reg_Emiss_en = 0;
       double reg_dirty_cap = region_dirty_capacity[region - 1];
       double reg_green_cap = region_green_capacity[region - 1];
       double reg_total_cap = reg_dirty_cap + reg_green_cap;
@@ -7040,13 +7042,6 @@ void SAVE(void)
       // Use pre-calculated regional energy demand from EN_DEM()
       double reg_D_en_val = reg_D_en_TOT[region - 1];
 
-      // Approximate regional energy emissions as share of total based on capacity
-      if (K_delag + K_gelag > 0)
-      {
-        double cap_share = reg_total_cap / (K_delag + K_gelag);
-        reg_Emiss_en = Emiss_en * cap_share;
-      }
-
       // Regional green and dirty energy production from demand-capacity logic
       double reg_Qge_val = reg_Q_ge[region - 1];
       double reg_Qde_val = reg_Q_de[region - 1];
@@ -7054,8 +7049,8 @@ void SAVE(void)
       // Regional labor supply (proportional to labor demand)
       double reg_LS_val = (LD > 0 && LS > 0) ? LS * (reg_LS_used / LD) : 0;
 
-      // Regional total emissions
-      double reg_Emiss_total = reg_Emiss1 + reg_Emiss2 + reg_Emiss_en;
+      // Regional total emissions (now computed in ENERGY and EMISS_IND)
+      double reg_Emiss_total = reg_Emiss1_TOT[region - 1] + reg_Emiss2_TOT[region - 1] + reg_Emiss_en[region - 1];
 
       // Approximate regional cumulative emissions as share of national cumulative emissions
       double national_emiss_tot = Emiss1_TOT + Emiss2_TOT + Emiss_en;
@@ -7111,7 +7106,13 @@ void SAVE(void)
       target.width(60);
       target << reg_Qge_val; // 20: reg_Qge (Green energy produced)
       target.width(60);
-      target << reg_Qde_val << endl; // 21: reg_Qde (Dirty energy produced)
+      target << reg_Qde_val; // 21: reg_Qde (Dirty energy produced)
+      target.width(60);
+      target << reg_Emiss1_TOT[region - 1]; // 22: reg_Emiss1_TOT (K-firm emissions)
+      target.width(60);
+      target << reg_Emiss2_TOT[region - 1]; // 23: reg_Emiss2_TOT (C-firm emissions)
+      target.width(60);
+      target << reg_Emiss_en[region - 1] << endl; // 24: reg_Emiss_en (Energy sector emissions)
     };
 
     for (int rr = 1; rr <= NR; ++rr)
@@ -7508,7 +7509,13 @@ void SAVE(void)
     inv_ymc.width(60);
     inv_ymc << Q_ge; // 34
     inv_ymc.width(60);
-    inv_ymc << Q_de << endl; // 35
+    inv_ymc << Q_de; // 35
+    inv_ymc.width(60);
+    inv_ymc << Emiss1_TOT; // 36
+    inv_ymc.width(60);
+    inv_ymc << Emiss2_TOT; // 37
+    inv_ymc.width(60);
+    inv_ymc << Emiss_en << endl; // 38
     inv_ymc.close();
   }
 }

@@ -90,6 +90,9 @@ extern std::vector<double> reg_Q_de;
 extern std::vector<double> reg_D1_en;
 extern std::vector<double> reg_D2_en;
 extern std::vector<double> reg_D_en_TOT;
+extern std::vector<double> reg_Emiss1_TOT;
+extern std::vector<double> reg_Emiss2_TOT;
+extern std::vector<double> reg_Emiss_en;
 extern std::vector<double> reg_Emiss_TOT;
 extern std::vector<double> reg_Cum_emissions;
 

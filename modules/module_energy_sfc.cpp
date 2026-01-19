@@ -708,6 +708,26 @@ void ENERGY(void)
     // Calculate total emissions
     Emiss_TOT(1) = Emiss_en + Emiss2_TOT + Emiss1_TOT;
 
+    // Compute regional energy sector emissions
+    if (NR > 0)
+    {
+        // Distribute energy sector emissions proportionally to regional dirty energy production
+        double total_dirty_cap = 0;
+        for (int rr = 0; rr < NR; ++rr)
+            total_dirty_cap += region_dirty_capacity[rr];
+
+        for (int rr = 0; rr < NR; ++rr)
+        {
+            if (total_dirty_cap > 0)
+                reg_Emiss_en[rr] = Emiss_en * (region_dirty_capacity[rr] / total_dirty_cap);
+            else
+                reg_Emiss_en[rr] = 0;
+
+            // Calculate total regional emissions
+            reg_Emiss_TOT[rr] = reg_Emiss1_TOT[rr] + reg_Emiss2_TOT[rr] + reg_Emiss_en[rr];
+        }
+    }
+
     // Calculate total labour demand & wages to be paid by energy sector (paid in next period)
     LDentot = LDexp_en + LDrd_de + LDrd_ge;
     Wages_en = w(2) * LDentot;
@@ -728,4 +748,35 @@ void EMISS_IND(void)
 
     Emiss1_TOT = Emiss1.Sum();
     Emiss2_TOT = Emiss2.Sum();
+
+    // Compute regional emissions from K-firms and C-firms
+    if (NR > 0)
+    {
+        // Reset regional emissions
+        for (int rr = 0; rr < NR; ++rr)
+        {
+            reg_Emiss1_TOT[rr] = 0;
+            reg_Emiss2_TOT[rr] = 0;
+        }
+
+        // Aggregate K-firm emissions by region
+        for (int ii = 1; ii <= N1; ++ii)
+        {
+            int rr = region_firm_assignment_K[ii - 1];
+            if (rr >= 1 && rr <= NR)
+            {
+                reg_Emiss1_TOT[rr - 1] += Emiss1(ii);
+            }
+        }
+
+        // Aggregate C-firm emissions by region
+        for (int jj = 1; jj <= N2; ++jj)
+        {
+            int rr = region_firm_assignment_C[jj - 1];
+            if (rr >= 1 && rr <= NR)
+            {
+                reg_Emiss2_TOT[rr - 1] += Emiss2(jj);
+            }
+        }
+    }
 }
