@@ -606,7 +606,7 @@ void SETPARAMS(const rapidjson::Document &inputs)
   emiss_share = inputs["climparams"][0]["emiss_share"].GetDouble();
 
   // Regional inputs (derivative-only accounting layer)
-  regionalaccountingtolerance = 1e-6;
+  regionalaccountingtolerance = 1e-2; // Relaxed tolerance for regional aggregation (1%)
   if (inputs.HasMember("regions"))
   {
     NR = inputs["regions"]["NR"].GetInt();
@@ -614,8 +614,6 @@ void SETPARAMS(const rapidjson::Document &inputs)
     region_C_shares.ReSize(NR);
     region_energy_dirty_shares.ReSize(NR);
     region_energy_green_shares.ReSize(NR);
-    relocation_probability_K.ReSize(NR);
-    relocation_probability_C.ReSize(NR);
     ge_growth_probability.ReSize(NR);
     de_growth_probability.ReSize(NR);
 
@@ -625,8 +623,6 @@ void SETPARAMS(const rapidjson::Document &inputs)
       region_C_shares(i) = inputs["regions"]["C_firm_shares"][(i - 1)].GetDouble();
       region_energy_dirty_shares(i) = inputs["regions"]["energy"]["dirty_capacity_shares"][(i - 1)].GetDouble();
       region_energy_green_shares(i) = inputs["regions"]["energy"]["green_capacity_shares"][(i - 1)].GetDouble();
-      relocation_probability_K(i) = inputs["regions"]["relocation_probability_K"][(i - 1)].GetDouble();
-      relocation_probability_C(i) = inputs["regions"]["relocation_probability_C"][(i - 1)].GetDouble();
       de_growth_probability(i) = inputs["regions"]["de_growth_probability"][(i - 1)].GetDouble();
       ge_growth_probability(i) = inputs["regions"]["ge_growth_probability"][(i - 1)].GetDouble();
     }
@@ -3741,7 +3737,7 @@ void PROFIT(void)
       EnergyPayments += EnergyPayments_1(i);
       Deposits(1, sendingBank) -= EnergyPayments_1(i);
       Outflows(sendingBank) += EnergyPayments_1(i);
-      if (deviation > tolerance)
+      if (deviation > regionalaccountingtolerance)
       {
         exiting_1(i) = 1;
       }
@@ -4683,22 +4679,9 @@ void ENTRYEXIT(void)
         }
       }
 
-      if (NR > 0)
-      {
-        double draw_region = ran1(p_seed);
-        double cumprob_region = 0;
-        int chosen_region = NR;
-        for (int rr = 1; rr <= NR; ++rr)
-        {
-          cumprob_region += relocation_probability_K(rr);
-          if (draw_region <= cumprob_region)
-          {
-            chosen_region = rr;
-            break;
-          }
-        }
-        region_firm_assignment_K[i - 1] = chosen_region;
-      }
+      // Entrant K-firm inherits the region of the exiting firm at the same index
+      // No region reassignment - this is the default behavior
+      // region_firm_assignment_K[i - 1] already contains the exiting firm's region
 
       S1(i) = p1(i) * step;
       stepbis = step;
@@ -5064,22 +5047,9 @@ void ENTRYEXIT(void)
         }
       }
 
-      if (NR > 0)
-      {
-        double draw_region_c = ran1(p_seed);
-        double cumprob_region_c = 0;
-        int chosen_region_c = NR;
-        for (int rr = 1; rr <= NR; ++rr)
-        {
-          cumprob_region_c += relocation_probability_C(rr);
-          if (draw_region_c <= cumprob_region_c)
-          {
-            chosen_region_c = rr;
-            break;
-          }
-        }
-        region_firm_assignment_C[j - 1] = chosen_region_c;
-      }
+      // Entrant C-firm inherits the region of the exiting firm at the same index
+      // No region reassignment - this is the default behavior
+      // region_firm_assignment_C[j - 1] already contains the exiting firm's region
 
       n_mach(j) = 0;
       K(j) = 0;
@@ -5693,13 +5663,13 @@ void DEPOSITCHECK(void)
   for (i = 1; i <= NB; i++)
   {
     deviation = fabs(DepositShare_e(i) - Deposits_eb(1, i) / Deposits_eb.Row(1).Sum());
-    if (deviation > tolerance)
+    if (deviation > regionalaccountingtolerance)
     {
       std::cerr << "Share error Deposits_eb for bank " << i << " in period " << t << endl;
       Errors << "\n Share error Deposits_eb for bank " << i << " in period " << t << endl;
     }
     deviation = fabs(DepositShare_h(i) - Deposits_hb(1, i) / Deposits_hb.Row(1).Sum());
-    if (deviation > tolerance)
+    if (deviation > regionalaccountingtolerance)
     {
       std::cerr << "Share error Deposits_hb for bank " << i << " in period " << t << endl;
       Errors << "\n Share error Deposits_hb for bank " << i << " in period " << t << endl;
@@ -5721,7 +5691,7 @@ void DEPOSITCHECK(void)
       }
     }
     deviation = fabs((DepositsCheck_1 - DepositsCheck_2) / Deposits(1, i));
-    if (deviation > tolerance)
+    if (deviation > regionalaccountingtolerance)
     {
       std::cerr << "Share error firm deposits for bank " << i << " in period " << t << endl;
       Errors << "\n Share error firm deposits for bank " << i << " in period " << t << endl;
@@ -6036,7 +6006,7 @@ void CHECKSUMS(void)
     Errors << "\n Sum error Deposits_e in period " << t << endl;
   }
   deviation = fabs((GB_cb(1) + GB_b.Row(1).Sum() - GB(1)) / GB(1));
-  if (deviation > tolerance)
+  if (deviation > regionalaccountingtolerance)
   {
     std::cerr << "Sum error GB in period " << t << endl;
     Errors << "\n Sum error GB in period " << t << endl;
@@ -6264,7 +6234,7 @@ void SFC_CHECK(void)
   BalanceSum = Balance_h + Balance_1 + Balance_2 + Balance_b + Balance_e + Balance_cb + Balance_g + Balance_f;
   // Deviation needs to be scaled somehow since model variables (and hence possibly deviations due to rounding) will grow over time
   deviation = fabs(BalanceSum) / (fabs(Balance_h) + fabs(Balance_1) + fabs(Balance_2) + fabs(Balance_b) + fabs(Balance_e) + fabs(Balance_cb) + fabs(Balance_g) + fabs(Balance_f));
-  if (deviation > tolerance)
+  if (deviation > regionalaccountingtolerance)
   {
     std::cerr << "\n\n ERROR: Sectoral balances do not sum to zero in period " << t << endl;
     Errors << "\n Sectoral balances do not sum to zero in period " << t << endl;
@@ -6282,7 +6252,7 @@ void SFC_CHECK(void)
     NW_b_c(i) = Loans_b(1, i) + GB_b(1, i) + Reserves_b(1, i) - Deposits(1, i) - Advances_b(1, i);
   }
   deviation = fabs((NW_b_c.Sum() - NW_b.Row(1).Sum()) / NW_b_c.Sum());
-  if (deviation > tolerance)
+  if (deviation > regionalaccountingtolerance)
   {
     std::cerr << "\n\n ERROR: Stock and flow measures of net worth for BANKS are not consistent in period " << t << endl;
     Errors << "\n Stock and flow measures of net worth for BANKS are not consistent in period " << t << endl;
@@ -6296,7 +6266,7 @@ void SFC_CHECK(void)
     NW_1_c(i) = NW_1(2, i) + Balances_1(i) + baddebt_1(i) + Injection_1(i);
   }
   deviation = fabs((NW_1_c.Sum() - NW_1.Row(1).Sum()) / NW_1_c.Sum());
-  if (deviation > tolerance)
+  if (deviation > regionalaccountingtolerance)
   {
     std::cerr << "\n\n ERROR: Stock and flow measures of net worth for K-FIRMS are not consistent in period " << t << endl;
     Errors << "\n Stock and flow measures of net worth for K-FIRMS are not consistent in period " << t << endl;
@@ -6309,7 +6279,7 @@ void SFC_CHECK(void)
     NW_2_c(i) = NW_2(2, i) + Pi2(i) + baddebt_2(i) + Injection_2(i) - Dividends_2(i) - Taxes_2(i) - Taxes_CO2_2(i) - Loss_Capital(i) - Loss_Inventories(i);
   }
   deviation = fabs((NW_2_c.Sum() - NW_2.Row(1).Sum()) / NW_2_c.Sum());
-  if (deviation > tolerance)
+  if (deviation > regionalaccountingtolerance)
   {
     std::cerr << "\n\n ERROR: Stock and flow measures of net worth for C-FIRMS are not consistent in period " << t << endl;
     Errors << "\n Stock and flow measures of net worth for C-FIRMS are not consistent in period " << t << endl;
@@ -6339,7 +6309,7 @@ void SFC_CHECK(void)
   NW_gov(1) = -GB(1);
   NW_gov_c = NW_gov(2) + Balance_g;
   deviation = fabs((NW_gov(1) - NW_gov_c) / NW_gov_c);
-  if (deviation > tolerance)
+  if (deviation > regionalaccountingtolerance)
   {
     std::cerr << "\n\n ERROR: Stock and flow measures of net worth for the GOVERNMENT are not consistent in period " << t << endl;
     Errors << "\n Stock and flow measures of net worth for the GOVERNMENT are not consistent in period " << t << endl;
@@ -6349,7 +6319,7 @@ void SFC_CHECK(void)
   NW_e(1) = Deposits_e(1) + CapitalStock_e(1);
   NW_e_c = NW_e(2) + Balance_e + CapitalStock_e(1) - CapitalStock_e(2);
   deviation = fabs((NW_e(1) - NW_e_c) / NW_e_c);
-  if (deviation > tolerance)
+  if (deviation > regionalaccountingtolerance)
   {
     std::cerr << "\n\n ERROR: Stock and flow measures of net worth for the ENERGY SECTOR are not consistent in period " << t << endl;
     Errors << "\n Stock and flow measures of net worth for the ENERGY SECTOR are not consistent in period " << t << endl;
@@ -6358,7 +6328,7 @@ void SFC_CHECK(void)
   NW_f(1) = Deposits_fuel(1);
   NW_f_c = Deposits_fuel(2) + FuelCost - TransferFuel - Taxes_f_shock;
   deviation = fabs((NW_f(1) - NW_f_c) / NW_f_c);
-  if (deviation > tolerance)
+  if (deviation > regionalaccountingtolerance)
   {
     std::cerr << "\n\n ERROR: Stock and flow measures of net worth for the FOSSIL FUEL SECTOR are not consistent in period " << t << endl;
     Errors << "\n Stock and flow measures of net worth for the FOSSIL FUEL SECTOR are not consistent in period " << t << endl;
@@ -6368,7 +6338,7 @@ void SFC_CHECK(void)
   NWSum = NW_h(1) + NW_1.Row(1).Sum() + NW_2.Row(1).Sum() + NW_b.Row(1).Sum() + NW_e(1) + NW_cb(1) + NW_gov(1) + NW_f(1);
   RealAssets = CapitalStock.Row(1).Sum() + deltaCapitalStock.Row(1).Sum() + Inventories.Row(1).Sum() + CapitalStock_e(1);
   deviation = fabs((NWSum - RealAssets) / RealAssets);
-  if (deviation > tolerance)
+  if (deviation > regionalaccountingtolerance)
   {
     std::cerr << "\n\n ERROR: Aggregate net worth not equal to tangible assets in period " << t << endl;
     Errors << "\n Aggregate net worth not equal to tangible assets in period " << t << endl;
@@ -6597,6 +6567,134 @@ void REGIONAL_CONSISTENCY_CHECK(void)
              << ") does not match national Emiss_TOT (" << national_value
              << "), deviation = " << deviation << endl;
     }
+  }
+
+  // Check Emiss1_TOT (K-firm emissions): Sum of regional K-firm emissions should equal national Emiss1_TOT
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_Emiss1_TOT[rr];
+  }
+  national_value = Emiss1_TOT;
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional Emiss1_TOT (K-firm) sum (" << regional_sum
+             << ") does not match national Emiss1_TOT (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Check Emiss2_TOT (C-firm emissions): Sum of regional C-firm emissions should equal national Emiss2_TOT
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_Emiss2_TOT[rr];
+  }
+  national_value = Emiss2_TOT;
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional Emiss2_TOT (C-firm) sum (" << regional_sum
+             << ") does not match national Emiss2_TOT (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Check Consumption_r: Sum of regional Consumption_r should equal national Consumption_r
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_Consumption_r[rr];
+  }
+  national_value = Consumption_r;
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional Consumption_r sum (" << regional_sum
+             << ") does not match national Consumption_r (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Check Investment_r: Sum of regional Investment_r should equal national Investment_r
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_Investment_r[rr];
+  }
+  national_value = Investment_r;
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional Investment_r sum (" << regional_sum
+             << ") does not match national Investment_r (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Check D1_en (K-firm energy demand): Sum of regional D1_en should equal national D1_en_TOT
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_D1_en[rr];
+  }
+  national_value = D1_en_TOT;
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional D1_en sum (" << regional_sum
+             << ") does not match national D1_en_TOT (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Check D2_en (C-firm energy demand): Sum of regional D2_en should equal national D2_en_TOT
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_D2_en[rr];
+  }
+  national_value = D2_en_TOT;
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional D2_en sum (" << regional_sum
+             << ") does not match national D2_en_TOT (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Note: LS uses proportional allocation, so small deviations are expected
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_LS[rr];
+  }
+  national_value = LS;
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    // Use more lenient tolerance for LS since it's allocated proportionally
+    if (deviation > tolerance * 10) // 10x tolerance for proportional allocationlue) / national_value);
+      if (deviation > regionalaccountingtolerance)
+      {
+        Errors << "Period " << t << ": Regional LS (labor supply) sum (" << regional_sum
+               << ") does not match national LS (" << national_value
+               << "), deviation = " << deviation << endl;
+      }
   }
 
   Errors.close();

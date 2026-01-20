@@ -307,6 +307,8 @@ void REGIONAL_UPDATE(void)
 			reg_Ld2[rr] = 0;
 			reg_Emiss1[rr] = 0;
 			reg_Emiss2[rr] = 0;
+			reg_Emiss1_TOT[rr] = 0;
+			reg_Emiss2_TOT[rr] = 0;
 			reg_Pi1[rr] = 0;
 			reg_Pi2[rr] = 0;
 			reg_NW1[rr] = 0;
@@ -330,6 +332,7 @@ void REGIONAL_UPDATE(void)
 				reg_N1[rr - 1]++;
 				reg_S1[rr - 1] += S1(ii);
 				reg_Ld1[rr - 1] += Ld1(ii);
+				reg_Emiss1_TOT[rr - 1] += Emiss1(ii);
 				reg_Pi1[rr - 1] += Pi1(ii);
 				reg_NW1[rr - 1] += NW_1(1, ii);
 				reg_Deposits1[rr - 1] += Deposits_1(1, ii);
@@ -356,6 +359,7 @@ void REGIONAL_UPDATE(void)
 				reg_SI[rr - 1] += SI(jj);
 				reg_Ld2[rr - 1] += Ld2(jj);
 				reg_Emiss2[rr - 1] += Emiss2(jj);
+				reg_Emiss2_TOT[rr - 1] += Emiss2(jj);
 				reg_Pi2[rr - 1] += Pi2(jj);
 				reg_NW2[rr - 1] += NW_2(1, jj);
 				reg_Deposits2[rr - 1] += Deposits_2(1, jj);

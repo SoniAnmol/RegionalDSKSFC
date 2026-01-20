@@ -533,8 +533,6 @@ RowVector region_K_shares;                            // Shares of K-firm initia
 RowVector region_C_shares;                            // Shares of C-firm initial locations by region
 RowVector region_energy_dirty_shares;                 // Shares of initial dirty capacity by region
 RowVector region_energy_green_shares;                 // Shares of initial green capacity by region
-RowVector relocation_probability_K;                   // Relocation probabilities for entering K-firms
-RowVector relocation_probability_C;                   // Relocation probabilities for entering C-firms
 RowVector ge_growth_probability;                      // Probabilities for allocating new green capacity by region
 RowVector de_growth_probability;                      // Probabilities for allocating new dirty capacity by region
 std::vector<int> region_firm_assignment_K;            // Region index for each K-firm (1-based regions)
@@ -576,8 +574,6 @@ std::vector<double> reg_Emiss2_TOT;    // Regional C-firms emissions
 std::vector<double> reg_Emiss_en;      // Regional energy sector emissions
 std::vector<double> reg_Emiss_TOT;     // Regional total emissions
 std::vector<double> reg_Cum_emissions; // Regional cumulative emissions
-
-// Additional regional variables for complete aggregation
 std::vector<double> reg_S1;            // Regional sales of K-firms
 std::vector<double> reg_S2;            // Regional sales of C-firms
 std::vector<double> reg_K;             // Regional capital stock

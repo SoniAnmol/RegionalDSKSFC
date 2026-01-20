@@ -289,51 +289,6 @@
       "huminit1": 1095
     }
   ],
-  "regions": {
-    "NR": 3,
-    "K_firm_shares": [
-      0.4,
-      0.35,
-      0.25
-    ],
-    "C_firm_shares": [
-      0.4,
-      0.35,
-      0.25
-    ],
-    "energy": {
-      "dirty_capacity_shares": [
-        0.4,
-        0.35,
-        0.25
-      ],
-      "green_capacity_shares": [
-        0.4,
-        0.35,
-        0.25
-      ]
-    },
-    "relocation_probability_K": [
-      0.33,
-      0.34,
-      0.33
-    ],
-    "relocation_probability_C": [
-      0.33,
-      0.34,
-      0.33
-    ],
-    "de_growth_probability": [
-      0.3,
-      0.4,
-      0.3
-    ],
-    "ge_growth_probability": [
-      0.35,
-      0.35,
-      0.3
-    ]
-  },
   "shocks_kfirms": [
     0.15,
     0.15,

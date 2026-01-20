@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 
 OUT_DIR = pathlib.Path('output')
-PLOTS_DIR = OUT_DIR / 'plots' / 'reg_vs_nat'
-PLOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Flag to show variable name in legends
 show_variable_name = True
@@ -53,6 +51,13 @@ if not ymc_match:
     raise SystemExit(f'Cannot parse ymc filename: {ymc_path.name}')
 run_name = ymc_match.group(1)
 seed = ymc_match.group(2)
+
+# Create plots directory using run name (default to 'figures' if run name is empty or generic)
+if run_name and run_name not in ['', 'output', 'results']:
+    PLOTS_DIR = OUT_DIR / 'plots' / run_name
+else:
+    PLOTS_DIR = OUT_DIR / 'plots' / 'figures'
+PLOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Load metadata files
 ymc_metadata_path = OUT_DIR / f'ymc_metadata_{run_name}_{seed}.txt'
@@ -147,6 +152,7 @@ for reg_col, reg_info in REG_COLUMNS.items():
 
 print(f'\nPlotting {len(YMC_BY_REGION_COL)} variables from run: {run_name}, seed: {seed}')
 print(f'Found {len(regions)} regions')
+print(f'Saving plots to: {PLOTS_DIR}')
 
 # Time axis from ymc and regional; align by length
 x_nat = ymc.iloc[:, 0].to_numpy()
