@@ -107,17 +107,6 @@ void LABOR(void)
 void MACRO(void)
 {
 	// Reset regional accounting variables at the start of each period
-	if (NR > 0)
-	{
-		for (int rr = 0; rr < NR; ++rr)
-		{
-			reg_Q1[rr] = 0;
-			reg_Q2[rr] = 0;
-			reg_N1[rr] = 0;
-			reg_N2[rr] = 0;
-		}
-	}
-
 	// Calculate macroeconomic aggregates, mean values etc
 	ExpansionInvestment_r = EI.Row(1).Sum();
 	ExpansionInvestment_n = EI_n.Sum();
@@ -129,30 +118,6 @@ void MACRO(void)
 	Q2dtot = Qd.Sum();
 	D2tot = D2.Row(1).Sum();
 	Q1tot = Q1.Sum();
-
-	// Calculate regional production if regions are defined
-	if (NR > 0)
-	{
-		// Aggregate K-firm production by region
-		for (int ii = 1; ii <= N1; ++ii)
-		{
-			int rr = region_firm_assignment_K[ii - 1];
-			if (rr >= 1 && rr <= NR)
-			{
-				reg_Q1[rr - 1] += Q1(ii);
-			}
-		}
-
-		// Aggregate C-firm production by region
-		for (int jj = 1; jj <= N2; ++jj)
-		{
-			int rr = region_firm_assignment_C[jj - 1];
-			if (rr >= 1 && rr <= NR)
-			{
-				reg_Q2[rr - 1] += Q2(jj);
-			}
-		}
-	}
 
 	for (j = 1; j <= N2; j++)
 	{
@@ -217,57 +182,6 @@ void MACRO(void)
 	A1_en_mi /= N1r;
 	A1_ef_mi /= N1r;
 	H1 = (H1 - 1 / N1r) / (1 - 1 / N1r);
-
-	// Calculate regional firm counts and average productivity if regions are defined
-	if (NR > 0)
-	{
-		// Count firms in each region
-		for (int ii = 1; ii <= N1; ++ii)
-		{
-			int rr = region_firm_assignment_K[ii - 1];
-			if (rr >= 1 && rr <= NR)
-			{
-				reg_N1[rr - 1]++;
-			}
-		}
-
-		for (int jj = 1; jj <= N2; ++jj)
-		{
-			int rr = region_firm_assignment_C[jj - 1];
-			if (rr >= 1 && rr <= NR)
-			{
-				reg_N2[rr - 1]++;
-			}
-		}
-
-		// Now calculate regional productivity using same method as national
-		for (int rr = 1; rr <= NR; ++rr)
-		{
-			double reg_A_sum = 0;
-
-			// Aggregate productivity from K-firms in this region (with factor 'a')
-			for (int ii = 1; ii <= N1; ++ii)
-			{
-				if (region_firm_assignment_K[ii - 1] == rr)
-				{
-					reg_A_sum += A1p(ii) * a;
-				}
-			}
-
-			// Aggregate productivity from C-firms in this region
-			for (int jj = 1; jj <= N2; ++jj)
-			{
-				if (region_firm_assignment_C[jj - 1] == rr)
-				{
-					reg_A_sum += A2(jj);
-				}
-			}
-
-			// Calculate regional average productivity: Am = sum / (reg_N1 + reg_N2)
-			double reg_firm_count = reg_N1[rr - 1] + reg_N2[rr - 1];
-			reg_Am[rr - 1] = (reg_firm_count > 0) ? (reg_A_sum / reg_firm_count) : 0;
-		}
-	}
 
 	CreditSupply_all = BaselBankCredit.Sum();
 	CreditDemand_all = CreditDemand.Sum();
@@ -363,6 +277,151 @@ void MACRO(void)
 
 	// Update wage rate
 	WAGE();
+}
+
+void REGIONAL_UPDATE(void)
+{
+	// Recalculate regional aggregates post-ENTRYEXIT to match national timing
+	// This ensures regional aggregates reflect the same state as national aggregates
+	// ENTRYEXIT modifies: prices (p1, p2), Loans_2, Inventories, N, and firm region assignments
+	if (NR > 0)
+	{
+		// Reset all regional accumulators
+		for (int rr = 0; rr < NR; ++rr)
+		{
+			reg_GDP_n[rr] = 0;
+			reg_Q1[rr] = 0;
+			reg_Q2[rr] = 0;
+			reg_Loans_2[rr] = 0;
+			reg_Inventories[rr] = 0;
+			reg_N[rr] = 0;
+			reg_N1[rr] = 0;
+			reg_N2[rr] = 0;
+			reg_S1[rr] = 0;
+			reg_S2[rr] = 0;
+			reg_K[rr] = 0;
+			reg_Investment[rr] = 0;
+			reg_EI[rr] = 0;
+			reg_SI[rr] = 0;
+			reg_Ld1[rr] = 0;
+			reg_Ld2[rr] = 0;
+			reg_Emiss1[rr] = 0;
+			reg_Emiss2[rr] = 0;
+			reg_Pi1[rr] = 0;
+			reg_Pi2[rr] = 0;
+			reg_NW1[rr] = 0;
+			reg_NW2[rr] = 0;
+			reg_Deposits1[rr] = 0;
+			reg_Deposits2[rr] = 0;
+			reg_CapitalStock1[rr] = 0;
+			reg_CapitalStock2[rr] = 0;
+		}
+
+		// Recalculate regional GDP_n (depends on prices which change in ENTRYEXIT)
+		// and firm counts (firms can relocate during ENTRYEXIT)
+		// Also aggregate K-firm variables
+		for (int ii = 1; ii <= N1; ++ii)
+		{
+			int rr = region_firm_assignment_K[ii - 1];
+			if (rr >= 1 && rr <= NR)
+			{
+				reg_GDP_n[rr - 1] += Q1(ii) * dim_mach * p1(ii) * a;
+				reg_Q1[rr - 1] += Q1(ii);
+				reg_N1[rr - 1]++;
+				reg_S1[rr - 1] += S1(ii);
+				reg_Ld1[rr - 1] += Ld1(ii);
+				reg_Pi1[rr - 1] += Pi1(ii);
+				reg_NW1[rr - 1] += NW_1(1, ii);
+				reg_Deposits1[rr - 1] += Deposits_1(1, ii);
+				reg_CapitalStock1[rr - 1] += CapitalStock(1, ii);
+			}
+		}
+
+		// Recalculate regional C-firm aggregates
+		for (int jj = 1; jj <= N2; ++jj)
+		{
+			int rr = region_firm_assignment_C[jj - 1];
+			if (rr >= 1 && rr <= NR)
+			{
+				reg_GDP_n[rr - 1] += Q2(jj) * p2(jj);
+				reg_Q2[rr - 1] += Q2(jj);
+				reg_Loans_2[rr - 1] += Loans_2(1, jj);
+				reg_Inventories[rr - 1] += Inventories(1, jj);
+				reg_N[rr - 1] += N(1, jj);
+				reg_N2[rr - 1]++;
+				reg_S2[rr - 1] += S2(1, jj);
+				reg_K[rr - 1] += K(jj);
+				reg_Investment[rr - 1] += I(jj);
+				reg_EI[rr - 1] += EI(1, jj);
+				reg_SI[rr - 1] += SI(jj);
+				reg_Ld2[rr - 1] += Ld2(jj);
+				reg_Emiss2[rr - 1] += Emiss2(jj);
+				reg_Pi2[rr - 1] += Pi2(jj);
+				reg_NW2[rr - 1] += NW_2(1, jj);
+				reg_Deposits2[rr - 1] += Deposits_2(1, jj);
+				reg_CapitalStock2[rr - 1] += CapitalStock(1, jj);
+			}
+		}
+
+		// Calculate regional average productivity and derived variables
+		for (int rr = 1; rr <= NR; ++rr)
+		{
+			double reg_A1_sum = 0;
+			double reg_A2_sum = 0;
+			double reg_A1_weight = 0;
+			double reg_A2_weight = 0;
+
+			// Aggregate productivity from K-firms in this region (weighted by sales)
+			for (int ii = 1; ii <= N1; ++ii)
+			{
+				if (region_firm_assignment_K[ii - 1] == rr && nclient(ii) >= 1)
+				{
+					reg_A1_sum += A1p(ii) * S1(ii);
+					reg_A1_weight += S1(ii);
+				}
+			}
+
+			// Aggregate productivity from C-firms in this region (weighted by sales)
+			for (int jj = 1; jj <= N2; ++jj)
+			{
+				if (region_firm_assignment_C[jj - 1] == rr)
+				{
+					reg_A2_sum += A2(jj) * S2(1, jj);
+					reg_A2_weight += S2(1, jj);
+				}
+			}
+
+			// Calculate regional average productivities
+			reg_Am1[rr - 1] = (reg_A1_weight > 0) ? reg_A1_sum / reg_A1_weight : 0;
+			reg_Am2[rr - 1] = (reg_A2_weight > 0) ? reg_A2_sum / reg_A2_weight : 0;
+			reg_Am[rr - 1] = (reg_A1_weight + reg_A2_weight > 0)
+								 ? (reg_A1_sum + reg_A2_sum) / (reg_A1_weight + reg_A2_weight)
+								 : 0;
+
+			// Calculate regional real GDP
+			reg_GDP_r[rr - 1] = reg_Q1[rr - 1] * dim_mach + reg_Q2[rr - 1];
+
+			// Calculate regional real investment
+			reg_Investment_r[rr - 1] = reg_EI[rr - 1] + reg_SI[rr - 1];
+
+			// Calculate regional labor supply (proportional to labor demand)
+			double reg_LS_used = reg_Ld1[rr - 1] + reg_Ld2[rr - 1];
+			reg_LS[rr - 1] = (LD > 0 && LS > 0) ? LS * (reg_LS_used / LD) : 0;
+
+			// Calculate regional cumulative emissions
+			double national_emiss_tot = Emiss1_TOT + Emiss2_TOT + Emiss_en;
+			if (national_emiss_tot > 0 && Cum_emissions > 0)
+			{
+				double reg_Emiss_total = reg_Emiss1_TOT[rr - 1] + reg_Emiss2_TOT[rr - 1] + reg_Emiss_en[rr - 1];
+				double share = reg_Emiss_total / national_emiss_tot;
+				reg_Cum_emissions[rr - 1] = Cum_emissions * share;
+			}
+			else
+			{
+				reg_Cum_emissions[rr - 1] = 0;
+			}
+		}
+	}
 }
 
 void WAGE(void)

@@ -558,10 +558,13 @@ std::vector<double> reg_Consumption_r; // Regional total real consumption
 std::vector<double> reg_Investment_r;  // Regional total real investment
 std::vector<double> reg_U;             // Regional unemployment rate
 std::vector<double> reg_Am;            // Regional mean productivity (weighted avg of K and C-firm productivity)
+std::vector<double> reg_Am1;           // Regional mean productivity of K-firms
+std::vector<double> reg_Am2;           // Regional mean productivity of C-firms
 std::vector<double> reg_Loans_2;       // Regional loans of C-firms
 std::vector<double> reg_Inventories;   // Regional nominal value of C-firms' inventories
 std::vector<double> reg_N;             // Regional real inventories
 std::vector<double> reg_GDP_n;         // Regional nominal GDP
+std::vector<double> reg_LS;            // Regional labor supply
 std::vector<double> reg_Qge;           // Regional quantity of green energy produced
 std::vector<double> reg_Q_ge;          // Regional green energy production (from demand-capacity logic)
 std::vector<double> reg_Q_de;          // Regional dirty energy production (from demand-capacity logic)
@@ -573,6 +576,26 @@ std::vector<double> reg_Emiss2_TOT;    // Regional C-firms emissions
 std::vector<double> reg_Emiss_en;      // Regional energy sector emissions
 std::vector<double> reg_Emiss_TOT;     // Regional total emissions
 std::vector<double> reg_Cum_emissions; // Regional cumulative emissions
+
+// Additional regional variables for complete aggregation
+std::vector<double> reg_S1;            // Regional sales of K-firms
+std::vector<double> reg_S2;            // Regional sales of C-firms
+std::vector<double> reg_K;             // Regional capital stock
+std::vector<double> reg_Investment;    // Regional nominal investment
+std::vector<double> reg_EI;            // Regional expansion investment
+std::vector<double> reg_SI;            // Regional substitution investment
+std::vector<double> reg_Ld1;           // Regional labor demand K-firms
+std::vector<double> reg_Ld2;           // Regional labor demand C-firms
+std::vector<double> reg_Emiss1;        // Regional K-firms emissions (individual)
+std::vector<double> reg_Emiss2;        // Regional C-firms emissions (individual)
+std::vector<double> reg_Pi1;           // Regional profits K-firms
+std::vector<double> reg_Pi2;           // Regional profits C-firms
+std::vector<double> reg_NW1;           // Regional net worth K-firms
+std::vector<double> reg_NW2;           // Regional net worth C-firms
+std::vector<double> reg_Deposits1;     // Regional deposits K-firms
+std::vector<double> reg_Deposits2;     // Regional deposits C-firms
+std::vector<double> reg_CapitalStock1; // Regional capital stock K-firms
+std::vector<double> reg_CapitalStock2; // Regional capital stock C-firms
 
 // Climate
 RowVector Tmixed(2);             // Temperature in the mixed layer
@@ -678,27 +701,38 @@ double A_sd;                    // Standard deviation of C-firm productivity
 double H1;                      // Herfindahl index K-firms
 double H2;                      // Herfindahl index C-firms
 double HB;                      // Herfindahl index banks
-double GDP_rg;                  // Growth rate real GDP
-double GDP_ng;                  // Growth rate nominal GDP
-RowVector GDP_r(2);             // Real GDP
-RowVector GDP_n(2);             // Nominal GDP
-double d_U;                     // Change in unemployment rate
-double d_cpi;                   // Change in consumer price index
-double d_Am;                    // Change in mean productivity
-double d_cpi2;                  // Change in consumer price index
-double dw;                      // Change in wage
-double dw2;                     // Change in wage
-double A2scr;                   // Log deviation of C-firm productivity from mean
-double A1scr;                   // Log deviation of K-firm productivity from mean
-Matrix S1_temp;                 // Temporary storage for K-firm sales
-Matrix S2_temp;                 // Temporary storage for C-firm sales
-double Utilisation;             // C-firms' aggregate capacity utilisation
-double counter_bankfailure;     // Number of failing banks
-double A1p_en_dead;             // Energy efficiency of failing K-Firms
-double A1p_en_survive;          // Energy efficiency of surviving K-Firms
-double A2_en_dead;              // Energy efficiency of failing C-Firms
-double A2_en_survive;           // Energy efficiency of surviving C-Firms
-double exp_quota_0;             // Initial value of maximum expansion of green energy
+
+// Cached national aggregates for YMC output (computed in MACRO before ENTRYEXIT modifies matrices)
+double cached_Loans_2_sum;     // Cached sum of C-firm loans
+double cached_Inventories_sum; // Cached sum of inventories
+double cached_N_sum;           // Cached sum of real inventories
+double cached_Consumption_r;   // Cached real consumption
+double cached_Q1tot;           // Cached K-firm total output
+double cached_Q2tot;           // Cached C-firm total output
+double cached_Emiss1_TOT;      // Cached K-firm emissions
+double cached_Emiss2_TOT;      // Cached C-firm emissions
+double cached_Emiss_TOT;       // Cached total emissions
+double GDP_rg;                 // Growth rate real GDP
+double GDP_ng;                 // Growth rate nominal GDP
+RowVector GDP_r(2);            // Real GDP
+RowVector GDP_n(2);            // Nominal GDP
+double d_U;                    // Change in unemployment rate
+double d_cpi;                  // Change in consumer price index
+double d_Am;                   // Change in mean productivity
+double d_cpi2;                 // Change in consumer price index
+double dw;                     // Change in wage
+double dw2;                    // Change in wage
+double A2scr;                  // Log deviation of C-firm productivity from mean
+double A1scr;                  // Log deviation of K-firm productivity from mean
+Matrix S1_temp;                // Temporary storage for K-firm sales
+Matrix S2_temp;                // Temporary storage for C-firm sales
+double Utilisation;            // C-firms' aggregate capacity utilisation
+double counter_bankfailure;    // Number of failing banks
+double A1p_en_dead;            // Energy efficiency of failing K-Firms
+double A1p_en_survive;         // Energy efficiency of surviving K-Firms
+double A2_en_dead;             // Energy efficiency of failing C-Firms
+double A2_en_survive;          // Energy efficiency of surviving C-Firms
+double exp_quota_0;            // Initial value of maximum expansion of green energy
 
 // Filenames
 char nomefile1[64];     // File "out" (inv_output1)

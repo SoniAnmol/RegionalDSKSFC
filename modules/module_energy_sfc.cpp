@@ -708,6 +708,18 @@ void ENERGY(void)
     // Calculate total emissions
     Emiss_TOT(1) = Emiss_en + Emiss2_TOT + Emiss1_TOT;
 
+    // Calculate regional total emissions immediately after national
+    if (NR > 0)
+    {
+        for (int rr = 0; rr < NR; ++rr)
+        {
+            reg_Emiss_TOT[rr] = reg_Emiss1_TOT[rr] + reg_Emiss2_TOT[rr];
+        }
+        // Note: Emiss_en (energy sector emissions) is not regionalized
+        // To match national total including energy sector, we would add proportionally:
+        // For now, reg_Emiss_TOT = reg_Emiss1_TOT + reg_Emiss2_TOT (excludes Emiss_en)
+    }
+
     // Compute regional energy sector emissions
     if (NR > 0)
     {

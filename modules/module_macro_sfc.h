@@ -15,6 +15,7 @@
 // #include <string>
 #include <string.h>
 #include <sstream>
+#include <vector>
 
 // Include Newmat Libraries and random number generators
 #include "../newmat10/include.h"
@@ -25,12 +26,25 @@
 // Include functions from other modules
 #include "../dsk_sfc_functions.h"
 
+// Forward declare regional global variables used in REGIONAL_UPDATE
+extern std::vector<double> reg_S1, reg_S2, reg_K, reg_Investment, reg_EI, reg_SI;
+extern std::vector<double> reg_Ld1, reg_Ld2, reg_Emiss1, reg_Emiss2;
+extern std::vector<double> reg_Pi1, reg_Pi2, reg_NW1, reg_NW2;
+extern std::vector<double> reg_Deposits1, reg_Deposits2, reg_CapitalStock1, reg_CapitalStock2;
+extern std::vector<double> reg_Am1, reg_Am2, reg_GDP_r, reg_Investment_r, reg_LS, reg_Cum_emissions;
+extern std::vector<double> reg_Emiss1_TOT, reg_Emiss2_TOT, reg_Emiss_en;
+extern double Emiss1_TOT, Emiss2_TOT, Emiss_en, Cum_emissions, LS, LD;
+// Forward declare firm-level matrices
+extern Matrix NW_1, NW_2, Deposits_1, Deposits_2, CapitalStock, Loans_2, Inventories, EI, N, S2;
+extern RowVector S1, Ld1, Ld2, K, I, SI, A1p, A2, nclient, Pi1, Pi2, Emiss2;
+
 // -- Functions -- //
-void LABOR(void);      // Allocates labour supply; scales down production of firms if labour supply is insufficient
-void MACRO(void);      // Calculates macroeconomic aggregates
-void WAGE(void);       // Determines change in wage rate
-void GOV_BUDGET(void); // Determines unemployment benefits & government deficit; implements bond market
-void TAYLOR(void);     // Determines change in monetary policy rate
+void LABOR(void);           // Allocates labour supply; scales down production of firms if labour supply is insufficient
+void MACRO(void);           // Calculates macroeconomic aggregates
+void REGIONAL_UPDATE(void); // Recalculates regional aggregates post-ENTRYEXIT to match national timing
+void WAGE(void);            // Determines change in wage rate
+void GOV_BUDGET(void);      // Determines unemployment benefits & government deficit; implements bond market
+void TAYLOR(void);          // Determines change in monetary policy rate
 
 extern int flag_desc;
 
@@ -210,6 +224,9 @@ extern double r_a;
 extern double Taxes_e_shock;
 extern double Taxes_f_shock;
 extern double Transfer_shock;
+extern Matrix Loans_2;
+extern Matrix Inventories;
+extern Matrix N;
 
 // Regional variables
 extern int NR;
@@ -224,5 +241,20 @@ extern std::vector<double> reg_Am;
 extern std::vector<double> reg_D1_en;
 extern std::vector<double> reg_D2_en;
 extern std::vector<double> reg_D_en_TOT;
+extern std::vector<double> reg_GDP_n;
+extern std::vector<double> reg_Loans_2;
+extern std::vector<double> reg_Inventories;
+extern std::vector<double> reg_N;
+
+// Cached national aggregates
+extern double cached_Loans_2_sum;
+extern double cached_Inventories_sum;
+extern double cached_N_sum;
+extern double cached_Consumption_r;
+extern double cached_Q1tot;
+extern double cached_Q2tot;
+extern double cached_Emiss1_TOT;
+extern double cached_Emiss2_TOT;
+extern double cached_Emiss_TOT;
 
 #endif

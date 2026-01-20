@@ -133,6 +133,12 @@ int main(int argc, char *argv[])
       region_resultsexp_names[rr - 1] = oss.str();
       region_resultsexp_streams[rr - 1].open(region_resultsexp_names[rr - 1], std::ios::out | std::ios::trunc);
     }
+
+    // Create metadata file for regional outputs (only once, not per region)
+    std::ostringstream meta_oss;
+    meta_oss << filepath << "/regional_metadata_" << runname << "_" << seednumber << ".txt";
+    std::string regional_meta_name = meta_oss.str();
+    WRITE_REGIONAL_METADATA(regional_meta_name.c_str());
   }
 
   if (flag_validation == 1)
@@ -153,6 +159,12 @@ int main(int argc, char *argv[])
   else if (fulloutput == 0)
   {
     GENFILEYMC(filepath, "/ymc", runname, seednumber);
+
+    // Create metadata file for YMC output
+    std::ostringstream ymc_meta_oss;
+    ymc_meta_oss << filepath << "/ymc_metadata_" << runname << "_" << seednumber << ".txt";
+    std::string ymc_meta_name = ymc_meta_oss.str();
+    WRITE_YMC_METADATA(ymc_meta_name.c_str());
   }
 
   if (verbose)
@@ -291,6 +303,12 @@ int main(int argc, char *argv[])
       cout << "Exiting function ENTRYEXIT in period " << t << endl;
     }
 
+    REGIONAL_UPDATE();
+    if (verbose)
+    {
+      cout << "Exiting function REGIONAL_UPDATE in period " << t << endl;
+    }
+
     BANKING();
     if (verbose)
     {
@@ -388,6 +406,11 @@ int main(int argc, char *argv[])
     if (verbose)
     {
       cout << "Exiting function SFC_CHECK in period " << t << endl;
+    }
+    REGIONAL_CONSISTENCY_CHECK();
+    if (verbose)
+    {
+      cout << "Exiting function REGIONAL_CONSISTENCY_CHECK in period " << t << endl;
     }
 
     SAVE();
@@ -1118,10 +1141,13 @@ void RESIZE(void)
     reg_Investment_r.assign(NR, 0.0);
     reg_U.assign(NR, 0.0);
     reg_Am.assign(NR, 0.0);
+    reg_Am1.assign(NR, 0.0);
+    reg_Am2.assign(NR, 0.0);
     reg_Loans_2.assign(NR, 0.0);
     reg_Inventories.assign(NR, 0.0);
     reg_N.assign(NR, 0.0);
     reg_GDP_n.assign(NR, 0.0);
+    reg_LS.assign(NR, 0.0);
     reg_Qge.assign(NR, 0.0);
     reg_Q_ge.assign(NR, 0.0);
     reg_Q_de.assign(NR, 0.0);
@@ -1130,8 +1156,24 @@ void RESIZE(void)
     reg_D_en_TOT.assign(NR, 0.0);
     reg_Emiss_TOT.assign(NR, 0.0);
     reg_Cum_emissions.assign(NR, 0.0);
-    // Note: region_resultsexp_names and region_resultsexp_streams already
-    // initialized and opened in main(), don't resize them here
+    reg_S1.assign(NR, 0.0);
+    reg_S2.assign(NR, 0.0);
+    reg_K.assign(NR, 0.0);
+    reg_Investment.assign(NR, 0.0);
+    reg_EI.assign(NR, 0.0);
+    reg_SI.assign(NR, 0.0);
+    reg_Ld1.assign(NR, 0.0);
+    reg_Ld2.assign(NR, 0.0);
+    reg_Emiss1.assign(NR, 0.0);
+    reg_Emiss2.assign(NR, 0.0);
+    reg_Pi1.assign(NR, 0.0);
+    reg_Pi2.assign(NR, 0.0);
+    reg_NW1.assign(NR, 0.0);
+    reg_NW2.assign(NR, 0.0);
+    reg_Deposits1.assign(NR, 0.0);
+    reg_Deposits2.assign(NR, 0.0);
+    reg_CapitalStock1.assign(NR, 0.0);
+    reg_CapitalStock2.assign(NR, 0.0);
   }
 }
 
@@ -1176,15 +1218,20 @@ void INITIALIZE(int Exseed)
     // Regional accounting variables
     reg_N1.assign(NR, 0.0);
     reg_N2.assign(NR, 0.0);
+    reg_Q1.assign(NR, 0.0);
+    reg_Q2.assign(NR, 0.0);
     reg_GDP_r.assign(NR, 0.0);
     reg_Consumption_r.assign(NR, 0.0);
     reg_Investment_r.assign(NR, 0.0);
     reg_U.assign(NR, 0.0);
     reg_Am.assign(NR, 0.0);
+    reg_Am1.assign(NR, 0.0);
+    reg_Am2.assign(NR, 0.0);
     reg_Loans_2.assign(NR, 0.0);
     reg_Inventories.assign(NR, 0.0);
     reg_N.assign(NR, 0.0);
     reg_GDP_n.assign(NR, 0.0);
+    reg_LS.assign(NR, 0.0);
     reg_Qge.assign(NR, 0.0);
     reg_Q_ge.assign(NR, 0.0);
     reg_Q_de.assign(NR, 0.0);
@@ -1196,6 +1243,25 @@ void INITIALIZE(int Exseed)
     reg_Emiss_en.assign(NR, 0.0);
     reg_Emiss_TOT.assign(NR, 0.0);
     reg_Cum_emissions.assign(NR, 0.0);
+    // Additional regional aggregates
+    reg_S1.assign(NR, 0.0);
+    reg_S2.assign(NR, 0.0);
+    reg_K.assign(NR, 0.0);
+    reg_Investment.assign(NR, 0.0);
+    reg_EI.assign(NR, 0.0);
+    reg_SI.assign(NR, 0.0);
+    reg_Ld1.assign(NR, 0.0);
+    reg_Ld2.assign(NR, 0.0);
+    reg_Emiss1.assign(NR, 0.0);
+    reg_Emiss2.assign(NR, 0.0);
+    reg_Pi1.assign(NR, 0.0);
+    reg_Pi2.assign(NR, 0.0);
+    reg_NW1.assign(NR, 0.0);
+    reg_NW2.assign(NR, 0.0);
+    reg_Deposits1.assign(NR, 0.0);
+    reg_Deposits2.assign(NR, 0.0);
+    reg_CapitalStock1.assign(NR, 0.0);
+    reg_CapitalStock2.assign(NR, 0.0);
   }
 
   INTFILE();
@@ -1648,12 +1714,30 @@ void SETVARS(void)
   ftot = 0;
   Consumption_r = 0;
 
-  // Reset regional consumption
+  // Reset regional consumption and other regional variables
   if (NR > 0)
   {
     for (int rr = 0; rr < NR; ++rr)
     {
       reg_Consumption_r[rr] = 0;
+      reg_S1[rr] = 0;
+      reg_S2[rr] = 0;
+      reg_K[rr] = 0;
+      reg_Investment[rr] = 0;
+      reg_EI[rr] = 0;
+      reg_SI[rr] = 0;
+      reg_Ld1[rr] = 0;
+      reg_Ld2[rr] = 0;
+      reg_Emiss1[rr] = 0;
+      reg_Emiss2[rr] = 0;
+      reg_Pi1[rr] = 0;
+      reg_Pi2[rr] = 0;
+      reg_NW1[rr] = 0;
+      reg_NW2[rr] = 0;
+      reg_Deposits1[rr] = 0;
+      reg_Deposits2[rr] = 0;
+      reg_CapitalStock1[rr] = 0;
+      reg_CapitalStock2[rr] = 0;
     }
   }
 
@@ -4386,53 +4470,15 @@ void ALLOC(void)
   }
 
   // Compute regional consumption immediately after national consumption
-  if (NR > 0 && t <= 5) // Debug: only for first 5 periods
-  {
-    double total_check = 0;
-    std::cerr << "DEBUG Period " << t << " Consumption:" << endl
-              << std::flush;
-    std::cerr << "  National Consumption_r = " << Consumption_r << endl
-              << std::flush;
-
-    for (j = 1; j <= N2; j++)
-    {
-      int rr = region_firm_assignment_C[j - 1];
-      double firm_consumption = S2(1, j) / p2(j);
-
-      // If firm has invalid region (rr=0 or out of range), assign to region 1 as default
-      if (rr < 1 || rr > NR)
-      {
-        std::cerr << "  Firm " << j << " invalid region " << rr << endl
-                  << std::flush;
-        rr = 1;
-      }
-
-      reg_Consumption_r[rr - 1] += firm_consumption;
-      total_check += firm_consumption;
-    }
-
-    std::cerr << "  Loop total: " << total_check << endl
-              << std::flush;
-    std::cerr << "  Regional: R1=" << reg_Consumption_r[0]
-              << " R2=" << reg_Consumption_r[1]
-              << " R3=" << reg_Consumption_r[2] << endl
-              << std::flush;
-    std::cerr << "  Sum: " << (reg_Consumption_r[0] + reg_Consumption_r[1] + reg_Consumption_r[2]) << endl
-              << std::flush;
-  }
-  else if (NR > 0)
+  if (NR > 0)
   {
     for (j = 1; j <= N2; j++)
     {
       int rr = region_firm_assignment_C[j - 1];
-      double firm_consumption = S2(1, j) / p2(j);
-
-      if (rr < 1 || rr > NR)
+      if (rr >= 1 && rr <= NR)
       {
-        rr = 1;
+        reg_Consumption_r[rr - 1] += S2(1, j) / p2(j);
       }
-
-      reg_Consumption_r[rr - 1] += firm_consumption;
     }
   }
 
@@ -6331,6 +6377,231 @@ void SFC_CHECK(void)
   Errors.close();
 }
 
+void REGIONAL_CONSISTENCY_CHECK(void)
+{
+  // Check that regional aggregates sum to national counterparts
+  // Only perform checks if regional mode is enabled (NR > 0)
+  if (NR <= 0)
+  {
+    return;
+  }
+
+  ofstream Errors(errorfilename, ios::app);
+  double regional_sum, national_value, deviation;
+
+  // Check GDP_n: Sum of regional GDP_n should equal national GDP_n(1)
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_GDP_n[rr];
+  }
+  national_value = GDP_n(1);
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional GDP_n sum (" << regional_sum
+             << ") does not match national GDP_n (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Check Loans_2: Sum of regional Loans_2 should equal national Loans_2.Row(1).Sum()
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_Loans_2[rr];
+  }
+  national_value = Loans_2.Row(1).Sum();
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional Loans_2 sum (" << regional_sum
+             << ") does not match national Loans_2 (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Check Inventories: Sum of regional Inventories should equal national Inventories.Row(1).Sum()
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_Inventories[rr];
+  }
+  national_value = Inventories.Row(1).Sum();
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional Inventories sum (" << regional_sum
+             << ") does not match national Inventories (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Check N (Employment): Sum of regional N should equal national N.Row(1).Sum()
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_N[rr];
+  }
+  national_value = N.Row(1).Sum();
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional N (employment) sum (" << regional_sum
+             << ") does not match national N (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Check Q1: Sum of regional Q1 should equal national Q1tot
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_Q1[rr];
+  }
+  national_value = Q1tot;
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional Q1 sum (" << regional_sum
+             << ") does not match national Q1tot (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Check Q2: Sum of regional Q2 should equal national Q2tot
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_Q2[rr];
+  }
+  national_value = Q2tot;
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional Q2 sum (" << regional_sum
+             << ") does not match national Q2tot (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Check N1: Sum of regional N1 (number of K-firms) should equal N1r
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_N1[rr];
+  }
+  national_value = N1r;
+  if (fabs(regional_sum - national_value) > 0.5) // Firm counts should match exactly
+  {
+    Errors << "Period " << t << ": Regional N1 (K-firms) sum (" << regional_sum
+           << ") does not match national N1r (" << national_value << ")" << endl;
+  }
+
+  // Check N2: Sum of regional N2 (number of C-firms) should equal N2r
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_N2[rr];
+  }
+  national_value = N2r;
+  if (fabs(regional_sum - national_value) > 0.5) // Firm counts should match exactly
+  {
+    Errors << "Period " << t << ": Regional N2 (C-firms) sum (" << regional_sum
+           << ") does not match national N2r (" << national_value << ")" << endl;
+  }
+
+  // Check GDP_r (Real GDP): Sum of regional GDP_r should equal national GDP_r(1)
+  // Note: reg_GDP_r is calculated in SAVE(), not in REGIONAL_UPDATE(), so we read from saved values
+  // We'll skip this check as reg_GDP_r is computed locally in SAVE() and not stored in a global array
+
+  // Check Q_ge (Green energy): Sum of regional Q_ge should equal national Q_ge
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_Q_ge[rr];
+  }
+  national_value = Q_ge;
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional Q_ge sum (" << regional_sum
+             << ") does not match national Q_ge (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Check Q_de (Dirty energy): Sum of regional Q_de should equal national Q_de
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_Q_de[rr];
+  }
+  national_value = Q_de;
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional Q_de sum (" << regional_sum
+             << ") does not match national Q_de (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Check D_en_TOT (Energy demand): Sum of regional D_en_TOT should equal national D_en_TOT(1)
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_D_en_TOT[rr];
+  }
+  national_value = D_en_TOT(1);
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional D_en_TOT sum (" << regional_sum
+             << ") does not match national D_en_TOT (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Check Emiss_TOT (Total emissions): Sum of regional emissions should equal national Emiss_TOT(1)
+  regional_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_Emiss1_TOT[rr] + reg_Emiss2_TOT[rr] + reg_Emiss_en[rr];
+  }
+  national_value = Emiss_TOT(1);
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation = fabs((regional_sum - national_value) / national_value);
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional Emiss_TOT sum (" << regional_sum
+             << ") does not match national Emiss_TOT (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  Errors.close();
+}
+
 void OVERBOOST(void)
 {
   // Reset t0 to shorten time taken to iterate over technology arrays
@@ -6975,199 +7246,54 @@ void SAVE(void)
   {
     auto write_regional_row = [&](std::ostream &target, int region)
     {
-      // Aggregate production and accounting variables for this region
-      double reg_S1 = 0, reg_S2 = 0;
-      // Use pre-calculated reg_Q1 and reg_Q2 from MACRO()
-      double reg_Q1_val = reg_Q1[region - 1];
-      double reg_Q2_val = reg_Q2[region - 1];
-      double reg_K = 0, reg_Investment = 0, reg_EI = 0, reg_SI = 0;
-      double reg_Ld1 = 0, reg_Ld2 = 0, reg_LS_used = 0;
-      double reg_Emiss1 = 0, reg_Emiss2 = 0;
-      double reg_Pi1 = 0, reg_Pi2 = 0;
-      double reg_NW1 = 0, reg_NW2 = 0;
-      double reg_Deposits1 = 0, reg_Deposits2 = 0;
-      double reg_CapitalStock1 = 0, reg_CapitalStock2 = 0;
-      double reg_Loans2_sum = 0;      // Loans of C-firms (nominal)
-      double reg_Inventories_nom = 0; // Inventories nominal (C-firms)
-      double reg_N_real_sum = 0;      // Inventories real (C-firms)
-      // Use pre-computed regional consumption from global variable
-      double reg_Consumption_r_val = reg_Consumption_r[region - 1];
-      double reg_A1_sum = 0, reg_A2_sum = 0, reg_A1_weight = 0, reg_A2_weight = 0;
-      double reg_A1en_dead = 0, reg_A1en_survive = 0, reg_A2en_dead = 0, reg_A2en_survive = 0;
+      // Write pre-computed regional values (NO calculations, only writing)
+      // All values have been computed in REGIONAL_UPDATE(), ENERGY(), EMISS_IND(), and ALLOC()
 
-      // Aggregate K-firms
-      for (int i = 1; i <= N1; ++i)
-      {
-        if (region_firm_assignment_K[i - 1] == region)
-        {
-          reg_S1 += S1(i);
-          // Q1 already aggregated in reg_Q1_val
-          reg_Ld1 += Ld1(i);
-          reg_Pi1 += Pi1(i);
-          reg_NW1 += NW_1(1, i);
-          reg_Deposits1 += Deposits_1(1, i);
-          reg_CapitalStock1 += CapitalStock(1, i);
-          // exit counts not reported in the reduced regional output
-          if (nclient(i) >= 1)
-          {
-            reg_A1_sum += A1p(i) * S1(i);
-            reg_A1_weight += S1(i);
-          }
-          if (A1p_en_survive > 0)
-          {
-            if (exiting_1(i) == 1 && nclient(i) >= 1)
-              reg_A1en_dead += A1p_en(i);
-            else if (nclient(i) >= 1)
-              reg_A1en_survive += A1p_en(i);
-          }
-        }
-      }
-
-      // Aggregate C-firms
-      for (int j = 1; j <= N2; ++j)
-      {
-        if (region_firm_assignment_C[j - 1] == region)
-        {
-          reg_S2 += S2(1, j);
-          // Q2 already aggregated in reg_Q2_val
-          // Regional consumption already computed globally after national Consumption_r
-          reg_K += K(j);
-          reg_Investment += I(j);
-          reg_EI += EI(1, j);
-          reg_SI += SI(j);
-          reg_Ld2 += Ld2(j);
-          reg_Emiss2 += Emiss2(j);
-          reg_Pi2 += Pi2(j);
-          reg_NW2 += NW_2(1, j);
-          reg_Deposits2 += Deposits_2(1, j);
-          reg_CapitalStock2 += CapitalStock(1, j);
-          // Accumulators specific to requested accounting variables
-          reg_Loans2_sum += Loans_2(1, j);
-          reg_Inventories_nom += Inventories(1, j);
-          reg_N_real_sum += N(1, j);
-          reg_A2_sum += A2(j) * S2(1, j);
-          reg_A2_weight += S2(1, j);
-          if (A2_en_survive > 0)
-          {
-            if (exiting_2(j) == 1)
-              reg_A2en_dead += A2_en(j);
-            else
-              reg_A2en_survive += A2_en(j);
-          }
-        }
-      }
-
-      reg_LS_used = reg_Ld1 + reg_Ld2;
-
-      // Note: reg_U is already calculated in MACRO() function right after U(1) calculation
-      double reg_Am1 = (reg_A1_weight > 0) ? reg_A1_sum / reg_A1_weight : 0;
-      double reg_Am2 = (reg_A2_weight > 0) ? reg_A2_sum / reg_A2_weight : 0;
-      double reg_Am_combined = (reg_A1_weight + reg_A2_weight > 0)
-                                   ? (reg_A1_sum + reg_A2_sum) / (reg_A1_weight + reg_A2_weight)
-                                   : 0;
-
-      // Regional GDP (real): sum of real output produced (use pre-calculated values)
-      double reg_GDP_r = reg_Q1_val * dim_mach + reg_Q2_val;
-
-      // Regional GDP (nominal): calculate using same formula as national
-      double reg_GDP_n_val = 0;
-      for (int i = 1; i <= N1; ++i)
-      {
-        if (region_firm_assignment_K[i - 1] == region)
-        {
-          reg_GDP_n_val += Q1(i) * dim_mach * p1(i) * a;
-        }
-      }
-      for (int j = 1; j <= N2; ++j)
-      {
-        if (region_firm_assignment_C[j - 1] == region)
-        {
-          reg_GDP_n_val += Q2(j) * p2(j);
-        }
-      }
-
-      // Regional real investment: use same formula as national (EI + SI)
-      double reg_Investment_r = reg_EI + reg_SI;
-
-      // Regional real consumption: already calculated as sum of S2/p2 in C-firm loop
-
-      // Regional energy sector
-      double reg_dirty_cap = region_dirty_capacity[region - 1];
-      double reg_green_cap = region_green_capacity[region - 1];
-      double reg_total_cap = reg_dirty_cap + reg_green_cap;
-      double reg_green_cap_lag = region_green_capacity_lag[region - 1];
-      double reg_dirty_cap_lag = region_dirty_capacity_lag[region - 1];
-      double reg_total_cap_lag = reg_green_cap_lag + reg_dirty_cap_lag;
-      double reg_green_share = (reg_total_cap_lag > 0) ? reg_green_cap_lag / reg_total_cap_lag : 0;
-
-      // Use pre-calculated regional energy demand from EN_DEM()
-      double reg_D_en_val = reg_D_en_TOT[region - 1];
-
-      // Regional green and dirty energy production from demand-capacity logic
-      double reg_Qge_val = reg_Q_ge[region - 1];
-      double reg_Qde_val = reg_Q_de[region - 1];
-
-      // Regional labor supply (proportional to labor demand)
-      double reg_LS_val = (LD > 0 && LS > 0) ? LS * (reg_LS_used / LD) : 0;
-
-      // Regional total emissions (now computed in ENERGY and EMISS_IND)
-      double reg_Emiss_total = reg_Emiss1_TOT[region - 1] + reg_Emiss2_TOT[region - 1] + reg_Emiss_en[region - 1];
-
-      // Approximate regional cumulative emissions as share of national cumulative emissions
-      double national_emiss_tot = Emiss1_TOT + Emiss2_TOT + Emiss_en;
-      double reg_Cum_emission_val = 0;
-      if (national_emiss_tot > 0 && Cum_emissions > 0)
-      {
-        double share = reg_Emiss_total / national_emiss_tot;
-        reg_Cum_emission_val = Cum_emissions * share;
-      }
-
-      // Write regional resultsexp row (only requested variables, 14 columns)
       target.setf(ios::fixed);
       target.precision(10);
       target.setf(ios::right);
       target.width(60);
       target << t; // 1: time
       target.width(60);
-      target << reg_GDP_r; // 2: reg_GDP_r (Real GDP)
+      target << reg_GDP_r[region - 1]; // 2: reg_GDP_r (Real GDP)
       target.width(60);
-      target << reg_Consumption_r_val; // 3: reg_Consumption_r (Total real consumption)
+      target << reg_Consumption_r[region - 1]; // 3: reg_Consumption_r (Total real consumption)
       target.width(60);
-      target << reg_Investment_r; // 4: reg_Investment_r (Total real investment)
+      target << reg_Investment_r[region - 1]; // 4: reg_Investment_r (Total real investment)
       target.width(60);
       target << (1.0 - reg_U[region - 1]) / NR; // 5: 1 - reg_U(1) (Employment rate)
       target.width(60);
-      target << reg_Am_combined; // 6: reg_Am(1) (Mean productivity across K and C-firms)
+      target << reg_Am[region - 1]; // 6: reg_Am(1) (Mean productivity across K and C-firms)
       target.width(60);
-      target << reg_Loans2_sum; // 7: reg_Loans_2 (Loans of C-firms)
+      target << reg_Loans_2[region - 1]; // 7: reg_Loans_2 (Loans of C-firms)
       target.width(60);
-      target << reg_Inventories_nom; // 8: reg_Inventories (Nominal value of C-firms' inventories)
+      target << reg_Inventories[region - 1]; // 8: reg_Inventories (Nominal value of C-firms' inventories)
       target.width(60);
-      target << reg_N_real_sum; // 9: reg_N.Row(1).sum (Inventories real)
+      target << reg_N[region - 1]; // 9: reg_N.Row(1).sum (Inventories real)
       target.width(60);
-      target << reg_GDP_n_val; // 10: reg_GDP_n (Nominal GDP)
+      target << reg_GDP_n[region - 1]; // 10: reg_GDP_n (Nominal GDP)
       target.width(60);
-      target << ((reg_D_en_val > 0) ? (reg_Qge_val / reg_D_en_val) : 0); // 11: reg_Qge / reg_D_en (Green energy share of demand)
+      target << ((reg_D_en_TOT[region - 1] > 0) ? (reg_Q_ge[region - 1] / reg_D_en_TOT[region - 1]) : 0); // 11: reg_Qge / reg_D_en (Green energy share of demand)
       target.width(60);
-      target << reg_D_en_val; // 12: reg_D_en_TOT (Total energy demand)
+      target << reg_D_en_TOT[region - 1]; // 12: reg_D_en_TOT (Total energy demand)
       target.width(60);
-      target << reg_Emiss_total; // 13: reg_Emiss_TOT(1) (Total emissions)
+      target << (reg_Emiss1_TOT[region - 1] + reg_Emiss2_TOT[region - 1] + reg_Emiss_en[region - 1]); // 13: reg_Emiss_TOT(1) (Total emissions)
       target.width(60);
-      target << reg_Cum_emission_val; // 14: reg_Cum_emission (Cumulative emissions)
+      target << reg_Cum_emissions[region - 1]; // 14: reg_Cum_emission (Cumulative emissions)
       target.width(60);
-      target << reg_Q1_val; // 15: reg_Q1 (K-firm production)
+      target << reg_Q1[region - 1]; // 15: reg_Q1 (K-firm production)
       target.width(60);
-      target << reg_Q2_val; // 16: reg_Q2 (C-firm production)
+      target << reg_Q2[region - 1]; // 16: reg_Q2 (C-firm production)
       target.width(60);
       target << reg_N1[region - 1]; // 17: reg_N1 (Number of K-firms)
       target.width(60);
       target << reg_N2[region - 1]; // 18: reg_N2 (Number of C-firms)
       target.width(60);
-      target << reg_LS_val; // 19: reg_LS (Labor supply)
+      target << reg_LS[region - 1]; // 19: reg_LS (Labor supply)
       target.width(60);
-      target << reg_Qge_val; // 20: reg_Qge (Green energy produced)
+      target << reg_Q_ge[region - 1]; // 20: reg_Qge (Green energy produced)
       target.width(60);
-      target << reg_Qde_val; // 21: reg_Qde (Dirty energy produced)
+      target << reg_Q_de[region - 1]; // 21: reg_Qde (Dirty energy produced)
       target.width(60);
       target << reg_Emiss1_TOT[region - 1]; // 22: reg_Emiss1_TOT (K-firm emissions)
       target.width(60);
@@ -7690,6 +7816,131 @@ void GENFILEYMC(char *path, const char *s2, char runname[], char const *seednumb
   name2 = strcat(nomefile2, "_");
   name2 = strcat(nomefile2, seednumber);
   strcat(nomefile2, ".txt");
+}
+
+void WRITE_YMC_METADATA(const char *filename)
+{
+  // Create a metadata file describing the YMC output file structure
+  ofstream meta(filename);
+  meta << "============================================================\n";
+  meta << "YMC OUTPUT FILE METADATA\n";
+  meta << "============================================================\n\n";
+  meta << "File Format: Fixed-width columns (width=60)\n";
+  meta << "Precision: 4 decimal places\n";
+  meta << "Total Columns: 38\n\n";
+  meta << "============================================================\n";
+  meta << "COLUMN DEFINITIONS\n";
+  meta << "============================================================\n\n";
+
+  meta << "Col  1: t                      Time period\n";
+  meta << "Col  2: GDP_r(1)               Real GDP (aggregate output)\n";
+  meta << "Col  3: Consumption_r          Real consumption\n";
+  meta << "Col  4: Investment_r           Real investment (expansion + replacement)\n";
+  meta << "Col  5: 1 - U(1)               Employment rate (1 - unemployment rate)\n";
+  meta << "Col  6: cpi(1)                 Consumer price index\n";
+  meta << "Col  7: cpi(1)/cpi(2)          CPI growth rate\n";
+  meta << "Col  8: Am(1)                  Mean productivity across all firms\n";
+  meta << "Col  9: Deficit                Government deficit\n";
+  meta << "Col 10: GB(1)                  Government bonds outstanding\n";
+  meta << "Col 11: w(1)                   Nominal wage rate\n";
+  meta << "Col 12: w(1)/w(2)              Wage growth rate\n";
+  meta << "Col 13: r                      Policy interest rate (CB rate)\n";
+  meta << "Col 14: r_bonds                Government bond rate\n";
+  meta << "Col 15: Loans_2.Row(1).Sum()   Total loans to C-firms\n";
+  meta << "Col 16: Deposits.Row(1).Sum()  Total deposits (all sectors)\n";
+  meta << "Col 17: baddebt_b.Sum()        Total bad debt\n";
+  meta << "Col 18: CreditSupply_all       Total credit supply (Basel constraint)\n";
+  meta << "Col 19: CreditDemand_all       Total credit demand\n";
+  meta << "Col 20: Inventories.Row(1).Sum() Total inventories (real)\n";
+  meta << "Col 21: N.Row(1).Sum()         Total employment in C-firms\n";
+  meta << "Col 22: Bailout                Bank bailout costs\n";
+  meta << "Col 23: GDP_n(1)               Nominal GDP (value-added)\n";
+  meta << "Col 24: Q_ge/D_en_TOT(1)       Green energy share of total energy demand\n";
+  meta << "Col 25: D_en_TOT(1)            Total energy demand\n";
+  meta << "Col 26: Emiss_TOT(1)           Total CO2 emissions (all sectors)\n";
+  meta << "Col 27: Cum_emissions          Cumulative CO2 emissions\n";
+  meta << "Col 28: Tmixed(1)              Global mean temperature anomaly\n";
+  meta << "Col 29: Q1tot                  Total K-firm production (machines)\n";
+  meta << "Col 30: Q2tot                  Total C-firm production (consumption goods)\n";
+  meta << "Col 31: N1r                    Number of K-firms (capital goods sector)\n";
+  meta << "Col 32: N2r                    Number of C-firms (consumption goods sector)\n";
+  meta << "Col 33: LS                     Labor supply\n";
+  meta << "Col 34: Q_ge                   Green energy production\n";
+  meta << "Col 35: Q_de                   Dirty energy production\n";
+  meta << "Col 36: Emiss1_TOT             K-firm emissions\n";
+  meta << "Col 37: Emiss2_TOT             C-firm emissions\n";
+  meta << "Col 38: Emiss_en               Energy sector emissions\n\n";
+
+  meta << "============================================================\n";
+  meta << "NOTES\n";
+  meta << "============================================================\n\n";
+  meta << "- Columns are 0-indexed in Python/pandas (subtract 1)\n";
+  meta << "- Real variables (suffix _r) are in physical units\n";
+  meta << "- Nominal variables (suffix _n) are in monetary units\n";
+  meta << "- Rates are in decimal form (0.05 = 5%)\n";
+  meta << "- Employment is measured in workers\n";
+  meta << "- Production is measured in physical units\n";
+  meta << "- Emissions are in CO2 units\n\n";
+
+  meta.close();
+}
+
+void WRITE_REGIONAL_METADATA(const char *filename)
+{
+  // Create a metadata file describing the regional output file structure
+  ofstream meta(filename);
+  meta << "============================================================\n";
+  meta << "REGIONAL OUTPUT FILE METADATA\n";
+  meta << "============================================================\n\n";
+  meta << "File Format: Fixed-width columns (width=60)\n";
+  meta << "Precision: 10 decimal places\n";
+  meta << "Total Columns: 24\n";
+  meta << "Files: resultsexp_reg1_*.txt, resultsexp_reg2_*.txt, resultsexp_reg3_*.txt\n\n";
+  meta << "============================================================\n";
+  meta << "COLUMN DEFINITIONS\n";
+  meta << "============================================================\n\n";
+
+  meta << "Col  1: t                      Time period\n";
+  meta << "Col  2: reg_GDP_r              Regional real GDP\n";
+  meta << "Col  3: reg_Consumption_r      Regional real consumption\n";
+  meta << "Col  4: reg_Investment_r       Regional real investment\n";
+  meta << "Col  5: (1-reg_U)/NR           Regional employment rate (scaled)\n";
+  meta << "Col  6: reg_Am                 Regional mean productivity\n";
+  meta << "Col  7: reg_Loans_2            Regional C-firm loans\n";
+  meta << "Col  8: reg_Inventories        Regional nominal inventories\n";
+  meta << "Col  9: reg_N                  Regional real inventories (employment)\n";
+  meta << "Col 10: reg_GDP_n              Regional nominal GDP\n";
+  meta << "Col 11: reg_Qge/reg_D_en       Regional green energy share\n";
+  meta << "Col 12: reg_D_en_TOT           Regional total energy demand\n";
+  meta << "Col 13: reg_Emiss_TOT          Regional total emissions\n";
+  meta << "Col 14: reg_Cum_emission       Regional cumulative emissions\n";
+  meta << "Col 15: reg_Q1                 Regional K-firm production\n";
+  meta << "Col 16: reg_Q2                 Regional C-firm production\n";
+  meta << "Col 17: reg_N1                 Regional number of K-firms\n";
+  meta << "Col 18: reg_N2                 Regional number of C-firms\n";
+  meta << "Col 19: reg_LS                 Regional labor supply\n";
+  meta << "Col 20: reg_Qge                Regional green energy produced\n";
+  meta << "Col 21: reg_Qde                Regional dirty energy produced\n";
+  meta << "Col 22: reg_Emiss1_TOT         Regional K-firm emissions\n";
+  meta << "Col 23: reg_Emiss2_TOT         Regional C-firm emissions\n";
+  meta << "Col 24: reg_Emiss_en           Regional energy sector emissions\n\n";
+
+  meta << "============================================================\n";
+  meta << "NOTES\n";
+  meta << "============================================================\n\n";
+  meta << "- Columns are 0-indexed in Python/pandas (subtract 1)\n";
+  meta << "- Regional values are computed post-ENTRYEXIT to match\n";
+  meta << "  national timing (prices, firm locations updated)\n";
+  meta << "- Sum across all regions should equal national totals\n";
+  meta << "- Firms can relocate during ENTRYEXIT, affecting regional counts\n";
+  meta << "- Employment rate (col 5) is scaled by 1/NR for technical reasons\n\n";
+  meta << "VALIDATION:\n";
+  meta << "- reg1_col10 + reg2_col10 + reg3_col10 should equal ymc_col23 (GDP_n)\n";
+  meta << "- reg1_col7 + reg2_col7 + reg3_col7 should equal ymc_col15 (Loans_2)\n";
+  meta << "- reg1_col9 + reg2_col9 + reg3_col9 should equal ymc_col21 (N)\n";
+  meta << "- reg1_col13 + reg2_col13 + reg3_col13 should equal ymc_col26 (Emiss_TOT)\n\n";
+
+  meta.close();
 }
 
 void GENFILESHOCKEXP(char *path, const char *s3, char runname[], char const *seednumber)
