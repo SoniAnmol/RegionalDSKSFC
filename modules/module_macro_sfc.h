@@ -237,6 +237,8 @@ extern std::vector<double> reg_N2;
 extern std::vector<double> reg_Q1;
 extern std::vector<double> reg_Q2;
 extern std::vector<double> reg_U;
+extern std::vector<double> reg_Q1tot;
+extern std::vector<double> reg_Q2tot;
 extern std::vector<double> reg_Am;
 extern std::vector<double> reg_D1_en;
 extern std::vector<double> reg_D2_en;

@@ -133,12 +133,6 @@ int main(int argc, char *argv[])
       region_resultsexp_names[rr - 1] = oss.str();
       region_resultsexp_streams[rr - 1].open(region_resultsexp_names[rr - 1], std::ios::out | std::ios::trunc);
     }
-
-    // Create metadata file for regional outputs (only once, not per region)
-    std::ostringstream meta_oss;
-    meta_oss << filepath << "/regional_metadata_" << runname << "_" << seednumber << ".txt";
-    std::string regional_meta_name = meta_oss.str();
-    WRITE_REGIONAL_METADATA(regional_meta_name.c_str());
   }
 
   if (flag_validation == 1)
@@ -159,12 +153,6 @@ int main(int argc, char *argv[])
   else if (fulloutput == 0)
   {
     GENFILEYMC(filepath, "/ymc", runname, seednumber);
-
-    // Create metadata file for YMC output
-    std::ostringstream ymc_meta_oss;
-    ymc_meta_oss << filepath << "/ymc_metadata_" << runname << "_" << seednumber << ".txt";
-    std::string ymc_meta_name = ymc_meta_oss.str();
-    WRITE_YMC_METADATA(ymc_meta_name.c_str());
   }
 
   if (verbose)
@@ -1132,6 +1120,8 @@ void RESIZE(void)
     reg_N2.assign(NR, 0.0);
     reg_Q1.assign(NR, 0.0);
     reg_Q2.assign(NR, 0.0);
+    reg_Q1tot.assign(NR, 0.0);
+    reg_Q2tot.assign(NR, 0.0);
     reg_GDP_r.assign(NR, 0.0);
     reg_Consumption_r.assign(NR, 0.0);
     reg_Investment_r.assign(NR, 0.0);
@@ -1216,6 +1206,8 @@ void INITIALIZE(int Exseed)
     reg_N2.assign(NR, 0.0);
     reg_Q1.assign(NR, 0.0);
     reg_Q2.assign(NR, 0.0);
+    reg_Q1tot.assign(NR, 0.0);
+    reg_Q2tot.assign(NR, 0.0);
     reg_GDP_r.assign(NR, 0.0);
     reg_Consumption_r.assign(NR, 0.0);
     reg_Investment_r.assign(NR, 0.0);
@@ -6431,11 +6423,11 @@ void REGIONAL_CONSISTENCY_CHECK(void)
     }
   }
 
-  // Check Q1: Sum of regional Q1 should equal national Q1tot
+  // Check Q1: Sum of regional Q1tot should equal national Q1tot
   regional_sum = 0;
   for (int rr = 0; rr < NR; ++rr)
   {
-    regional_sum += reg_Q1[rr];
+    regional_sum += reg_Q1tot[rr];
   }
   national_value = Q1tot;
   if (fabs(national_value) > 1e-10)
@@ -6449,11 +6441,11 @@ void REGIONAL_CONSISTENCY_CHECK(void)
     }
   }
 
-  // Check Q2: Sum of regional Q2 should equal national Q2tot
+  // Check Q2: Sum of regional Q2tot should equal national Q2tot
   regional_sum = 0;
   for (int rr = 0; rr < NR; ++rr)
   {
-    regional_sum += reg_Q2[rr];
+    regional_sum += reg_Q2tot[rr];
   }
   national_value = Q2tot;
   if (fabs(national_value) > 1e-10)
@@ -7379,9 +7371,9 @@ void SAVE(void)
       target.width(60);
       target << reg_Cum_emissions[region - 1]; // 14: reg_Cum_emission (Cumulative emissions)
       target.width(60);
-      target << reg_Q1[region - 1]; // 15: reg_Q1 (K-firm production)
+      target << reg_Q1tot[region - 1]; // 15: reg_Q1tot (K-firm production)
       target.width(60);
-      target << reg_Q2[region - 1]; // 16: reg_Q2 (C-firm production)
+      target << reg_Q2tot[region - 1]; // 16: reg_Q2tot (C-firm production)
       target.width(60);
       target << reg_N1[region - 1]; // 17: reg_N1 (Number of K-firms)
       target.width(60);
@@ -7914,131 +7906,6 @@ void GENFILEYMC(char *path, const char *s2, char runname[], char const *seednumb
   name2 = strcat(nomefile2, "_");
   name2 = strcat(nomefile2, seednumber);
   strcat(nomefile2, ".txt");
-}
-
-void WRITE_YMC_METADATA(const char *filename)
-{
-  // Create a metadata file describing the YMC output file structure
-  ofstream meta(filename);
-  meta << "============================================================\n";
-  meta << "YMC OUTPUT FILE METADATA\n";
-  meta << "============================================================\n\n";
-  meta << "File Format: Fixed-width columns (width=60)\n";
-  meta << "Precision: 4 decimal places\n";
-  meta << "Total Columns: 38\n\n";
-  meta << "============================================================\n";
-  meta << "COLUMN DEFINITIONS\n";
-  meta << "============================================================\n\n";
-
-  meta << "Col  1: t                      Time period\n";
-  meta << "Col  2: GDP_r(1)               Real GDP (aggregate output)\n";
-  meta << "Col  3: Consumption_r          Real consumption\n";
-  meta << "Col  4: Investment_r           Real investment (expansion + replacement)\n";
-  meta << "Col  5: 1 - U(1)               Employment rate (1 - unemployment rate)\n";
-  meta << "Col  6: cpi(1)                 Consumer price index\n";
-  meta << "Col  7: cpi(1)/cpi(2)          CPI growth rate\n";
-  meta << "Col  8: Am(1)                  Mean productivity across all firms\n";
-  meta << "Col  9: Deficit                Government deficit\n";
-  meta << "Col 10: GB(1)                  Government bonds outstanding\n";
-  meta << "Col 11: w(1)                   Nominal wage rate\n";
-  meta << "Col 12: w(1)/w(2)              Wage growth rate\n";
-  meta << "Col 13: r                      Policy interest rate (CB rate)\n";
-  meta << "Col 14: r_bonds                Government bond rate\n";
-  meta << "Col 15: Loans_2.Row(1).Sum()   Total loans to C-firms\n";
-  meta << "Col 16: Deposits.Row(1).Sum()  Total deposits (all sectors)\n";
-  meta << "Col 17: baddebt_b.Sum()        Total bad debt\n";
-  meta << "Col 18: CreditSupply_all       Total credit supply (Basel constraint)\n";
-  meta << "Col 19: CreditDemand_all       Total credit demand\n";
-  meta << "Col 20: Inventories.Row(1).Sum() Total inventories (real)\n";
-  meta << "Col 21: N.Row(1).Sum()         Total employment in C-firms\n";
-  meta << "Col 22: Bailout                Bank bailout costs\n";
-  meta << "Col 23: GDP_n(1)               Nominal GDP (value-added)\n";
-  meta << "Col 24: Q_ge/D_en_TOT(1)       Green energy share of total energy demand\n";
-  meta << "Col 25: D_en_TOT(1)            Total energy demand\n";
-  meta << "Col 26: Emiss_TOT(1)           Total CO2 emissions (all sectors)\n";
-  meta << "Col 27: Cum_emissions          Cumulative CO2 emissions\n";
-  meta << "Col 28: Tmixed(1)              Global mean temperature anomaly\n";
-  meta << "Col 29: Q1tot                  Total K-firm production (machines)\n";
-  meta << "Col 30: Q2tot                  Total C-firm production (consumption goods)\n";
-  meta << "Col 31: N1r                    Number of K-firms (capital goods sector)\n";
-  meta << "Col 32: N2r                    Number of C-firms (consumption goods sector)\n";
-  meta << "Col 33: LS                     Labor supply\n";
-  meta << "Col 34: Q_ge                   Green energy production\n";
-  meta << "Col 35: Q_de                   Dirty energy production\n";
-  meta << "Col 36: Emiss1_TOT             K-firm emissions\n";
-  meta << "Col 37: Emiss2_TOT             C-firm emissions\n";
-  meta << "Col 38: Emiss_en               Energy sector emissions\n\n";
-
-  meta << "============================================================\n";
-  meta << "NOTES\n";
-  meta << "============================================================\n\n";
-  meta << "- Columns are 0-indexed in Python/pandas (subtract 1)\n";
-  meta << "- Real variables (suffix _r) are in physical units\n";
-  meta << "- Nominal variables (suffix _n) are in monetary units\n";
-  meta << "- Rates are in decimal form (0.05 = 5%)\n";
-  meta << "- Employment is measured in workers\n";
-  meta << "- Production is measured in physical units\n";
-  meta << "- Emissions are in CO2 units\n\n";
-
-  meta.close();
-}
-
-void WRITE_REGIONAL_METADATA(const char *filename)
-{
-  // Create a metadata file describing the regional output file structure
-  ofstream meta(filename);
-  meta << "============================================================\n";
-  meta << "REGIONAL OUTPUT FILE METADATA\n";
-  meta << "============================================================\n\n";
-  meta << "File Format: Fixed-width columns (width=60)\n";
-  meta << "Precision: 10 decimal places\n";
-  meta << "Total Columns: 24\n";
-  meta << "Files: resultsexp_reg1_*.txt, resultsexp_reg2_*.txt, resultsexp_reg3_*.txt\n\n";
-  meta << "============================================================\n";
-  meta << "COLUMN DEFINITIONS\n";
-  meta << "============================================================\n\n";
-
-  meta << "Col  1: t                      Time period\n";
-  meta << "Col  2: reg_GDP_r              Regional real GDP\n";
-  meta << "Col  3: reg_Consumption_r      Regional real consumption\n";
-  meta << "Col  4: reg_Investment_r       Regional real investment\n";
-  meta << "Col  5: (1-reg_U)/NR           Regional employment rate (scaled)\n";
-  meta << "Col  6: reg_Am                 Regional mean productivity\n";
-  meta << "Col  7: reg_Loans_2            Regional C-firm loans\n";
-  meta << "Col  8: reg_Inventories        Regional nominal inventories\n";
-  meta << "Col  9: reg_N                  Regional real inventories (employment)\n";
-  meta << "Col 10: reg_GDP_n              Regional nominal GDP\n";
-  meta << "Col 11: reg_Qge/reg_D_en       Regional green energy share\n";
-  meta << "Col 12: reg_D_en_TOT           Regional total energy demand\n";
-  meta << "Col 13: reg_Emiss_TOT          Regional total emissions\n";
-  meta << "Col 14: reg_Cum_emission       Regional cumulative emissions\n";
-  meta << "Col 15: reg_Q1                 Regional K-firm production\n";
-  meta << "Col 16: reg_Q2                 Regional C-firm production\n";
-  meta << "Col 17: reg_N1                 Regional number of K-firms\n";
-  meta << "Col 18: reg_N2                 Regional number of C-firms\n";
-  meta << "Col 19: reg_LS                 Regional labor supply\n";
-  meta << "Col 20: reg_Qge                Regional green energy produced\n";
-  meta << "Col 21: reg_Qde                Regional dirty energy produced\n";
-  meta << "Col 22: reg_Emiss1_TOT         Regional K-firm emissions\n";
-  meta << "Col 23: reg_Emiss2_TOT         Regional C-firm emissions\n";
-  meta << "Col 24: reg_Emiss_en           Regional energy sector emissions\n\n";
-
-  meta << "============================================================\n";
-  meta << "NOTES\n";
-  meta << "============================================================\n\n";
-  meta << "- Columns are 0-indexed in Python/pandas (subtract 1)\n";
-  meta << "- Regional values are computed post-ENTRYEXIT to match\n";
-  meta << "  national timing (prices, firm locations updated)\n";
-  meta << "- Sum across all regions should equal national totals\n";
-  meta << "- Firms can relocate during ENTRYEXIT, affecting regional counts\n";
-  meta << "- Employment rate (col 5) is scaled by 1/NR for technical reasons\n\n";
-  meta << "VALIDATION:\n";
-  meta << "- reg1_col10 + reg2_col10 + reg3_col10 should equal ymc_col23 (GDP_n)\n";
-  meta << "- reg1_col7 + reg2_col7 + reg3_col7 should equal ymc_col15 (Loans_2)\n";
-  meta << "- reg1_col9 + reg2_col9 + reg3_col9 should equal ymc_col21 (N)\n";
-  meta << "- reg1_col13 + reg2_col13 + reg3_col13 should equal ymc_col26 (Emiss_TOT)\n\n";
-
-  meta.close();
 }
 
 void GENFILESHOCKEXP(char *path, const char *s3, char runname[], char const *seednumber)

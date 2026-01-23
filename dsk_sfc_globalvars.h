@@ -551,6 +551,8 @@ std::vector<double> reg_N1;            // Regional number of K-firms
 std::vector<double> reg_N2;            // Regional number of C-firms
 std::vector<double> reg_Q1;            // Regional production of K-firms
 std::vector<double> reg_Q2;            // Regional production of C-firms
+std::vector<double> reg_Q1tot;         // Regional copy of national Q1tot
+std::vector<double> reg_Q2tot;         // Regional copy of national Q2tot
 std::vector<double> reg_GDP_r;         // Regional real GDP
 std::vector<double> reg_Consumption_r; // Regional total real consumption
 std::vector<double> reg_Investment_r;  // Regional total real investment

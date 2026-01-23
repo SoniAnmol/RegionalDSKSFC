@@ -10,36 +10,172 @@ OUT_DIR = pathlib.Path('output')
 # Flag to show variable name in legends
 show_variable_name = True
 
+# Static column definitions (indices are 0-based in pandas)
+YMC_COLS = [
+    't',
+    'GDP_r_1',
+    'Consumption_r',
+    'Investment_r',
+    'EmploymentRate_1',
+    'cpi_1',
+    'cpi_1_over_cpi_2',
+    'Am_1',
+    'Deficit',
+    'GB_1',
+    'w_1',
+    'w_1_over_w_2',
+    'r',
+    'r_bonds',
+    'Loans_2_Row1_Sum',
+    'Deposits_Row1_Sum',
+    'baddebt_b_Sum',
+    'CreditSupply_all',
+    'CreditDemand_all',
+    'Inventories_Row1_Sum',
+    'N_Row1_Sum',
+    'Bailout',
+    'GDP_n_1',
+    'Q_ge_over_D_en_TOT_1',
+    'D_en_TOT_1',
+    'Emiss_TOT_1',
+    'Cum_emissions',
+    'Tmixed_1',
+    'Q1tot',
+    'Q2tot',
+    'N1r',
+    'N2r',
+    'LS',
+    'Q_ge',
+    'Q_de',
+    'Emiss1_TOT',
+    'Emiss2_TOT',
+    'Emiss_en',
+]
 
-def parse_metadata_file(metadata_path):
-    """Parse metadata file to extract column definitions.
-    
-    Returns:
-        dict: {col_num: {'variable': str, 'description': str}}
-    """
-    columns = {}
-    with open(metadata_path, 'r') as f:
-        for line in f:
-            # Look for lines like: "Col  1: t                      Time period"
-            match = re.match(r'Col\s+(\d+):\s+(\S+)\s+(.*)', line)
-            if match:
-                col_num = int(match.group(1))
-                variable = match.group(2).strip()
-                description = match.group(3).strip()
-                columns[col_num] = {
-                    'variable': variable,
-                    'description': description
-                }
-    return columns
+YMC_LABELS = {
+    't': 'time',
+    'GDP_r_1': 'GDP_real',
+    'Consumption_r': 'Consumption',
+    'Investment_r': 'Investment',
+    'EmploymentRate_1': 'EmploymentRate',
+    'cpi_1': 'CPI',
+    'cpi_1_over_cpi_2': 'CPI_rel',
+    'Am_1': 'Productivity_A',
+    'Deficit': 'PublicDeficit',
+    'GB_1': 'GovDebt',
+    'w_1': 'Wage',
+    'w_1_over_w_2': 'Wage_rel',
+    'r': 'PolicyRate',
+    'r_bonds': 'BondRate',
+    'Loans_2_Row1_Sum': 'TotalLoans',
+    'Deposits_Row1_Sum': 'TotalDeposits',
+    'baddebt_b_Sum': 'BankBadDebt',
+    'CreditSupply_all': 'CreditSupply',
+    'CreditDemand_all': 'CreditDemand',
+    'Inventories_Row1_Sum': 'Inventories',
+    'N_Row1_Sum': 'Employment',
+    'Bailout': 'Bailouts',
+    'GDP_n_1': 'GDP_nominal',
+    'Q_ge_over_D_en_TOT_1': 'GreenEnergyShare',
+    'D_en_TOT_1': 'EnergyDemand',
+    'Emiss_TOT_1': 'TotalEmissions',
+    'Cum_emissions': 'CumulativeEmissions',
+    'Tmixed_1': 'Temperature',
+    'Q1tot': 'Q_KGoods',
+    'Q2tot': 'Q_CGoods',
+    'N1r': 'Num_KFirms',
+    'N2r': 'Num_CFirms',
+    'LS': 'LabourSupply',
+    'Q_ge': 'GreenEnergy',
+    'Q_de': 'DirtyEnergy',
+    'Emiss1_TOT': 'Emissions_KFirms',
+    'Emiss2_TOT': 'Emissions_CFirms',
+    'Emiss_en': 'Emissions_Energy',
+}
 
+REG_COLS = [
+    't',
+    'reg_GDP_r',
+    'reg_Consumption_r',
+    'reg_Investment_r',
+    'reg_EmploymentRate',
+    'reg_Am',
+    'reg_Loans_2',
+    'reg_Inventories',
+    'reg_N',
+    'reg_GDP_n',
+    'reg_Q_ge_over_D_en',
+    'reg_D_en_TOT',
+    'reg_Emiss_TOT',
+    'reg_Cum_emissions',
+    'reg_Q1tot',
+    'reg_Q2tot',
+    'reg_N1',
+    'reg_N2',
+    'reg_LS',
+    'reg_Q_ge',
+    'reg_Q_de',
+    'reg_Emiss1_TOT',
+    'reg_Emiss2_TOT',
+    'reg_Emiss_en',
+]
 
-# Regional column names - will be loaded from metadata
-REG_TITLES = {}
-YMC_COLUMNS = {}
+REG_LABELS = {
+    't': 'time',
+    'reg_GDP_r': 'GDP_real_reg',
+    'reg_Consumption_r': 'Consumption_real_reg',
+    'reg_Investment_r': 'Investment_real_reg',
+    'reg_EmploymentRate': 'EmploymentRate_reg',
+    'reg_Am': 'Productivity_reg',
+    'reg_Loans_2': 'Loans_reg',
+    'reg_Inventories': 'Inventories_nominal_reg',
+    'reg_N': 'Inventories_real_reg',
+    'reg_GDP_n': 'GDP_nominal_reg',
+    'reg_Q_ge_over_D_en': 'GreenEnergyShare_reg',
+    'reg_D_en_TOT': 'EnergyDemand_reg',
+    'reg_Emiss_TOT': 'TotalEmissions_reg',
+    'reg_Cum_emissions': 'CumulativeEmissions_reg',
+    'reg_Q1tot': 'Output_KFirms_reg',
+    'reg_Q2tot': 'Output_CFirms_reg',
+    'reg_N1': 'Num_KFirms_reg',
+    'reg_N2': 'Num_CFirms_reg',
+    'reg_LS': 'LabourSupply_reg',
+    'reg_Q_ge': 'GreenEnergy_reg',
+    'reg_Q_de': 'DirtyEnergy_reg',
+    'reg_Emiss1_TOT': 'Emissions_KFirms_reg',
+    'reg_Emiss2_TOT': 'Emissions_CFirms_reg',
+    'reg_Emiss_en': 'Emissions_Energy_reg',
+}
+
+REG_TO_YMC = {
+    'reg_GDP_r': 'GDP_r_1',
+    'reg_Consumption_r': 'Consumption_r',
+    'reg_Investment_r': 'Investment_r',
+    'reg_EmploymentRate': 'EmploymentRate_1',
+    'reg_Am': 'Am_1',
+    'reg_Loans_2': 'Loans_2_Row1_Sum',
+    'reg_Inventories': 'Inventories_Row1_Sum',
+    'reg_N': 'N_Row1_Sum',
+    'reg_GDP_n': 'GDP_n_1',
+    'reg_Q_ge_over_D_en': 'Q_ge_over_D_en_TOT_1',
+    'reg_D_en_TOT': 'D_en_TOT_1',
+    'reg_Emiss_TOT': 'Emiss_TOT_1',
+    'reg_Cum_emissions': 'Cum_emissions',
+    'reg_Q1tot': 'Q1tot',
+    'reg_Q2tot': 'Q2tot',
+    'reg_N1': 'N1r',
+    'reg_N2': 'N2r',
+    'reg_LS': 'LS',
+    'reg_Q_ge': 'Q_ge',
+    'reg_Q_de': 'Q_de',
+    'reg_Emiss1_TOT': 'Emiss1_TOT',
+    'reg_Emiss2_TOT': 'Emiss2_TOT',
+    'reg_Emiss_en': 'Emiss_en',
+}
 
 # Find latest ymc file by modification time
 ymc_files = sorted(OUT_DIR.glob('ymc_*.txt'), key=lambda p: p.stat().st_mtime, reverse=True)
-# Exclude metadata files
+# Exclude metadata files (legacy)
 ymc_files = [f for f in ymc_files if 'metadata' not in f.name]
 if not ymc_files:
     raise SystemExit('No ymc_*.txt found in output/. Run the model first.')
@@ -59,24 +195,6 @@ else:
     PLOTS_DIR = OUT_DIR / 'plots' / 'figures'
 PLOTS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Load metadata files
-ymc_metadata_path = OUT_DIR / f'ymc_metadata_{run_name}_{seed}.txt'
-regional_metadata_path = OUT_DIR / f'regional_metadata_{run_name}_{seed}.txt'
-
-if not ymc_metadata_path.exists():
-    raise SystemExit(f'YMC metadata file not found: {ymc_metadata_path}\nRun the model to generate metadata.')
-if not regional_metadata_path.exists():
-    raise SystemExit(f'Regional metadata file not found: {regional_metadata_path}\nRun the model to generate metadata.')
-
-print(f'Loading YMC metadata from: {ymc_metadata_path.name}')
-YMC_COLUMNS = parse_metadata_file(ymc_metadata_path)
-
-print(f'Loading regional metadata from: {regional_metadata_path.name}')
-REG_COLUMNS = parse_metadata_file(regional_metadata_path)
-
-# Build REG_TITLES from metadata (use description for better readability)
-REG_TITLES = {col: info['description'] for col, info in REG_COLUMNS.items() if col > 1}
-
 # Find regional files pattern resultsexp_reg{r}_*.txt (pick most recent per region)
 reg_files = {}
 for p in OUT_DIR.glob('resultsexp_reg*_*.txt'):
@@ -93,115 +211,101 @@ if not reg_files:
 
 regions = sorted(reg_files.keys())
 
-# Read ymc (fixed width 60) and regional (fixed width 60)
-ymc = pd.read_fwf(ymc_path, header=None)
-region_dfs = {r: pd.read_fwf(path, header=None) for r, path in reg_files.items()}
-
-# Build column mapping from regional -> ymc based on variable names
-# Map regional columns to corresponding YMC columns
-YMC_BY_REGION_COL = {}
-
-# Mapping rules based on variable relationships
-regional_to_ymc_mapping = {
-    'reg_GDP_r': 'GDP_r(1)',
-    'reg_Consumption_r': 'Consumption_r',
-    'reg_Investment_r': 'Investment_r',
-    'reg_Am': 'Am(1)',
-    'reg_Loans_2': 'Loans_2',
-    'reg_Inventories': 'Inventories',
-    'reg_N': 'N',
-    'reg_GDP_n': 'GDP_n',
-    'reg_D_en_TOT': 'D_en_TOT(1)',
-    'reg_Emiss_TOT': 'Emiss_TOT(1)',
-    'reg_Cum_emission': 'Cum_emissions',
-    'reg_Q1': 'Q1tot',
-    'reg_Q2': 'Q2tot',
-    'reg_N1': 'N1r',
-    'reg_N2': 'N2r',
-    'reg_LS': 'LS',
-    'reg_Qge': 'Q_ge',  # Fixed: was reg_Q_ge, should be reg_Qge to match metadata
-    'reg_Qde': 'Q_de',  # Fixed: was reg_Q_de, should be reg_Qde to match metadata
-    'reg_Emiss1_TOT': 'Emiss1_TOT',
-    'reg_Emiss2_TOT': 'Emiss2_TOT',
-    'reg_Emiss_en': 'Emiss_en',
+# Read ymc/regional with explicit 60-char column widths to avoid inference drift
+ymc = pd.read_fwf(ymc_path, header=None, names=YMC_COLS, widths=[60] * len(YMC_COLS))
+region_dfs = {
+    r: pd.read_fwf(path, header=None, names=REG_COLS, widths=[60] * len(REG_COLS))
+    for r, path in reg_files.items()
 }
 
-# Build the mapping automatically
-for reg_col, reg_info in REG_COLUMNS.items():
-    if reg_col == 1:  # Skip time column
-        continue
-    
-    reg_var = reg_info['variable']
-    
-    # Try to find matching YMC column
-    ymc_var_to_find = regional_to_ymc_mapping.get(reg_var)
-    
-    if ymc_var_to_find:
-        # Find YMC column with this variable name
-        for ymc_col, ymc_info in YMC_COLUMNS.items():
-            if ymc_info['variable'] == ymc_var_to_find:
-                YMC_BY_REGION_COL[reg_col] = ymc_col
-                break
-    
-    # Handle special cases
-    if reg_var == '(1-reg_U)/NR':  # Employment rate
-        for ymc_col, ymc_info in YMC_COLUMNS.items():
-            if ymc_info['variable'] == '1-U(1)':
-                YMC_BY_REGION_COL[reg_col] = ymc_col
-                break
+# Build mapping from regional column name -> national column name (both strings)
+YMC_BY_REGION_COL = {reg_col: REG_TO_YMC[reg_col] for reg_col in REG_TO_YMC if reg_col in REG_COLS}
 
 print(f'\nPlotting {len(YMC_BY_REGION_COL)} variables from run: {run_name}, seed: {seed}')
 print(f'Found {len(regions)} regions')
 print(f'Saving plots to: {PLOTS_DIR}')
 
 # Time axis from ymc and regional; align by length
-x_nat = ymc.iloc[:, 0].to_numpy()
+x_nat = ymc['t'].to_numpy()
 
 for reg_col, ymc_col in YMC_BY_REGION_COL.items():
-    plt.figure(figsize=(9, 5))
+    plt.figure(figsize=(12, 6))
 
-    # Get variable name for title
-    var_name = REG_TITLES.get(reg_col, f'Column {reg_col}')
+    var_label = REG_LABELS.get(reg_col, reg_col)
 
-    # For Mean productivity (reg_col 6), use line plot; for others, use stacked area
-    if reg_col == 6:  # Mean productivity
-        # Prepare regional data for line plot
+    # Special handling for Q1tot and Q2tot: enhanced stacked area with better colors
+    if reg_col in ['reg_Q1tot', 'reg_Q2tot']:
+        x_reg = None
+        y_regions = []
+        labels_regions = []
+        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+        
+        for idx, r in enumerate(regions):
+            df = region_dfs[r]
+            if x_reg is None:
+                x_reg = df['t'].to_numpy()
+            y_reg = df[reg_col].to_numpy()
+            y_regions.append(y_reg)
+            labels_regions.append(f'Region {r}')
+
+        if x_reg is not None and y_regions:
+            plt.stackplot(x_reg, *y_regions, labels=labels_regions, 
+                         colors=colors[:len(regions)], alpha=0.7)
+
+        # National series as line (on top)
+        y_nat = ymc[ymc_col].to_numpy()
+        n = min(len(x_nat), len(y_nat))
+        plt.plot(x_nat[:n], y_nat[:n], label='National (Total)', 
+                color='black', linewidth=2.5, zorder=10)
+
+        title = f'{var_label}: Regional Breakdown vs National Total'
+        
+    # For mean productivity, use line plot; others stacked area
+    elif reg_col == 'reg_Am':
         x_reg = None
         for r in regions:
             df = region_dfs[r]
             if x_reg is None:
-                x_reg = df.iloc[:, 0].to_numpy()
-            y_reg = df.iloc[:, reg_col - 1].to_numpy()
+                x_reg = df['t'].to_numpy()
+            y_reg = df[reg_col].to_numpy()
             plt.plot(x_reg, y_reg, label=f'Region {r}', linewidth=1.5, alpha=0.8)
+        
+        # National series as line (on top)
+        y_nat = ymc[ymc_col].to_numpy()
+        n = min(len(x_nat), len(y_nat))
+        plt.plot(x_nat[:n], y_nat[:n], label='National', color='black', linewidth=2.5, zorder=10)
+        
+        title = var_label
+        
     else:
-        # Prepare regional data for stacked area plot
         x_reg = None
         y_regions = []
         labels_regions = []
         for r in regions:
             df = region_dfs[r]
             if x_reg is None:
-                x_reg = df.iloc[:, 0].to_numpy()
-            y_reg = df.iloc[:, reg_col - 1].to_numpy()
+                x_reg = df['t'].to_numpy()
+            y_reg = df[reg_col].to_numpy()
             y_regions.append(y_reg)
             labels_regions.append(f'Region {r}')
 
-        # Stacked area plot for regions
         if x_reg is not None and y_regions:
             plt.stackplot(x_reg, *y_regions, labels=labels_regions, alpha=0.7)
 
-    # National series as line (on top)
-    y_nat = ymc.iloc[:, ymc_col - 1].to_numpy()
-    n = min(len(x_nat), len(y_nat))
-    plt.plot(x_nat[:n], y_nat[:n], label='National', color='black', linewidth=2.5, zorder=10)
+        # National series as line (on top)
+        y_nat = ymc[ymc_col].to_numpy()
+        n = min(len(x_nat), len(y_nat))
+        plt.plot(x_nat[:n], y_nat[:n], label='National', color='black', linewidth=2.5, zorder=10)
 
-    plt.title(f'{var_name}' if show_variable_name else f'Column {reg_col}')
-    plt.xlabel('t')
-    plt.ylabel(var_name if show_variable_name else f'Column {reg_col}')
-    plt.legend()
+        title = var_label
+
+    plt.title(title if show_variable_name else reg_col, fontsize=13, fontweight='bold')
+    plt.xlabel('Time (t)', fontsize=11)
+    plt.ylabel(var_label if show_variable_name else reg_col, fontsize=11)
+    plt.legend(fontsize=10, loc='upper left')
     plt.grid(True, alpha=0.3)
-    safe = re.sub(r'[^A-Za-z0-9_]+', '_', REG_TITLES[reg_col]).strip('_')
-    out_png = PLOTS_DIR / f'{reg_col:02d}_{safe}.png'
+    safe = re.sub(r'[^A-Za-z0-9_]+', '_', var_label).strip('_')
+    out_png = PLOTS_DIR / f"{reg_col}_{safe}.png"
     plt.tight_layout()
     plt.savefig(out_png, dpi=150)
     plt.close()

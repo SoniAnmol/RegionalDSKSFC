@@ -119,6 +119,9 @@ void MACRO(void)
 	D2tot = D2.Row(1).Sum();
 	Q1tot = Q1.Sum();
 
+	// Note: reg_Q1tot and reg_Q2tot are computed in REGIONAL_UPDATE() after ENTRYEXIT
+	// to ensure they reflect the same firm population as other regional aggregates
+
 	for (j = 1; j <= N2; j++)
 	{
 		if (LD2 > 0)
@@ -292,6 +295,8 @@ void REGIONAL_UPDATE(void)
 			reg_GDP_n[rr] = 0;
 			reg_Q1[rr] = 0;
 			reg_Q2[rr] = 0;
+			reg_Q1tot[rr] = 0;
+			reg_Q2tot[rr] = 0;
 			reg_Loans_2[rr] = 0;
 			reg_Inventories[rr] = 0;
 			reg_N[rr] = 0;
@@ -329,6 +334,7 @@ void REGIONAL_UPDATE(void)
 			{
 				reg_GDP_n[rr - 1] += Q1(ii) * dim_mach * p1(ii) * a;
 				reg_Q1[rr - 1] += Q1(ii);
+				reg_Q1tot[rr - 1] += Q1(ii);
 				reg_N1[rr - 1]++;
 				reg_S1[rr - 1] += S1(ii);
 				reg_Ld1[rr - 1] += Ld1(ii);
@@ -348,6 +354,7 @@ void REGIONAL_UPDATE(void)
 			{
 				reg_GDP_n[rr - 1] += Q2(jj) * p2(jj);
 				reg_Q2[rr - 1] += Q2(jj);
+				reg_Q2tot[rr - 1] += Q2(jj);
 				reg_Loans_2[rr - 1] += Loans_2(1, jj);
 				reg_Inventories[rr - 1] += Inventories(1, jj);
 				reg_N[rr - 1] += N(1, jj);

@@ -50,8 +50,6 @@ void FOLDERS(char *path);
 void INTFILE(void);
 void GENFILEOUTPUT1(char *path, const char *s1, char runname[], char const *seednumber);
 void GENFILEYMC(char *path, const char *s2, char runname[], char const *seednumber);
-void WRITE_YMC_METADATA(const char *filename);
-void WRITE_REGIONAL_METADATA(const char *filename);
 void GENFILESHOCKEXP(char *path, const char *s3, char runname[], char const *seednumber);
 void GENFILEPROD1(char *path, const char *s4, char runname[], char const *seednumber);
 void GENFILEPROD2(char *path, const char *s5, char runname[], char const *seednumber);
