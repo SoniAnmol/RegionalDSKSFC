@@ -190,8 +190,8 @@
   ],
   "flags": [
     {
-      "flag_shockexperiment": 0,
-      "flag_exogenousshocks": 1,
+      "flag_shockexperiment": 1,
+      "flag_exogenousshocks": 0,
       "flag_cum_emissions": 0,
       "flag_tax_CO2": 4,
       "flag_energyshocks": 0,
@@ -202,7 +202,7 @@
       "flag_popshocks": 0,
       "flag_demandshocks": 0,
       "flag_RDshocks": 0,
-      "flag_prodshocks1": 0,
+      "flag_prodshocks1": 1,
       "flag_prodshocks2": 0,
       "flag_share_END": 2,
       "flag_energy_exp": 3,
@@ -212,7 +212,7 @@
       "flag_validation": 0,
       "flag_inventories": 0,
       "flag_scrap_age": 1,
-      "flag_uniformshocks": 1,
+      "flag_uniformshocks": 0,
       "flag_desc": 0
     }
   ],
