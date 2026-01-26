@@ -10,6 +10,9 @@ OUT_DIR = pathlib.Path('output')
 # Flag to show variable name in legends
 show_variable_name = True
 
+# Flag to show plot titles
+show_plot_title = False
+
 # Static column definitions (indices are 0-based in pandas)
 YMC_COLS = [
     't',
@@ -299,7 +302,8 @@ for reg_col, ymc_col in YMC_BY_REGION_COL.items():
 
         title = var_label
 
-    plt.title(title if show_variable_name else reg_col, fontsize=13, fontweight='bold')
+    if show_plot_title:
+        plt.title(title if show_variable_name else reg_col, fontsize=13, fontweight='bold')
     plt.xlabel('Time (t)', fontsize=11)
     plt.ylabel(var_label if show_variable_name else reg_col, fontsize=11)
     plt.legend(fontsize=10, loc='upper left')
