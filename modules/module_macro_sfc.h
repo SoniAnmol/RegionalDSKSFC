@@ -27,16 +27,18 @@
 #include "../dsk_sfc_functions.h"
 
 // Forward declare regional global variables used in REGIONAL_UPDATE
-extern std::vector<double> reg_S1, reg_S2, reg_K, reg_Investment, reg_EI, reg_SI;
+extern std::vector<double> reg_S1, reg_S2, reg_K, reg_Investment, reg_EI, reg_SI, reg_Wages, reg_Dividends_1, reg_Dividends_2;
 extern std::vector<double> reg_Ld1, reg_Ld2, reg_Emiss1, reg_Emiss2;
-extern std::vector<double> reg_Pi1, reg_Pi2, reg_NW1, reg_NW2;
-extern std::vector<double> reg_Deposits1, reg_Deposits2, reg_CapitalStock1, reg_CapitalStock2;
-extern std::vector<double> reg_Am1, reg_Am2, reg_GDP_r, reg_Investment_r, reg_LS, reg_Cum_emissions;
+extern std::vector<double> reg_Pi1, reg_Pi2, reg_Pitot1, reg_Pitot2, reg_Dividends_1, reg_Dividends_2, reg_NW_1, reg_NW2;
+extern std::vector<double> reg_Deposits1, reg_Deposits2, reg_CapitalStock1, reg_CapitalStock2, reg_CapitalStock, reg_NW_h;
+extern std::vector<double> reg_CreditDemand_all, reg_CreditSupply_all;
+extern std::vector<double> reg_Am1, reg_Am2, reg_Am_a, reg_Am_en, reg_GDP_r, reg_Investment_r, reg_ReplacementInvestment_r, reg_Investment_n, reg_EnergyPayments, reg_LS, reg_Cum_emissions, reg_Consumption;
 extern std::vector<double> reg_Emiss1_TOT, reg_Emiss2_TOT, reg_Emiss_en;
 extern double Emiss1_TOT, Emiss2_TOT, Emiss_en, Cum_emissions, LS, LD;
 // Forward declare firm-level matrices
 extern Matrix NW_1, NW_2, Deposits_1, Deposits_2, CapitalStock, Loans_2, Inventories, EI, N, S2;
-extern RowVector S1, Ld1, Ld2, K, I, SI, A1p, A2, nclient, Pi1, Pi2, Emiss2;
+extern RowVector S1, Ld1, Ld2, K, I, SI, A1p, A2, nclient, Pi1, Pi2, Emiss2, CreditDemand;
+extern RowVector NW_h;
 
 // -- Functions -- //
 void LABOR(void);           // Allocates labour supply; scales down production of firms if labour supply is insufficient
@@ -95,6 +97,8 @@ extern double LD;
 extern double LD2;
 extern RowVector Q2;
 extern RowVector Q1;
+extern RowVector EnergyPayments_1;
+extern RowVector EnergyPayments_2;
 extern double Qpast;
 extern Matrix Match;
 extern RowVector I;
@@ -213,6 +217,10 @@ extern RowVector D1_en;
 extern RowVector Am_en;
 extern Matrix Loans_b;
 extern int ranj;
+extern RowVector Dividends_1;
+extern RowVector Dividends_2;
+extern RowVector Wages_1;
+extern RowVector Wages_2;
 extern RowVector shocks_labprod1;
 extern double reduction;
 extern double Ipast;
@@ -247,6 +255,7 @@ extern std::vector<double> reg_GDP_n;
 extern std::vector<double> reg_Loans_2;
 extern std::vector<double> reg_Inventories;
 extern std::vector<double> reg_N;
+extern std::vector<double> reg_Am_a;
 
 // Cached national aggregates
 extern double cached_Loans_2_sum;

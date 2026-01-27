@@ -138,6 +138,20 @@ void MACRO(void)
 		A2_en_mi += log(A2_en(j));
 		A2_ef_mi += log(A2_ef(j));
 		H2 += f2(1, j) * f2(1, j);
+
+		// Accumulate regional Am_a and Am_en for C-firms
+		if (NR > 0)
+		{
+			int rr = region_firm_assignment_C[j - 1];
+			if (rr >= 1 && rr <= NR && LD2 > 0)
+			{
+				reg_Am_a[rr - 1] += Ld2(j) / LD2 * A2e(j);
+			}
+			if (rr >= 1 && rr <= NR && (D2_en_TOT + D1_en_TOT) > 0)
+			{
+				reg_Am_en[rr - 1] += D2_en(j) / (D2_en_TOT + D1_en_TOT) * A2e_en(j);
+			}
+		}
 	}
 
 	A_mi /= N2r;
@@ -177,6 +191,20 @@ void MACRO(void)
 		if ((D2_en_TOT + D1_en_TOT) > 0)
 		{
 			Am_en(1) += D1_en(i) / (D2_en_TOT + D1_en_TOT) * A1p_en(i);
+		}
+
+		// Accumulate regional Am_a and Am_en for K-firms
+		if (NR > 0)
+		{
+			int rr = region_firm_assignment_K[i - 1];
+			if (rr >= 1 && rr <= NR && LD2 > 0)
+			{
+				reg_Am_a[rr - 1] += Ld1(i) / LD2 * A1p(i) * a;
+			}
+			if (rr >= 1 && rr <= NR && (D2_en_TOT + D1_en_TOT) > 0)
+			{
+				reg_Am_en[rr - 1] += D1_en(i) / (D2_en_TOT + D1_en_TOT) * A1p_en(i);
+			}
 		}
 	}
 
@@ -298,6 +326,8 @@ void REGIONAL_UPDATE(void)
 			reg_Q1tot[rr] = 0;
 			reg_Q2tot[rr] = 0;
 			reg_Loans_2[rr] = 0;
+			reg_CreditDemand_all[rr] = 0;
+			reg_CreditSupply_all[rr] = 0;
 			reg_Inventories[rr] = 0;
 			reg_N[rr] = 0;
 			reg_N1[rr] = 0;
@@ -306,6 +336,10 @@ void REGIONAL_UPDATE(void)
 			reg_S2[rr] = 0;
 			reg_K[rr] = 0;
 			reg_Investment[rr] = 0;
+			reg_Investment_n[rr] = 0;
+			reg_ReplacementInvestment_r[rr] = 0;
+			reg_EnergyPayments[rr] = 0;
+			reg_Wages[rr] = 0;
 			reg_EI[rr] = 0;
 			reg_SI[rr] = 0;
 			reg_Ld1[rr] = 0;
@@ -316,12 +350,17 @@ void REGIONAL_UPDATE(void)
 			reg_Emiss2_TOT[rr] = 0;
 			reg_Pi1[rr] = 0;
 			reg_Pi2[rr] = 0;
-			reg_NW1[rr] = 0;
+			reg_Pitot1[rr] = 0;
+			reg_Pitot2[rr] = 0;
+			reg_Dividends_1[rr] = 0; // Initialize dividends for K-firms
+			reg_Dividends_2[rr] = 0;
+			reg_NW_1[rr] = 0;
 			reg_NW2[rr] = 0;
 			reg_Deposits1[rr] = 0;
 			reg_Deposits2[rr] = 0;
 			reg_CapitalStock1[rr] = 0;
 			reg_CapitalStock2[rr] = 0;
+			reg_CapitalStock[rr] = 0;
 		}
 
 		// Recalculate regional GDP_n (depends on prices which change in ENTRYEXIT)
@@ -339,10 +378,14 @@ void REGIONAL_UPDATE(void)
 				reg_S1[rr - 1] += S1(ii);
 				reg_Ld1[rr - 1] += Ld1(ii);
 				reg_Emiss1_TOT[rr - 1] += Emiss1(ii);
+				reg_EnergyPayments[rr - 1] += EnergyPayments_1(ii);
+				reg_Wages[rr - 1] += Wages_1(ii);
 				reg_Pi1[rr - 1] += Pi1(ii);
-				reg_NW1[rr - 1] += NW_1(1, ii);
+				reg_Pitot1[rr - 1] += Pi1(ii);
+				reg_Dividends_1[rr - 1] += Dividends_1(ii); // Aggregate dividends for K-firms
+				reg_NW_1[rr - 1] += NW_1(1, ii);
 				reg_Deposits1[rr - 1] += Deposits_1(1, ii);
-				reg_CapitalStock1[rr - 1] += CapitalStock(1, ii);
+				// Note: K-firms don't have capital stock (they produce machines, don't hold them)
 			}
 		}
 
@@ -354,6 +397,7 @@ void REGIONAL_UPDATE(void)
 			{
 				reg_GDP_n[rr - 1] += Q2(jj) * p2(jj);
 				reg_Q2[rr - 1] += Q2(jj);
+				reg_Dividends_2[rr] = 0;
 				reg_Q2tot[rr - 1] += Q2(jj);
 				reg_Loans_2[rr - 1] += Loans_2(1, jj);
 				reg_Inventories[rr - 1] += Inventories(1, jj);
@@ -362,15 +406,63 @@ void REGIONAL_UPDATE(void)
 				reg_S2[rr - 1] += S2(1, jj);
 				reg_K[rr - 1] += K(jj);
 				reg_Investment[rr - 1] += I(jj);
+				reg_Investment_n[rr - 1] += EI_n(jj) + SI_n(jj);
 				reg_EI[rr - 1] += EI(1, jj);
+				reg_ReplacementInvestment_r[rr - 1] += SI(jj);
 				reg_SI[rr - 1] += SI(jj);
+				reg_EnergyPayments[rr - 1] += EnergyPayments_2(jj);
+				reg_Wages[rr - 1] += Wages_2(jj);
 				reg_Ld2[rr - 1] += Ld2(jj);
 				reg_Emiss2[rr - 1] += Emiss2(jj);
 				reg_Emiss2_TOT[rr - 1] += Emiss2(jj);
 				reg_Pi2[rr - 1] += Pi2(jj);
+				reg_Pitot2[rr - 1] += Pi2(jj);
 				reg_NW2[rr - 1] += NW_2(1, jj);
 				reg_Deposits2[rr - 1] += Deposits_2(1, jj);
 				reg_CapitalStock2[rr - 1] += CapitalStock(1, jj);
+				reg_Dividends_2[rr - 1] += Dividends_2(jj); // Aggregate dividends for C-firms
+				reg_CreditDemand_all[rr - 1] += CreditDemand(jj);
+			}
+		}
+
+		// Calculate total regional capital stock (C-firms only, matching national CapitalStock)
+		for (int rr = 1; rr <= NR; ++rr)
+		{
+			reg_CapitalStock[rr - 1] = reg_CapitalStock2[rr - 1];
+		}
+
+		// Allocate credit supply proportionally to regional demand so regional totals sum to national
+		double total_reg_credit_demand = 0;
+		for (int rr = 1; rr <= NR; ++rr)
+		{
+			total_reg_credit_demand += reg_CreditDemand_all[rr - 1];
+		}
+		if (total_reg_credit_demand > 0)
+		{
+			for (int rr = 1; rr <= NR; ++rr)
+			{
+				reg_CreditSupply_all[rr - 1] = CreditSupply_all * (reg_CreditDemand_all[rr - 1] / total_reg_credit_demand);
+			}
+		}
+		else
+		{
+			for (int rr = 1; rr <= NR; ++rr)
+			{
+				reg_CreditSupply_all[rr - 1] = 0;
+			}
+		}
+
+		// Allocate household net worth to regions based on GDP share
+		double total_regional_GDP = 0;
+		for (int rr = 1; rr <= NR; ++rr)
+		{
+			total_regional_GDP += reg_GDP_n[rr - 1];
+		}
+		if (total_regional_GDP > 0)
+		{
+			for (int rr = 1; rr <= NR; ++rr)
+			{
+				reg_NW_h[rr - 1] = NW_h(1) * (reg_GDP_n[rr - 1] / total_regional_GDP);
 			}
 		}
 

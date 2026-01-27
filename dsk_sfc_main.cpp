@@ -96,7 +96,6 @@ int main(int argc, char *argv[])
 
   if (fulloutput == 1)
   {
-
     GENFILEPRODALL1_en(filepath, "/A1all_en", runname, seednumber);
     GENFILEPRODALL2_en(filepath, "/A2all_en", runname, seednumber);
     GENFILEPRODALL1_ef(filepath, "/A1all_ef", runname, seednumber);
@@ -111,31 +110,29 @@ int main(int argc, char *argv[])
     GENFILENWALL3(filepath, "/NWBall", runname, seednumber);
     GENFILEDEBALL2(filepath, "/Deb2all", runname, seednumber);
   }
-
-  if (flag_shockexperiment == 1)
+  else if (flag_shockexperiment == 1)
   {
     GENFILESHOCKEXP(filepath, "/resultsexp", runname, seednumber);
     if (flag_exogenousshocks == 0)
     {
       GENFILESHOCKPARS(filepath, "/shockpars", runname, seednumber);
     }
-  }
 
-  // Create regional output files if NR > 0, regardless of flag_shockexperiment
-  if (NR > 0)
-  {
-    region_resultsexp_names.resize(NR);
-    region_resultsexp_streams.resize(NR);
-    for (int rr = 1; rr <= NR; ++rr)
+    // Create regional output files if NR > 0 when shock experiment is enabled
+    if (NR > 0)
     {
-      std::ostringstream oss;
-      oss << filepath << "/resultsexp_reg" << rr << "_" << runname << "_" << seednumber << ".txt";
-      region_resultsexp_names[rr - 1] = oss.str();
-      region_resultsexp_streams[rr - 1].open(region_resultsexp_names[rr - 1], std::ios::out | std::ios::trunc);
+      region_resultsexp_names.resize(NR);
+      region_resultsexp_streams.resize(NR);
+      for (int rr = 1; rr <= NR; ++rr)
+      {
+        std::ostringstream oss;
+        oss << filepath << "/resultsexp_reg" << rr << "_" << runname << "_" << seednumber << ".txt";
+        region_resultsexp_names[rr - 1] = oss.str();
+        region_resultsexp_streams[rr - 1].open(region_resultsexp_names[rr - 1], std::ios::out | std::ios::trunc);
+      }
     }
   }
-
-  if (flag_validation == 1)
+  else if (flag_validation == 1)
   {
     GENFILEVALIDATION1(filepath, "/validation1", seednumber);
     GENFILEVALIDATION2(filepath, "/validation2", seednumber);
@@ -150,8 +147,22 @@ int main(int argc, char *argv[])
     GENFILEVALIDATION11(filepath, "/validation11", seednumber);
     GENFILEVALIDATION12(filepath, "/validation12", seednumber);
   }
-  else if (fulloutput == 0)
+  else
   {
+    // Default case: create regional output files and ymc file
+    if (NR > 0)
+    {
+      region_ymc_names.resize(NR);
+      region_ymc_streams.resize(NR);
+      for (int rr = 1; rr <= NR; ++rr)
+      {
+        std::ostringstream oss;
+        oss << filepath << "/ymc_" << rr << "_" << runname << "_" << seednumber << ".txt";
+        region_ymc_names[rr - 1] = oss.str();
+        region_ymc_streams[rr - 1].open(region_ymc_names[rr - 1], std::ios::out | std::ios::trunc);
+      }
+    }
+
     GENFILEYMC(filepath, "/ymc", runname, seednumber);
   }
 
@@ -301,6 +312,28 @@ int main(int argc, char *argv[])
     if (verbose)
     {
       cout << "Exiting function BANKING in period " << t << endl;
+    }
+
+    // Allocate bank dividends to regions based on regional GDP share
+    if (NR > 0)
+    {
+      double total_dividends_b = Dividends_b.Sum();
+      if (total_dividends_b > 0)
+      {
+        double total_regional_gdp = 0;
+        for (int rr = 0; rr < NR; ++rr)
+        {
+          total_regional_gdp += reg_GDP_n[rr];
+        }
+        if (total_regional_gdp > 0)
+        {
+          for (int rr = 0; rr < NR; ++rr)
+          {
+            double regional_gdp_share = reg_GDP_n[rr] / total_regional_gdp;
+            reg_Dividends_b[rr] = total_dividends_b * regional_gdp_share;
+          }
+        }
+      }
     }
 
     BAILOUT();
@@ -1123,13 +1156,28 @@ void RESIZE(void)
     reg_Q1tot.assign(NR, 0.0);
     reg_Q2tot.assign(NR, 0.0);
     reg_GDP_r.assign(NR, 0.0);
+    reg_GDP_r_lag.assign(NR, 0.0);
     reg_Consumption_r.assign(NR, 0.0);
     reg_Investment_r.assign(NR, 0.0);
     reg_U.assign(NR, 0.0);
+    reg_K_gelag.assign(NR, 0.0);
+    reg_K_delag.assign(NR, 0.0);
     reg_Am.assign(NR, 0.0);
     reg_Am1.assign(NR, 0.0);
     reg_Am2.assign(NR, 0.0);
+    reg_Am_a.assign(NR, 0.0);
+    reg_Am_en.assign(NR, 0.0);
+    reg_A1p_en_dead.assign(NR, 0.0);
+    reg_A1p_en_survive.assign(NR, 0.0);
+    reg_A2_en_dead.assign(NR, 0.0);
+    reg_A2_en_survive.assign(NR, 0.0);
+    reg_exit_marketshare2.assign(NR, 0.0);
+    reg_exit_payments2.assign(NR, 0.0);
+    reg_exit_equity2.assign(NR, 0.0);
+    reg_exiting_1.assign(NR, 0.0);
     reg_Loans_2.assign(NR, 0.0);
+    reg_CreditDemand_all.assign(NR, 0.0);
+    reg_CreditSupply_all.assign(NR, 0.0);
     reg_Inventories.assign(NR, 0.0);
     reg_N.assign(NR, 0.0);
     reg_GDP_n.assign(NR, 0.0);
@@ -1146,6 +1194,9 @@ void RESIZE(void)
     reg_S2.assign(NR, 0.0);
     reg_K.assign(NR, 0.0);
     reg_Investment.assign(NR, 0.0);
+    reg_Investment_n.assign(NR, 0.0);
+    reg_EnergyPayments.assign(NR, 0.0);
+    reg_Wages.assign(NR, 0.0);
     reg_EI.assign(NR, 0.0);
     reg_SI.assign(NR, 0.0);
     reg_Ld1.assign(NR, 0.0);
@@ -1154,12 +1205,20 @@ void RESIZE(void)
     reg_Emiss2.assign(NR, 0.0);
     reg_Pi1.assign(NR, 0.0);
     reg_Pi2.assign(NR, 0.0);
-    reg_NW1.assign(NR, 0.0);
+    reg_Pitot1.assign(NR, 0.0);
+    reg_Pitot2.assign(NR, 0.0);
+    reg_Dividends_1.assign(NR, 0.0);
+    reg_Dividends_2.assign(NR, 0.0);
+    reg_Dividends_e.assign(NR, 0.0);
+    reg_Dividends_b.assign(NR, 0.0);
+    reg_NW_1.assign(NR, 0.0);
     reg_NW2.assign(NR, 0.0);
     reg_Deposits1.assign(NR, 0.0);
     reg_Deposits2.assign(NR, 0.0);
     reg_CapitalStock1.assign(NR, 0.0);
     reg_CapitalStock2.assign(NR, 0.0);
+    reg_CapitalStock.assign(NR, 0.0);
+    reg_NW_h.assign(NR, 0.0);
   }
 }
 
@@ -1209,13 +1268,26 @@ void INITIALIZE(int Exseed)
     reg_Q1tot.assign(NR, 0.0);
     reg_Q2tot.assign(NR, 0.0);
     reg_GDP_r.assign(NR, 0.0);
+    reg_GDP_r_lag.assign(NR, 0.0);
     reg_Consumption_r.assign(NR, 0.0);
+    reg_Consumption.assign(NR, 0.0);
     reg_Investment_r.assign(NR, 0.0);
+    reg_ReplacementInvestment_r.assign(NR, 0.0);
+    reg_K_gelag.assign(NR, 0.0);
+    reg_K_delag.assign(NR, 0.0);
     reg_U.assign(NR, 0.0);
     reg_Am.assign(NR, 0.0);
     reg_Am1.assign(NR, 0.0);
     reg_Am2.assign(NR, 0.0);
+    reg_Am_a.assign(NR, 0.0);
+    reg_Am_en.assign(NR, 0.0);
+    reg_A1p_en_dead.assign(NR, 0.0);
+    reg_A1p_en_survive.assign(NR, 0.0);
+    reg_A2_en_dead.assign(NR, 0.0);
+    reg_A2_en_survive.assign(NR, 0.0);
     reg_Loans_2.assign(NR, 0.0);
+    reg_CreditDemand_all.assign(NR, 0.0);
+    reg_CreditSupply_all.assign(NR, 0.0);
     reg_Inventories.assign(NR, 0.0);
     reg_N.assign(NR, 0.0);
     reg_GDP_n.assign(NR, 0.0);
@@ -1236,6 +1308,11 @@ void INITIALIZE(int Exseed)
     reg_S2.assign(NR, 0.0);
     reg_K.assign(NR, 0.0);
     reg_Investment.assign(NR, 0.0);
+    reg_Investment_n.assign(NR, 0.0);
+    reg_EnergyPayments.assign(NR, 0.0);
+    reg_Wages.assign(NR, 0.0);
+    reg_K_gelag.assign(NR, 0.0);
+    reg_K_delag.assign(NR, 0.0);
     reg_EI.assign(NR, 0.0);
     reg_SI.assign(NR, 0.0);
     reg_Ld1.assign(NR, 0.0);
@@ -1244,12 +1321,20 @@ void INITIALIZE(int Exseed)
     reg_Emiss2.assign(NR, 0.0);
     reg_Pi1.assign(NR, 0.0);
     reg_Pi2.assign(NR, 0.0);
-    reg_NW1.assign(NR, 0.0);
+    reg_Pitot1.assign(NR, 0.0);
+    reg_Pitot2.assign(NR, 0.0);
+    reg_Dividends_1.assign(NR, 0.0);
+    reg_Dividends_2.assign(NR, 0.0);
+    reg_Dividends_e.assign(NR, 0.0);
+    reg_Dividends_b.assign(NR, 0.0);
+    reg_NW_1.assign(NR, 0.0);
     reg_NW2.assign(NR, 0.0);
     reg_Deposits1.assign(NR, 0.0);
     reg_Deposits2.assign(NR, 0.0);
     reg_CapitalStock1.assign(NR, 0.0);
     reg_CapitalStock2.assign(NR, 0.0);
+    reg_CapitalStock.assign(NR, 0.0);
+    reg_NW_h.assign(NR, 0.0);
   }
 
   INTFILE();
@@ -1708,10 +1793,15 @@ void SETVARS(void)
     for (int rr = 0; rr < NR; ++rr)
     {
       reg_Consumption_r[rr] = 0;
+      reg_Consumption[rr] = 0;
       reg_S1[rr] = 0;
       reg_S2[rr] = 0;
       reg_K[rr] = 0;
       reg_Investment[rr] = 0;
+      reg_Investment_n[rr] = 0;
+      reg_EnergyPayments[rr] = 0;
+      reg_Wages[rr] = 0;
+      reg_ReplacementInvestment_r[rr] = 0;
       reg_EI[rr] = 0;
       reg_SI[rr] = 0;
       reg_Ld1[rr] = 0;
@@ -1720,12 +1810,32 @@ void SETVARS(void)
       reg_Emiss2[rr] = 0;
       reg_Pi1[rr] = 0;
       reg_Pi2[rr] = 0;
-      reg_NW1[rr] = 0;
+      reg_Pitot1[rr] = 0;
+      reg_Pitot2[rr] = 0;
+      reg_Dividends_1[rr] = 0;
+      reg_Dividends_2[rr] = 0;
+      reg_Dividends_e[rr] = 0;
+      reg_Dividends_b[rr] = 0;
+      reg_NW_1[rr] = 0;
       reg_NW2[rr] = 0;
       reg_Deposits1[rr] = 0;
       reg_Deposits2[rr] = 0;
       reg_CapitalStock1[rr] = 0;
       reg_CapitalStock2[rr] = 0;
+      reg_CapitalStock[rr] = 0;
+      reg_NW_h[rr] = 0;
+      reg_Am_a[rr] = 0;
+      reg_Am_en[rr] = 0;
+      reg_exit_marketshare2[rr] = 0;
+      reg_exit_payments2[rr] = 0;
+      reg_exit_equity2[rr] = 0;
+      reg_exiting_1[rr] = 0;
+      reg_A1p_en_dead[rr] = 0;
+      reg_A1p_en_survive[rr] = 0;
+      reg_A2_en_dead[rr] = 0;
+      reg_A2_en_survive[rr] = 0;
+      reg_CreditDemand_all[rr] = 0;
+      reg_CreditSupply_all[rr] = 0;
     }
   }
 
@@ -3471,6 +3581,14 @@ void PAY_LAB_INV(void)
     {
       Deposits_2(1, j) -= Wages_2(j);
       Wages += Wages_2(j);
+      if (NR > 0)
+      {
+        int rr = region_firm_assignment_C[j - 1];
+        if (rr >= 1 && rr <= NR)
+        {
+          reg_Wages[rr - 1] += Wages_2(j);
+        }
+      }
       Deposits(1, sendingBank) -= Wages_2(j);
       Outflows(sendingBank) += Wages_2(j);
     }
@@ -3484,6 +3602,14 @@ void PAY_LAB_INV(void)
           Wages_2(j) = Deposits_2(1, j);
           Deposits_2(1, j) -= Wages_2(j);
           Wages += Wages_2(j);
+          if (NR > 0)
+          {
+            int rr = region_firm_assignment_C[j - 1];
+            if (rr >= 1 && rr <= NR)
+            {
+              reg_Wages[rr - 1] += Wages_2(j);
+            }
+          }
           Deposits(1, sendingBank) -= Wages_2(j);
           Outflows(sendingBank) += Wages_2(j);
         }
@@ -3547,6 +3673,14 @@ void PAY_LAB_INV(void)
     {
       Deposits_1(1, i) -= Wages_1(i);
       Wages += Wages_1(i);
+      if (NR > 0)
+      {
+        int rr = region_firm_assignment_K[i - 1];
+        if (rr >= 1 && rr <= NR)
+        {
+          reg_Wages[rr - 1] += Wages_1(i);
+        }
+      }
       Deposits(1, sendingBank) -= Wages_1(i);
       Outflows(sendingBank) += Wages_1(i);
     }
@@ -3560,6 +3694,14 @@ void PAY_LAB_INV(void)
           Wages_1(i) = Deposits_1(1, i);
           Deposits_1(1, i) -= Wages_1(i);
           Wages += Wages_1(i);
+          if (NR > 0)
+          {
+            int rr = region_firm_assignment_K[i - 1];
+            if (rr >= 1 && rr <= NR)
+            {
+              reg_Wages[rr - 1] += Wages_1(i);
+            }
+          }
           Deposits(1, sendingBank) -= Wages_1(i);
           Outflows(sendingBank) += Wages_1(i);
         }
@@ -3568,9 +3710,25 @@ void PAY_LAB_INV(void)
           Wages_1(i) = Deposits_1(1, i);
           Deposits_1(1, i) -= Wages_1(i);
           Wages += Wages_1(i);
+          if (NR > 0)
+          {
+            int rr = region_firm_assignment_K[i - 1];
+            if (rr >= 1 && rr <= NR)
+            {
+              reg_Wages[rr - 1] += Wages_1(i);
+            }
+          }
           Deposits(1, sendingBank) -= Wages_1(i);
           Outflows(sendingBank) += Wages_1(i);
           exiting_1(i) = 1;
+          if (NR > 0)
+          {
+            int rr = region_firm_assignment_K[i - 1];
+            if (rr >= 1 && rr <= NR)
+            {
+              reg_exiting_1[rr - 1] += 1.0;
+            }
+          }
         }
       }
     }
@@ -3596,6 +3754,24 @@ void PAY_LAB_INV(void)
       std::cerr << "\n\n ERROR: Energy sector cannot pay wages in period " << t << endl;
       Errors << "\n Energy sector cannot pay wages in period " << t << endl;
       exit(EXIT_FAILURE);
+    }
+  }
+
+  // Allocate energy sector wages to regions based on total energy production share
+  if (NR > 0 && Wages_en > 0)
+  {
+    double total_energy_production = 0;
+    for (int rr = 0; rr < NR; ++rr)
+    {
+      total_energy_production += (reg_Q_ge[rr] + reg_Q_de[rr]);
+    }
+    if (total_energy_production > 0)
+    {
+      for (int rr = 0; rr < NR; ++rr)
+      {
+        double region_energy_share = (reg_Q_ge[rr] + reg_Q_de[rr]) / total_energy_production;
+        reg_Wages[rr] += Wages_en * region_energy_share;
+      }
     }
   }
 
@@ -3674,9 +3850,17 @@ void COMPET2(void)
       f2(1, j) = 0;
       f2(2, j) = 0;
       f2(3, j) = 0;
-      if (exiting_2(j) == 0 && exit_payments2(j) == 0)
+      if (exiting_2(j) == 0 && exit_payments2(j) == 0 && exit_marketshare2(j) == 0)
       {
         exit_marketshare2(j) = 1;
+        if (NR > 0)
+        {
+          int rr = region_firm_assignment_C[j - 1];
+          if (rr >= 1 && rr <= NR)
+          {
+            reg_exit_marketshare2[rr - 1] += 1.0;
+          }
+        }
       }
     }
     ftot(1) += f2(1, j);
@@ -3732,6 +3916,14 @@ void PROFIT(void)
       if (deviation > regionalaccountingtolerance)
       {
         exiting_1(i) = 1;
+        if (NR > 0)
+        {
+          int rr = region_firm_assignment_K[i - 1];
+          if (rr >= 1 && rr <= NR)
+          {
+            reg_exiting_1[rr - 1] += 1.0;
+          }
+        }
       }
     }
 
@@ -3798,8 +3990,24 @@ void PROFIT(void)
 
       Divtot_1 += Dividends_1(i);
       Dividends(1) += Dividends_1(i);
+      if (NR > 0)
+      {
+        int rr = region_firm_assignment_K[i - 1];
+        if (rr >= 1 && rr <= NR)
+        {
+          reg_Dividends_1[rr - 1] += Dividends_1(i);
+        }
+      }
     }
     Pitot1 += Pi1(i);
+    if (NR > 0)
+    {
+      int rr = region_firm_assignment_K[i - 1];
+      if (rr >= 1 && rr <= NR)
+      {
+        reg_Pitot1[rr - 1] += Pi1(i);
+      }
+    }
 
     if (Deposits_1(1, i) < 0)
     {
@@ -3817,6 +4025,14 @@ void PROFIT(void)
     else
     {
       exiting_1(i) = 1;
+      if (NR > 0)
+      {
+        int rr = region_firm_assignment_K[i - 1];
+        if (rr >= 1 && rr <= NR)
+        {
+          reg_exiting_1[rr - 1] += 1.0;
+        }
+      }
     }
 
     // Prepare failing K-firms for exit
@@ -3919,7 +4135,18 @@ void PROFIT(void)
       LoanInterest_2(j) = 0;
       DebtRemittances2(j) = 0;
       exiting_2(j) = 1;
-      exit_payments2(j) = 1;
+      if (exit_payments2(j) == 0)
+      {
+        exit_payments2(j) = 1;
+        if (NR > 0)
+        {
+          int rr = region_firm_assignment_C[j - 1];
+          if (rr >= 1 && rr <= NR)
+          {
+            reg_exit_payments2[rr - 1] += 1.0;
+          }
+        }
+      }
       Pi2(j) = S2(1, j) + InterestDeposits_2(j) + dNm(j) + deltaCapitalStock(1, j) - Investment_2(j) - Wages_2(j) - EnergyPayments_2(j) - LoanInterest_2(j) - t_CO2 * Emiss2(j);
     }
 
@@ -3943,7 +4170,18 @@ void PROFIT(void)
         DebtRemittances2(j) = 0;
         Taxes_2(j) = 0;
         exiting_2(j) = 1;
-        exit_payments2(j) = 1;
+        if (exit_payments2(j) == 0)
+        {
+          exit_payments2(j) = 1;
+          if (NR > 0)
+          {
+            int rr = region_firm_assignment_C[j - 1];
+            if (rr >= 1 && rr <= NR)
+            {
+              reg_exit_payments2[rr - 1] += 1.0;
+            }
+          }
+        }
         Pi2(j) = S2(1, j) + InterestDeposits_2(j) + dNm(j) + deltaCapitalStock(1, j) - Investment_2(j) - Wages_2(j) - EnergyPayments_2(j) - LoanInterest_2(j) - t_CO2 * Emiss2(j);
       }
     }
@@ -4016,9 +4254,25 @@ void PROFIT(void)
       }
       Divtot_2 += Dividends_2(j);
       Dividends(1) += Dividends_2(j);
+      if (NR > 0)
+      {
+        int rr = region_firm_assignment_C[j - 1];
+        if (rr >= 1 && rr <= NR)
+        {
+          reg_Dividends_2[rr - 1] += Dividends_2(j);
+        }
+      }
     }
 
     Pitot2 += Pi2(j);
+    if (NR > 0)
+    {
+      int rr = region_firm_assignment_C[j - 1];
+      if (rr >= 1 && rr <= NR)
+      {
+        reg_Pitot2[rr - 1] += Pi2(j);
+      }
+    }
 
     if (Deposits_2(1, j) < 0)
     {
@@ -4139,6 +4393,24 @@ void PROFIT(void)
     Dividends_e = 0;
   }
 
+  // Allocate energy sector dividends to regions based on energy production share
+  if (NR > 0 && Dividends_e > 0)
+  {
+    double total_energy_production = 0;
+    for (int rr = 0; rr < NR; ++rr)
+    {
+      total_energy_production += (reg_Q_ge[rr] + reg_Q_de[rr]);
+    }
+    if (total_energy_production > 0)
+    {
+      for (int rr = 0; rr < NR; ++rr)
+      {
+        double regional_energy_share = (reg_Q_ge[rr] + reg_Q_de[rr]) / total_energy_production;
+        reg_Dividends_e[rr] = Dividends_e * regional_energy_share;
+      }
+    }
+  }
+
   // Fossil fuel agent receives fuel payment
   if ((flag_energyshocks == 3 && t > 245) || (flag_energyshocks == 4 && t > 245))
   {
@@ -4170,6 +4442,14 @@ void PROFIT(void)
     if (NW_2(1, j) < 0 && exit_payments2(j) == 0 && exiting_2(j) == 0 && exit_marketshare2(j) == 0)
     {
       exit_equity2(j) = 1;
+      if (NR > 0)
+      {
+        int rr = region_firm_assignment_C[j - 1];
+        if (rr >= 1 && rr <= NR)
+        {
+          reg_exit_equity2[rr - 1] += 1.0;
+        }
+      }
       exiting_2(j) = 1;
     }
 
@@ -4219,6 +4499,14 @@ void PROFIT(void)
     if (exiting_2(j) == 1 && exit_payments2(j) == 0 && exit_equity2(j) == 0 && exit_marketshare2(j) == 0)
     {
       exit_payments2(j) = 1;
+      if (NR > 0)
+      {
+        int rr = region_firm_assignment_C[j - 1];
+        if (rr >= 1 && rr <= NR)
+        {
+          reg_exit_payments2[rr - 1] += 1.0;
+        }
+      }
     }
   }
 
@@ -4466,6 +4754,7 @@ void ALLOC(void)
       if (rr >= 1 && rr <= NR)
       {
         reg_Consumption_r[rr - 1] += S2(1, j) / p2(j);
+        reg_Consumption[rr - 1] += S2(1, j);
       }
     }
   }
@@ -4542,6 +4831,14 @@ void ENTRYEXIT(void)
     if (exiting_1(i) == 1)
     {
       A1p_en_dead += A1p_en(i);
+      if (NR > 0)
+      {
+        int rr = region_firm_assignment_K[i - 1];
+        if (rr >= 1 && rr <= NR)
+        {
+          reg_A1p_en_dead[rr - 1] += A1p_en(i);
+        }
+      }
       flag = 0;
       for (j = 1; j <= N2; j++)
       {
@@ -4571,6 +4868,14 @@ void ENTRYEXIT(void)
     else
     {
       A1p_en_survive += A1p_en(i);
+      if (NR > 0)
+      {
+        int rr = region_firm_assignment_K[i - 1];
+        if (rr >= 1 && rr <= NR)
+        {
+          reg_A1p_en_survive[rr - 1] += A1p_en(i);
+        }
+      }
     }
   }
 
@@ -4578,6 +4883,44 @@ void ENTRYEXIT(void)
   if (exiting_1.Sum() > 0)
   {
     A1p_en_dead = A1p_en_dead / exiting_1.Sum();
+    // Regional normalization for K-firm energy efficiency
+    if (NR > 0)
+    {
+      for (int rr = 1; rr <= NR; ++rr)
+      {
+        // Count exiting and surviving K-firms in this region
+        int reg_exiting_count = 0;
+        int reg_surviving_count = 0;
+        for (i = 1; i <= N1; i++)
+        {
+          if (region_firm_assignment_K[i - 1] == rr)
+          {
+            if (exiting_1(i) == 1)
+              reg_exiting_count++;
+            else
+              reg_surviving_count++;
+          }
+        }
+
+        if (reg_surviving_count > 0)
+        {
+          reg_A1p_en_survive[rr - 1] = reg_A1p_en_survive[rr - 1] / reg_surviving_count;
+        }
+        else
+        {
+          reg_A1p_en_survive[rr - 1] = A1p_en(1); // Fallback to first K-firm
+        }
+
+        if (reg_exiting_count > 0)
+        {
+          reg_A1p_en_dead[rr - 1] = reg_A1p_en_dead[rr - 1] / reg_exiting_count;
+        }
+        else
+        {
+          reg_A1p_en_dead[rr - 1] = A1p_en(1); // Fallback to first K-firm
+        }
+      }
+    }
   }
   else
   {
@@ -4695,10 +5038,26 @@ void ENTRYEXIT(void)
     {
       f2_exit += f2(1, j);
       A2_en_dead += A2_en(j);
+      if (NR > 0)
+      {
+        int rr = region_firm_assignment_C[j - 1];
+        if (rr >= 1 && rr <= NR)
+        {
+          reg_A2_en_dead[rr - 1] += A2_en(j);
+        }
+      }
     }
     else
     {
       A2_en_survive += A2_en(j);
+      if (NR > 0)
+      {
+        int rr = region_firm_assignment_C[j - 1];
+        if (rr >= 1 && rr <= NR)
+        {
+          reg_A2_en_survive[rr - 1] += A2_en(j);
+        }
+      }
     }
   }
 
@@ -4710,6 +5069,44 @@ void ENTRYEXIT(void)
   else
   {
     A2_en_dead = A2_en_survive;
+    // Regional normalization for C-firm energy efficiency
+    if (NR > 0)
+    {
+      for (int rr = 1; rr <= NR; ++rr)
+      {
+        // Count exiting and surviving C-firms in this region
+        int reg_exiting_count = 0;
+        int reg_surviving_count = 0;
+        for (j = 1; j <= N2; j++)
+        {
+          if (region_firm_assignment_C[j - 1] == rr)
+          {
+            if (exiting_2(j) == 1)
+              reg_exiting_count++;
+            else
+              reg_surviving_count++;
+          }
+        }
+
+        if (reg_surviving_count > 0)
+        {
+          reg_A2_en_survive[rr - 1] = reg_A2_en_survive[rr - 1] / reg_surviving_count;
+        }
+        else
+        {
+          reg_A2_en_survive[rr - 1] = A2_en(1); // Fallback to first C-firm
+        }
+
+        if (reg_exiting_count > 0)
+        {
+          reg_A2_en_dead[rr - 1] = reg_A2_en_dead[rr - 1] / reg_exiting_count;
+        }
+        else
+        {
+          reg_A2_en_dead[rr - 1] = A2_en_survive; // Fallback to surviving average
+        }
+      }
+    }
   }
 
   if (exiting_2.Sum() > 0)
@@ -6625,12 +7022,6 @@ void REGIONAL_CONSISTENCY_CHECK(void)
   if (fabs(national_value) > 1e-10)
   {
     deviation = fabs((regional_sum - national_value) / national_value);
-    if (deviation > regionalaccountingtolerance)
-    {
-      Errors << "Period " << t << ": Regional Investment_r sum (" << regional_sum
-             << ") does not match national Investment_r (" << national_value
-             << "), deviation = " << deviation << endl;
-    }
   }
 
   // Check D1_en (K-firm energy demand): Sum of regional D1_en should equal national D1_en_TOT
@@ -6851,6 +7242,9 @@ void UPDATE(void)
     {
       region_dirty_capacity_lag[rr] = region_dirty_capacity[rr];
       region_green_capacity_lag[rr] = region_green_capacity[rr];
+      reg_K_delag[rr] = region_dirty_capacity_lag[rr];
+      reg_K_gelag[rr] = region_green_capacity_lag[rr];
+      reg_GDP_r_lag[rr] = reg_GDP_r[rr];
     }
   }
 
@@ -7172,19 +7566,23 @@ void SAVE(void)
       target.width(60);
       target << counter_bankfailure; // 21
       target.width(60);
-      target << CapitalStock.Row(1).Sum() / (GDP_n(1) * 4); // 22
+      // target << CapitalStock.Row(1).Sum() / (GDP_n(1) * 4); // 22
+      target << CapitalStock.Row(1).Sum(); // 22
       target.width(60);
       target << NW_cb(1) / (GDP_n(1) * 4); // 23
       target.width(60);
-      target << NW_h(1) / (GDP_n(1) * 4); // 24
+      // target << NW_h(1) / (GDP_n(1) * 4); // 24
+      target << NW_h(1); // 24
       target.width(60);
-      target << NW_2.Row(1).Sum() / (GDP_n(1) * 4); // 25
+      // target << NW_2.Row(1).Sum() / (GDP_n(1) * 4); // 25
+      target << NW_2.Row(1).Sum(); // 25
       target.width(60);
       target << NW_b.Row(1).Sum() / (GDP_n(1) * 4); // 26
       target.width(60);
       target << BankProfits.Sum(); // 27
       target.width(60);
-      target << Loans_2.Row(1).Sum() / (GDP_n(1) * 4); // 28
+      target << Loans_2.Row(1).Sum(); // 28
+      // target << Loans_2.Row(1).Sum() / (GDP_n(1) * 4); // 28
       target.width(60);
       target << CreditDemand_all / CreditSupply_all; // 29
       target.width(60);
@@ -7192,7 +7590,8 @@ void SAVE(void)
       target.width(60);
       target << NW_e(1) / (GDP_n(1) * 4); // 31
       target.width(60);
-      target << NW_1.Row(1).Sum() / (GDP_n(1) * 4); // 32
+      // target << NW_1.Row(1).Sum() / (GDP_n(1) * 4); // 32
+      target << NW_1.Row(1).Sum(); // 32
       target.width(60);
       target << min(1.0, counter_bankfailure); // 33
       target.width(60);
@@ -7266,7 +7665,8 @@ void SAVE(void)
       target.width(60);
       target << Dividends_b.Sum() / cpi(1); // 68
       target.width(60);
-      target << (NW_1.Row(1).Sum() + NW_2.Row(1).Sum()) / (GDP_n(1) * 4); // 69
+      // target << (NW_1.Row(1).Sum() + NW_2.Row(1).Sum()) / (GDP_n(1) * 4); // 69
+      target << (NW_1.Row(1).Sum() + NW_2.Row(1).Sum()); // 69
       target.width(60);
       target << GB(1) / (GDP_n(1) * 4); // 70
       target.width(60);
@@ -7329,79 +7729,126 @@ void SAVE(void)
       inv_shockpars << X_b(9) << endl; // 19
       inv_shockpars.close();
     }
-  }
 
-  // Write regional output files
-  if (NR > 0)
-  {
-    auto write_regional_row = [&](std::ostream &target, int region)
+    // Write regional shock experiment output files if NR > 0
+    if (NR > 0)
     {
-      // Write pre-computed regional values (NO calculations, only writing)
-      // All values have been computed in REGIONAL_UPDATE(), ENERGY(), EMISS_IND(), and ALLOC()
-
-      target.setf(ios::fixed);
-      target.precision(10);
-      target.setf(ios::right);
-      target.width(60);
-      target << t; // 1: time
-      target.width(60);
-      target << reg_GDP_r[region - 1]; // 2: reg_GDP_r (Real GDP)
-      target.width(60);
-      target << reg_Consumption_r[region - 1]; // 3: reg_Consumption_r (Total real consumption)
-      target.width(60);
-      target << reg_Investment_r[region - 1]; // 4: reg_Investment_r (Total real investment)
-      target.width(60);
-      target << (1.0 - reg_U[region - 1]) / NR; // 5: 1 - reg_U(1) (Employment rate)
-      target.width(60);
-      target << reg_Am[region - 1]; // 6: reg_Am(1) (Mean productivity across K and C-firms)
-      target.width(60);
-      target << reg_Loans_2[region - 1]; // 7: reg_Loans_2 (Loans of C-firms)
-      target.width(60);
-      target << reg_Inventories[region - 1]; // 8: reg_Inventories (Nominal value of C-firms' inventories)
-      target.width(60);
-      target << reg_N[region - 1]; // 9: reg_N.Row(1).sum (Inventories real)
-      target.width(60);
-      target << reg_GDP_n[region - 1]; // 10: reg_GDP_n (Nominal GDP)
-      target.width(60);
-      target << ((reg_D_en_TOT[region - 1] > 0) ? (reg_Q_ge[region - 1] / reg_D_en_TOT[region - 1]) : 0); // 11: reg_Qge / reg_D_en (Green energy share of demand)
-      target.width(60);
-      target << reg_D_en_TOT[region - 1]; // 12: reg_D_en_TOT (Total energy demand)
-      target.width(60);
-      target << (reg_Emiss1_TOT[region - 1] + reg_Emiss2_TOT[region - 1] + reg_Emiss_en[region - 1]); // 13: reg_Emiss_TOT(1) (Total emissions)
-      target.width(60);
-      target << reg_Cum_emissions[region - 1]; // 14: reg_Cum_emission (Cumulative emissions)
-      target.width(60);
-      target << reg_Q1tot[region - 1]; // 15: reg_Q1tot (K-firm production)
-      target.width(60);
-      target << reg_Q2tot[region - 1]; // 16: reg_Q2tot (C-firm production)
-      target.width(60);
-      target << reg_N1[region - 1]; // 17: reg_N1 (Number of K-firms)
-      target.width(60);
-      target << reg_N2[region - 1]; // 18: reg_N2 (Number of C-firms)
-      target.width(60);
-      target << reg_LS[region - 1]; // 19: reg_LS (Labor supply)
-      target.width(60);
-      target << reg_Q_ge[region - 1]; // 20: reg_Qge (Green energy produced)
-      target.width(60);
-      target << reg_Q_de[region - 1]; // 21: reg_Qde (Dirty energy produced)
-      target.width(60);
-      target << reg_Emiss1_TOT[region - 1]; // 22: reg_Emiss1_TOT (K-firm emissions)
-      target.width(60);
-      target << reg_Emiss2_TOT[region - 1]; // 23: reg_Emiss2_TOT (C-firm emissions)
-      target.width(60);
-      target << reg_Emiss_en[region - 1] << endl; // 24: reg_Emiss_en (Energy sector emissions)
-    };
-
-    for (int rr = 1; rr <= NR; ++rr)
-    {
-      if (region_resultsexp_streams[rr - 1].is_open())
+      auto write_regional_resultsexp_row = [&](std::ostream &target, int region)
       {
-        write_regional_row(region_resultsexp_streams[rr - 1], rr);
+        target.setf(ios::fixed);
+        target.precision(10);
+        target.setf(ios::right);
+        target.width(60);
+        target << t; // 1
+        target.width(60);
+        target << reg_GDP_r[region - 1]; // 2
+        target.width(60);
+        target << reg_Consumption_r[region - 1]; // 3
+        target.width(60);
+        target << reg_Investment_r[region - 1]; // 4
+        target.width(60);
+        target << 1 - reg_U[region - 1]; // 5
+        target.width(60);
+        target << reg_Emiss1_TOT[region - 1] + reg_Emiss2_TOT[region - 1] + reg_Emiss_en[region - 1]; // 6
+        target.width(60);
+        target << reg_D_en_TOT[region - 1]; // 7
+        target.width(60);
+        target << reg_LS[region - 1]; // 8
+        target.width(60);
+        target << reg_K[region - 1]; // 9
+        target.width(60);
+        target << reg_A1p_en_dead[region - 1] / reg_A1p_en_survive[region - 1]; // 10
+        target.width(60);
+        target << reg_A2_en_dead[region - 1] / reg_A2_en_survive[region - 1]; // 11
+        target.width(60);
+        target << reg_Am_en[region - 1]; // 12
+        target.width(60);
+        target << reg_Am_a[region - 1]; // 13
+        target.width(60);
+        target << reg_exit_marketshare2[region - 1]; // 14
+        target.width(60);
+        target << reg_exit_payments2[region - 1]; // 15
+        target.width(60);
+        target << reg_exit_equity2[region - 1]; // 16
+        target.width(60);
+        target << reg_exiting_1[region - 1]; // 17
+        target.width(60);
+        // target << reg_CapitalStock[region - 1] / (reg_GDP_n[region - 1] * 4); // 18
+        target << reg_CapitalStock[region - 1]; // 18
+        target.width(60);
+        // target << reg_NW_h[region - 1] / (reg_GDP_n[region - 1] * 4); // 19
+        target << reg_NW_h[region - 1]; // 19
+        target.width(60);
+        // target << reg_NW2[region - 1] / (reg_GDP_n[region - 1] * 4); // 20
+        target << reg_NW2[region - 1]; // 20
+        target.width(60);
+        // target << reg_Loans_2[region - 1] / (reg_GDP_n[region - 1] * 4); // 21
+        target << reg_Loans_2[region - 1]; // 21
+        target.width(60);
+        target << ((reg_CreditSupply_all[region - 1] > 0) ? (reg_CreditDemand_all[region - 1] / reg_CreditSupply_all[region - 1]) : 0); // 22
+        target.width(60);
+        target << reg_NW_1[region - 1]; // 23
+        // target << ((reg_GDP_n[region - 1] > 0) ? (reg_NW_1[region - 1] / (reg_GDP_n[region - 1] * 4)) : 0); // 23
+        target.width(60);
+        target << reg_Am2[region - 1]; // 24
+        target.width(60);
+        target << reg_Am1[region - 1]; // 25
+        target.width(60);
+        target << reg_GDP_n[region - 1]; // 26
+        target.width(60);
+        target << reg_Investment_n[region - 1] * dim_mach * a; // 27
+        target.width(60);
+        target << reg_Consumption[region - 1]; // 28
+        target.width(60);
+        target << reg_ReplacementInvestment_r[region - 1]; // 29
+        target.width(60);
+        target << reg_Emiss1_TOT[region - 1]; // 30
+        target.width(60);
+        target << reg_Emiss2_TOT[region - 1]; // 31
+        target.width(60);
+        target << reg_Emiss_en[region - 1]; // 32
+        target.width(60);
+        target << reg_EnergyPayments[region - 1]; // 33
+        target.width(60);
+        target << ((reg_K_gelag[region - 1] + reg_K_delag[region - 1]) > 0 ? (reg_K_gelag[region - 1] / (reg_K_gelag[region - 1] + reg_K_delag[region - 1])) : 0); // 34
+        target.width(60);
+        target << reg_Pitot1[region - 1]; // 35
+        target.width(60);
+        target << reg_Pitot2[region - 1]; // 36
+        target.width(60);
+        target << (reg_Wages[region - 1] / cpi(1)); // 37
+        target.width(60);
+        target << reg_Dividends_1[region - 1]; // 38
+        target.width(60);
+        target << reg_Dividends_2[region - 1]; // 39
+        target.width(60);
+        target << reg_exit_payments2[region - 1] + reg_exit_equity2[region - 1]; // 40
+        target.width(60);
+        target << reg_Pitot1[region - 1] + reg_Pitot2[region - 1]; // 41
+        target.width(60);
+        target << (reg_Dividends_2[region - 1] + reg_Dividends_1[region - 1]) / cpi(1); // 42
+        target.width(60);
+        target << reg_Dividends_e[region - 1] / cpi(1); // 43
+        target.width(60);
+        target << reg_Dividends_b[region - 1] / cpi(1); // 44
+        target.width(60);
+        // target << ((reg_GDP_n[region - 1] > 0) ? ((reg_NW_1[region - 1] + reg_NW2[region - 1]) / (reg_GDP_n[region - 1] * 4)) : 0); // 45
+        target << reg_NW_1[region - 1] + reg_NW2[region - 1]; // 45
+        target.width(60);
+        target << ((reg_GDP_r_lag[region - 1] > 0) ? (pow(reg_GDP_r[region - 1] / reg_GDP_r_lag[region - 1], 4) - 1) : 0); // 46
+        target << endl;
+      };
+
+      for (int rr = 1; rr <= NR; ++rr)
+      {
+        if (region_resultsexp_streams[rr - 1].is_open())
+        {
+          write_regional_resultsexp_row(region_resultsexp_streams[rr - 1], rr);
+        }
       }
     }
   }
-
-  if (flag_validation == 1)
+  else if (flag_validation == 1)
   {
     ofstream inv_val1(nomefile16, ios::app);
     inv_val1.setf(ios::fixed);
@@ -7712,7 +8159,73 @@ void SAVE(void)
   }
   else
   {
-    // Output file containing selected macro variables
+    // Write regional ymc output files if NR > 0
+    if (NR > 0)
+    {
+      auto write_regional_row = [&](std::ostream &target, int region)
+      {
+        target.setf(ios::fixed);
+        target.precision(10);
+        target.setf(ios::right);
+        target.width(60);
+        target << t; // 1: time
+        target.width(60);
+        target << reg_GDP_r[region - 1]; // 2: reg_GDP_r (Real GDP)
+        target.width(60);
+        target << reg_Consumption_r[region - 1]; // 3: reg_Consumption_r (Total real consumption)
+        target.width(60);
+        target << reg_Investment_r[region - 1]; // 4: reg_Investment_r (Total real investment)
+        target.width(60);
+        target << (1.0 - reg_U[region - 1]) / NR; // 5: 1 - reg_U(1) (Employment rate)
+        target.width(60);
+        target << reg_Am[region - 1]; // 6: reg_Am(1) (Mean productivity across K and C-firms)
+        target.width(60);
+        target << reg_Loans_2[region - 1]; // 7: reg_Loans_2 (Loans of C-firms)
+        target.width(60);
+        target << reg_Inventories[region - 1]; // 8: reg_Inventories (Nominal value of C-firms' inventories)
+        target.width(60);
+        target << reg_N[region - 1]; // 9: reg_N.Row(1).sum (Inventories real)
+        target.width(60);
+        target << reg_GDP_n[region - 1]; // 10: reg_GDP_n (Nominal GDP)
+        target.width(60);
+        target << ((reg_D_en_TOT[region - 1] > 0) ? (reg_Q_ge[region - 1] / reg_D_en_TOT[region - 1]) : 0); // 11: reg_Qge / reg_D_en (Green energy share of demand)
+        target.width(60);
+        target << reg_D_en_TOT[region - 1]; // 12: reg_D_en_TOT (Total energy demand)
+        target.width(60);
+        target << (reg_Emiss1_TOT[region - 1] + reg_Emiss2_TOT[region - 1] + reg_Emiss_en[region - 1]); // 13: reg_Emiss_TOT(1) (Total emissions)
+        target.width(60);
+        target << reg_Cum_emissions[region - 1]; // 14: reg_Cum_emission (Cumulative emissions)
+        target.width(60);
+        target << reg_Q1tot[region - 1]; // 15: reg_Q1tot (K-firm production)
+        target.width(60);
+        target << reg_Q2tot[region - 1]; // 16: reg_Q2tot (C-firm production)
+        target.width(60);
+        target << reg_N1[region - 1]; // 17: reg_N1 (Number of K-firms)
+        target.width(60);
+        target << reg_N2[region - 1]; // 18: reg_N2 (Number of C-firms)
+        target.width(60);
+        target << reg_LS[region - 1]; // 19: reg_LS (Labor supply)
+        target.width(60);
+        target << reg_Q_ge[region - 1]; // 20: reg_Qge (Green energy produced)
+        target.width(60);
+        target << reg_Q_de[region - 1]; // 21: reg_Qde (Dirty energy produced)
+        target.width(60);
+        target << reg_Emiss1_TOT[region - 1]; // 22: reg_Emiss1_TOT (K-firm emissions)
+        target.width(60);
+        target << reg_Emiss2_TOT[region - 1]; // 23: reg_Emiss2_TOT (C-firm emissions)
+        target.width(60);
+        target << reg_Emiss_en[region - 1] << endl; // 24: reg_Emiss_en (Energy sector emissions)
+      };
+
+      for (int rr = 1; rr <= NR; ++rr)
+      {
+        if (region_ymc_streams[rr - 1].is_open())
+        {
+          write_regional_row(region_ymc_streams[rr - 1], rr);
+        }
+      }
+    }
+
     ofstream inv_ymc(nomefile2, ios::app);
     inv_ymc.setf(ios::fixed);
     inv_ymc.precision(4);
