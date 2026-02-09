@@ -145,6 +145,7 @@ double pf_shock;                    // Temporary storage for shocked fossil fuel
 double c_infra_t;                   // Target inframarginal energy cost to achieve desired energy price shock
 RowVector risk_c;                   // Measure of individual C-firms' exposure to extreme events
 RowVector risk_k;                   // Measure of individual K-firms' exposure to extreme events
+std::vector<double> regional_shock_value;   // One shock scalar per region (size NR)
 double ptemp;                       // Temporary storage for C-firm price
 RowVector pass_1;                   // Indicator for K-firm passthrough of energy price shock
 RowVector pass_2;                   // Indicator for C-firm passthrough of energy price shock
@@ -649,6 +650,8 @@ double shock_pop;                // Shock to population of households
 double shock_cons;               // Shock to aggregate consumption demand
 RowVector X_a;                   // Location parameters of beta distribution for climate shocks
 RowVector X_b;                   // Scale parameters of beta distribution for climate shocks
+Matrix   X_a_reg;                // Regional disaster params (nshocks × NR)
+Matrix   X_b_reg;                // Regional disaster params (nshocks × NR)
 RowVector Loss_Capital;          // Nominal value of capital stock destroyed by climate shock
 RowVector Loss_Inventories;      // Nominal value of inventories destroyed by climate shock
 double t_CO2;                    // Carbon tax on firms

@@ -650,46 +650,135 @@ void SETPARAMS(const rapidjson::Document &inputs)
   }
 
   nshocks = inputs["climshockparams"][0]["nshocks"].GetInt();
-  a_0.ReSize(nshocks);
-  a_0(1) = inputs["climshockparams"][0]["a1_0"].GetDouble();
-  a_0(2) = inputs["climshockparams"][0]["a2_0"].GetDouble();
-  a_0(3) = inputs["climshockparams"][0]["a3_0"].GetDouble();
-  a_0(4) = inputs["climshockparams"][0]["a4_0"].GetDouble();
-  a_0(5) = inputs["climshockparams"][0]["a5_0"].GetDouble();
-  a_0(6) = inputs["climshockparams"][0]["a6_0"].GetDouble();
-  a_0(7) = inputs["climshockparams"][0]["a7_0"].GetDouble();
-  a_0(8) = inputs["climshockparams"][0]["a8_0"].GetDouble();
-  a_0(9) = inputs["climshockparams"][0]["a9_0"].GetDouble();
-  b_0.ReSize(nshocks);
-  b_0(1) = inputs["climshockparams"][0]["b1_0"].GetDouble();
-  b_0(2) = inputs["climshockparams"][0]["b2_0"].GetDouble();
-  b_0(3) = inputs["climshockparams"][0]["b3_0"].GetDouble();
-  b_0(4) = inputs["climshockparams"][0]["b4_0"].GetDouble();
-  b_0(5) = inputs["climshockparams"][0]["b5_0"].GetDouble();
-  b_0(6) = inputs["climshockparams"][0]["b6_0"].GetDouble();
-  b_0(7) = inputs["climshockparams"][0]["b7_0"].GetDouble();
-  b_0(8) = inputs["climshockparams"][0]["b8_0"].GetDouble();
-  b_0(9) = inputs["climshockparams"][0]["b9_0"].GetDouble();
-  shockexponent1.ReSize(nshocks);
-  shockexponent1(1) = inputs["climshockparams"][0]["shockexponent1_1"].GetDouble();
-  shockexponent1(2) = inputs["climshockparams"][0]["shockexponent2_1"].GetDouble();
-  shockexponent1(3) = inputs["climshockparams"][0]["shockexponent3_1"].GetDouble();
-  shockexponent1(4) = inputs["climshockparams"][0]["shockexponent4_1"].GetDouble();
-  shockexponent1(5) = inputs["climshockparams"][0]["shockexponent5_1"].GetDouble();
-  shockexponent1(6) = inputs["climshockparams"][0]["shockexponent6_1"].GetDouble();
-  shockexponent1(7) = inputs["climshockparams"][0]["shockexponent7_1"].GetDouble();
-  shockexponent1(8) = inputs["climshockparams"][0]["shockexponent8_1"].GetDouble();
-  shockexponent1(9) = inputs["climshockparams"][0]["shockexponent9_1"].GetDouble();
-  shockexponent2.ReSize(nshocks);
-  shockexponent2(1) = inputs["climshockparams"][0]["shockexponent1_2"].GetDouble();
-  shockexponent2(2) = inputs["climshockparams"][0]["shockexponent2_2"].GetDouble();
-  shockexponent2(3) = inputs["climshockparams"][0]["shockexponent3_2"].GetDouble();
-  shockexponent2(4) = inputs["climshockparams"][0]["shockexponent4_2"].GetDouble();
-  shockexponent2(5) = inputs["climshockparams"][0]["shockexponent5_2"].GetDouble();
-  shockexponent2(6) = inputs["climshockparams"][0]["shockexponent6_2"].GetDouble();
-  shockexponent2(7) = inputs["climshockparams"][0]["shockexponent7_2"].GetDouble();
-  shockexponent2(8) = inputs["climshockparams"][0]["shockexponent8_2"].GetDouble();
-  shockexponent2(9) = inputs["climshockparams"][0]["shockexponent9_2"].GetDouble();
+
+  // Scalar shock parameters - used when NR == 0
+  // When NR > 0, these are ignored and regional arrays are used instead
+  if (NR == 0)
+  {
+    a_0.ReSize(nshocks);
+    a_0(1) = inputs["climshockparams"][0]["a1_0"].GetDouble();
+    a_0(2) = inputs["climshockparams"][0]["a2_0"].GetDouble();
+    a_0(3) = inputs["climshockparams"][0]["a3_0"].GetDouble();
+    a_0(4) = inputs["climshockparams"][0]["a4_0"].GetDouble();
+    a_0(5) = inputs["climshockparams"][0]["a5_0"].GetDouble();
+    a_0(6) = inputs["climshockparams"][0]["a6_0"].GetDouble();
+    a_0(7) = inputs["climshockparams"][0]["a7_0"].GetDouble();
+    a_0(8) = inputs["climshockparams"][0]["a8_0"].GetDouble();
+    a_0(9) = inputs["climshockparams"][0]["a9_0"].GetDouble();
+    b_0.ReSize(nshocks);
+    b_0(1) = inputs["climshockparams"][0]["b1_0"].GetDouble();
+    b_0(2) = inputs["climshockparams"][0]["b2_0"].GetDouble();
+    b_0(3) = inputs["climshockparams"][0]["b3_0"].GetDouble();
+    b_0(4) = inputs["climshockparams"][0]["b4_0"].GetDouble();
+    b_0(5) = inputs["climshockparams"][0]["b5_0"].GetDouble();
+    b_0(6) = inputs["climshockparams"][0]["b6_0"].GetDouble();
+    b_0(7) = inputs["climshockparams"][0]["b7_0"].GetDouble();
+    b_0(8) = inputs["climshockparams"][0]["b8_0"].GetDouble();
+    b_0(9) = inputs["climshockparams"][0]["b9_0"].GetDouble();
+
+    shockexponent1.ReSize(nshocks);
+    shockexponent1(1) = inputs["climshockparams"][0]["shockexponent1_1"].GetDouble();
+    shockexponent1(2) = inputs["climshockparams"][0]["shockexponent2_1"].GetDouble();
+    shockexponent1(3) = inputs["climshockparams"][0]["shockexponent3_1"].GetDouble();
+    shockexponent1(4) = inputs["climshockparams"][0]["shockexponent4_1"].GetDouble();
+    shockexponent1(5) = inputs["climshockparams"][0]["shockexponent5_1"].GetDouble();
+    shockexponent1(6) = inputs["climshockparams"][0]["shockexponent6_1"].GetDouble();
+    shockexponent1(7) = inputs["climshockparams"][0]["shockexponent7_1"].GetDouble();
+    shockexponent1(8) = inputs["climshockparams"][0]["shockexponent8_1"].GetDouble();
+    shockexponent1(9) = inputs["climshockparams"][0]["shockexponent9_1"].GetDouble();
+    shockexponent2.ReSize(nshocks);
+    shockexponent2(1) = inputs["climshockparams"][0]["shockexponent1_2"].GetDouble();
+    shockexponent2(2) = inputs["climshockparams"][0]["shockexponent2_2"].GetDouble();
+    shockexponent2(3) = inputs["climshockparams"][0]["shockexponent3_2"].GetDouble();
+    shockexponent2(4) = inputs["climshockparams"][0]["shockexponent4_2"].GetDouble();
+    shockexponent2(5) = inputs["climshockparams"][0]["shockexponent5_2"].GetDouble();
+    shockexponent2(6) = inputs["climshockparams"][0]["shockexponent6_2"].GetDouble();
+    shockexponent2(7) = inputs["climshockparams"][0]["shockexponent7_2"].GetDouble();
+    shockexponent2(8) = inputs["climshockparams"][0]["shockexponent8_2"].GetDouble();
+    shockexponent2(9) = inputs["climshockparams"][0]["shockexponent9_2"].GetDouble();
+  }
+
+  // Regional shock parameters - NEW array format from climshockparams when NR > 0
+  // Regional exponents OVERRIDE scalar values (no multiplication)
+  // These preserve shock-type differentiation at the regional level
+  if (NR > 0)
+  {
+    // Allocate 2D arrays [shock][region]
+    a_0_regional.resize(nshocks);
+    b_0_regional.resize(nshocks);
+    shockexponent1_regional.resize(nshocks);
+    shockexponent2_regional.resize(nshocks);
+
+    for (int i = 0; i < nshocks; i++)
+    {
+      a_0_regional[i].resize(NR);
+      b_0_regional[i].resize(NR);
+      shockexponent1_regional[i].resize(NR);
+      shockexponent2_regional[i].resize(NR);
+    }
+
+    // Try to read regional arrays from climshockparams first (NEW format)
+    bool use_new_format = false;
+    std::string test_key = "a" + std::to_string(1) + "_0";
+    if (inputs["climshockparams"][0].HasMember(test_key.c_str()) &&
+        inputs["climshockparams"][0][test_key.c_str()].IsArray())
+    {
+      use_new_format = true;
+      cout << "Reading regional shock parameters from climshockparams arrays (NEW format)" << endl;
+
+      // Read a_0, b_0, and exponents from climshockparams as arrays
+      for (int i = 1; i <= nshocks; i++)
+      {
+        std::string a_key = "a" + std::to_string(i) + "_0";
+        std::string b_key = "b" + std::to_string(i) + "_0";
+        std::string exp1_key = "shockexponent" + std::to_string(i) + "_1";
+        std::string exp2_key = "shockexponent" + std::to_string(i) + "_2";
+
+        for (int rr = 0; rr < NR; rr++)
+        {
+          a_0_regional[i - 1][rr] = inputs["climshockparams"][0][a_key.c_str()][rr].GetDouble();
+          b_0_regional[i - 1][rr] = inputs["climshockparams"][0][b_key.c_str()][rr].GetDouble();
+          shockexponent1_regional[i - 1][rr] = inputs["climshockparams"][0][exp1_key.c_str()][rr].GetDouble();
+          shockexponent2_regional[i - 1][rr] = inputs["climshockparams"][0][exp2_key.c_str()][rr].GetDouble();
+        }
+      }
+    }
+    else
+    {
+      // Fallback to LEGACY format from regions block
+      cout << "Reading regional shock parameters from regions block (LEGACY format)" << endl;
+
+      // Read single arrays per region from regions block and apply to all shocks
+      for (int i = 0; i < nshocks; i++)
+      {
+        for (int rr = 0; rr < NR; rr++)
+        {
+          a_0_regional[i][rr] = inputs["regions"]["a_0_regional"][rr].GetDouble();
+          b_0_regional[i][rr] = inputs["regions"]["b_0_regional"][rr].GetDouble();
+          shockexponent1_regional[i][rr] = inputs["regions"]["shockexponent1_regional"][rr].GetDouble();
+          shockexponent2_regional[i][rr] = inputs["regions"]["shockexponent2_regional"][rr].GetDouble();
+        }
+      }
+    }
+
+    // Also populate legacy flat vectors for backward compatibility with existing code
+    a_0_reg.ReSize(nshocks * NR);
+    b_0_reg.ReSize(nshocks * NR);
+    shockexponent1_reg.ReSize(nshocks * NR);
+    shockexponent2_reg.ReSize(nshocks * NR);
+
+    for (int i = 1; i <= nshocks; i++)
+    {
+      for (int rr = 1; rr <= NR; rr++)
+      {
+        int idx = (i - 1) * NR + rr;
+        a_0_reg(idx) = a_0_regional[i - 1][rr - 1];
+        b_0_reg(idx) = b_0_regional[i - 1][rr - 1];
+        shockexponent1_reg(idx) = shockexponent1_regional[i - 1][rr - 1];
+        shockexponent2_reg(idx) = shockexponent2_regional[i - 1][rr - 1];
+      }
+    }
+  }
 
   A0 = inputs["inits"][0]["A0"].GetDouble();
   LS0 = inputs["inits"][0]["LS0"].GetDouble();
@@ -811,6 +900,15 @@ void RESIZE(void)
   // Resize all vectors, matrices and arrays to the correct dimension
   X_a.ReSize(nshocks);
   X_b.ReSize(nshocks);
+
+  // Allocate regionalized shock parameters if regional model
+  if (NR > 0)
+  {
+    X_a_reg.ReSize(nshocks, NR);
+    X_b_reg.ReSize(nshocks, NR);
+    regional_shock_value.assign(NR, 0.0);
+  }
+
   N1f = N1;
   A.ReSize(T, N1);
   C.ReSize(T, N1);
@@ -7726,7 +7824,28 @@ void SAVE(void)
       inv_shockpars.width(60);
       inv_shockpars << X_b(8); // 18
       inv_shockpars.width(60);
-      inv_shockpars << X_b(9) << endl; // 19
+      inv_shockpars << X_b(9); // 19
+
+      if (NR > 0)
+      {
+        // Append regional shock parameters: X_a_reg(1..nshocks, rr), X_b_reg(1..nshocks, rr)
+        for (int rr = 1; rr <= NR; rr++)
+        {
+          for (int i = 1; i <= nshocks; i++)
+          {
+            inv_shockpars.width(60);
+            inv_shockpars << X_a_reg(i, rr);
+          }
+
+          for (int i = 1; i <= nshocks; i++)
+          {
+            inv_shockpars.width(60);
+            inv_shockpars << X_b_reg(i, rr);
+          }
+        }
+      }
+
+      inv_shockpars << endl;
       inv_shockpars.close();
     }
 
