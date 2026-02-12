@@ -338,7 +338,7 @@
             "flag_cum_emissions": 0,
             "flag_tax_CO2": 4,
             "flag_energyshocks": 0,
-            "flag_capshocks": 0,
+            "flag_capshocks": 1,
             "flag_outputshocks": 0,
             "flag_inventshocks": 1,
             "flag_encapshocks": 0,
@@ -353,7 +353,7 @@
             "flag_entry": 0,
             "flag_nonCO2_force": 1,
             "flag_validation": 0,
-            "flag_inventories": 0,
+            "flag_inventories": 1,
             "flag_scrap_age": 1,
             "flag_uniformshocks": 1,
             "flag_desc": 0
