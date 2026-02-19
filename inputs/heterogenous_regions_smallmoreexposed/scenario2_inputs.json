@@ -151,92 +151,92 @@
             "nshocks": 9,
             "a1_0": [
                 0.005,
-                0.005,
+                0.00625,
                 0.005
             ],
             "b1_0": [
                 1000,
-                1000,
+                750,
                 1000
             ],
             "a2_0": [
                 1,
-                1,
+                1.25,
                 1
             ],
             "b2_0": [
                 100,
-                100,
+                75,
                 100
             ],
             "a3_0": [
                 0.75,
-                0.75,
+                0.9375,
                 0.75
             ],
             "b3_0": [
                 150,
-                150,
+                112.5,
                 150
             ],
             "a4_0": [
                 0.75,
-                0.75,
+                0.9375,
                 0.75
             ],
             "b4_0": [
                 150,
-                150,
+                112.5,
                 150
             ],
             "a5_0": [
                 1,
-                1,
+                1.25,
                 1
             ],
             "b5_0": [
                 100,
-                100,
+                75,
                 100
             ],
             "a6_0": [
                 1,
-                1,
+                1.25,
                 1
             ],
             "b6_0": [
                 100,
-                100,
+                75,
                 100
             ],
             "a7_0": [
                 1,
-                1,
+                1.25,
                 1
             ],
             "b7_0": [
                 100,
-                100,
+                75,
                 100
             ],
             "a8_0": [
                 1,
-                1,
+                1.25,
                 1
             ],
             "b8_0": [
                 100,
-                100,
+                75,
                 100
             ],
             "a9_0": [
                 0.75,
-                0.75,
+                0.9375,
                 0.75
             ],
             "b9_0": [
                 150,
-                150,
+                112.5,
                 150
             ],
             "shockexponent1_1": [
@@ -340,20 +340,20 @@
             "flag_energyshocks": 0,
             "flag_capshocks": 0,
             "flag_outputshocks": 0,
-            "flag_inventshocks": 1,
+            "flag_inventshocks": 0,
             "flag_encapshocks": 0,
             "flag_popshocks": 0,
             "flag_demandshocks": 0,
             "flag_RDshocks": 0,
             "flag_prodshocks1": 0,
-            "flag_prodshocks2": 0,
+            "flag_prodshocks2": 1,
             "flag_share_END": 2,
             "flag_energy_exp": 3,
             "flagbailout": 0,
             "flag_entry": 0,
             "flag_nonCO2_force": 1,
             "flag_validation": 0,
-            "flag_inventories": 1,
+            "flag_inventories": 0,
             "flag_scrap_age": 1,
             "flag_uniformshocks": 1,
             "flag_desc": 0
@@ -447,25 +447,25 @@
         ],
         "energy": {
             "dirty_capacity_shares": [
-                0.1,
+                0.3,
                 0.2,
-                0.7
+                0.5
             ],
             "green_capacity_shares": [
-                0.5,
                 0.3,
-                0.2
+                0.2,
+                0.5
             ]
         },
         "de_growth_probability": [
-            0.1,
+            0.3,
             0.2,
-            0.7
+            0.5
         ],
         "ge_growth_probability": [
-            0.5,
             0.3,
-            0.2
+            0.2,
+            0.5
         ]
     },
     "shocks_kfirms": [

@@ -74,7 +74,7 @@ int flag_prodshocks2;                   // Shocks to productivity (not affecting
                                         // = 0 no shock
                                         // = 1 On labour productivity of C-firms and K-firms
                                         // = 2 On energy efficiency of C-firms and K-firms
-                                        // = 3 Both labour producitivity and energy efficiency
+                                        // = 3 Both labour productivity and energy efficiency
 
 int flag_energyshocks;                  // Shock to energy price
                                         // = 0 no shock

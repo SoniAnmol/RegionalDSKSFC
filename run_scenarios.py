@@ -31,8 +31,8 @@ class ScenarioRunner:
 
     def __init__(
         self,
-        scenarios_dir: str = "./verification",
-        output_base: str = "./output",
+        scenarios_dir: str = "./inputs/experiment/",
+        output_base: str = "./output/experiment/",
         executable: str = "./dsk_SFC",
         n_replications: int = 1,
         seed_base: int = 1000,
@@ -81,13 +81,24 @@ class ScenarioRunner:
         if not os.access(self.executable, os.X_OK):
             raise PermissionError(f"Executable is not executable: {self.executable}")
 
-    def get_scenario_files(self) -> List[Tuple[int, Path]]:
+    def extract_scenario_name(self, input_file: Path) -> str:
+        """
+        Extract scenario name from input filename.
+        e.g., 'scenario0_inputs.json' -> 'scenario0'
+             'scenario1a_inputs.json' -> 'scenario1a'
+        """
+        name = input_file.stem  # Get filename without extension
+        if name.endswith('_inputs'):
+            return name[:-7]  # Remove '_inputs' suffix
+        return name
+
+    def get_scenario_files(self) -> List[Tuple[str, Path]]:
         """
         Detect and enumerate all input files in the scenarios directory.
 
         Returns:
         --------
-        List of tuples: (scenario_index, file_path)
+        List of tuples: (scenario_name, file_path)
         """
         # Find all JSON input files
         pattern = str(self.scenarios_dir / "*.json")
@@ -102,24 +113,24 @@ class ScenarioRunner:
         if not scenario_files:
             raise ValueError(f"No scenario input files found in {self.scenarios_dir}")
 
-        # Enumerate scenarios starting from 1
-        enumerated = [(idx + 1, Path(f)) for idx, f in enumerate(scenario_files)]
+        # Extract scenario names from filenames
+        enumerated = [(self.extract_scenario_name(Path(f)), Path(f)) for f in scenario_files]
 
         if self.verbose:
             print(f"\nDetected {len(enumerated)} scenario files:")
-            for idx, filepath in enumerated:
-                print(f"  Scenario {idx:02d}: {filepath.name}")
+            for idx, (scenario_name, filepath) in enumerate(enumerated, 1):
+                print(f"  Scenario {idx:02d}: {filepath.name} -> '{scenario_name}'")
 
         return enumerated
 
-    def calculate_seed(self, scenario_idx: int, replication_idx: int) -> int:
+    def calculate_seed(self, scenario_name: str, replication_idx: int) -> int:
         """
-        Calculate deterministic seed based on scenario and replication indices.
+        Calculate deterministic seed based on scenario name and replication index.
 
         Parameters:
         -----------
-        scenario_idx : int
-            Scenario number (1-indexed)
+        scenario_name : str
+            Scenario name (e.g., 'scenario0', 'scenario1a')
         replication_idx : int
             Monte Carlo replication number (1-indexed)
 
@@ -127,16 +138,18 @@ class ScenarioRunner:
         --------
         int : Deterministic seed value
         """
-        return scenario_idx * self.seed_base + replication_idx
+        # Create a consistent hash from scenario name
+        scenario_hash = hash(scenario_name) % 1000  # Keep it reasonable
+        return abs(scenario_hash) * self.seed_base + replication_idx
 
-    def create_output_structure(self, scenario_idx: int, replication_idx: int) -> Path:
+    def create_output_structure(self, scenario_name: str, replication_idx: int) -> Path:
         """
         Create hierarchical output directory for a specific scenario and replication.
 
         Parameters:
         -----------
-        scenario_idx : int
-            Scenario number (1-indexed)
+        scenario_name : str
+            Scenario name (e.g., 'scenario0', 'scenario1a')
         replication_idx : int
             Monte Carlo replication number (1-indexed)
 
@@ -144,15 +157,15 @@ class ScenarioRunner:
         --------
         Path : Directory path for this run's outputs
         """
-        scenario_dir = self.output_base / f"scenario_{scenario_idx:02d}"
-        run_dir = scenario_dir / f"run_{replication_idx:03d}"
+        scenario_dir = self.output_base / scenario_name
+        run_dir = scenario_dir / f"rep_{replication_idx:03d}"
         run_dir.mkdir(parents=True, exist_ok=True)
         return run_dir
 
     def run_model(
         self,
         input_file: Path,
-        scenario_idx: int,
+        scenario_name: str,
         replication_idx: int
     ) -> Tuple[bool, str]:
         """
@@ -162,8 +175,8 @@ class ScenarioRunner:
         -----------
         input_file : Path
             Path to the scenario input JSON file
-        scenario_idx : int
-            Scenario number (1-indexed)
+        scenario_name : str
+            Scenario name (e.g., 'scenario0', 'scenario1a')
         replication_idx : int
             Monte Carlo replication number (1-indexed)
 
@@ -172,10 +185,10 @@ class ScenarioRunner:
         Tuple[bool, str] : (success, message)
         """
         # Calculate seed
-        seed = self.calculate_seed(scenario_idx, replication_idx)
+        seed = self.calculate_seed(scenario_name, replication_idx)
 
-        # Create unique run name
-        run_name = f"scenario{scenario_idx:02d}_rep{replication_idx:03d}"
+        # Create unique run name using actual scenario name
+        run_name = f"{scenario_name}_rep{replication_idx:03d}"
 
         # Build command - use absolute path for executable
         cmd = [
@@ -213,7 +226,7 @@ class ScenarioRunner:
 
     def organize_outputs(
         self,
-        scenario_idx: int,
+        scenario_name: str,
         replication_idx: int,
         target_dir: Path
     ):
@@ -222,36 +235,45 @@ class ScenarioRunner:
 
         Parameters:
         -----------
-        scenario_idx : int
-            Scenario number (1-indexed)
+        scenario_name : str
+            Scenario name (e.g., 'scenario0', 'scenario1a')
         replication_idx : int
             Monte Carlo replication number (1-indexed)
         target_dir : Path
             Target directory for this run's outputs
         """
-        run_name = f"scenario{scenario_idx:02d}_rep{replication_idx:03d}"
-        seed = self.calculate_seed(scenario_idx, replication_idx)
+        run_name = f"{scenario_name}_rep{replication_idx:03d}"
+        seed = self.calculate_seed(scenario_name, replication_idx)
 
-        # Get absolute output directory path
-        output_root = (Path.cwd() / self.output_base).resolve()
+        # Model writes to ./output/ directory, not the organized output directory
+        model_output_dir = (Path.cwd() / "output").resolve()
 
         # Pattern to match output files created by this run
         # Using absolute paths to ensure correct matching regardless of working directory
         patterns = [
-            str(output_root / f"*_{run_name}_{seed}.txt"),
-            str(output_root / f"errors" / f"*_{run_name}_{seed}.txt"),
-            str(output_root / f"out_{run_name}_{seed}.txt")
+            str(model_output_dir / f"*_{run_name}_{seed}.txt"),
+            str(model_output_dir / "errors" / f"*_{run_name}_{seed}.txt"),
         ]
+
+        if self.verbose:
+            print(f"  Searching for output files with patterns:")
+            for pattern in patterns:
+                print(f"    {pattern}")
 
         files_moved = 0
         for pattern in patterns:
             for filepath in glob.glob(pattern):
                 src = Path(filepath)
                 if src.exists():
-                    # Preserve directory structure in target
-                    # Calculate relative path from output_root
-                    rel_path = src.relative_to(output_root)
-                    dest = target_dir / rel_path
+                    # Check if file is in errors subdirectory
+                    try:
+                        rel_path = src.relative_to(model_output_dir)
+                        # Preserve subdirectory structure (e.g., errors/)
+                        dest = target_dir / rel_path
+                    except ValueError:
+                        # If not relative to model_output_dir, just use filename
+                        dest = target_dir / src.name
+
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(src), str(dest))
                     files_moved += 1
@@ -262,7 +284,7 @@ class ScenarioRunner:
     def save_run_metadata(
         self,
         target_dir: Path,
-        scenario_idx: int,
+        scenario_name: str,
         replication_idx: int,
         input_file: Path,
         seed: int,
@@ -275,8 +297,8 @@ class ScenarioRunner:
         -----------
         target_dir : Path
             Directory where metadata should be saved
-        scenario_idx : int
-            Scenario number
+        scenario_name : str
+            Scenario name
         replication_idx : int
             Replication number
         input_file : Path
@@ -287,7 +309,7 @@ class ScenarioRunner:
             Whether the run succeeded
         """
         metadata = {
-            "scenario_index": scenario_idx,
+            "scenario_name": scenario_name,
             "replication_index": replication_idx,
             "input_file": str(input_file.resolve()),
             "seed": seed,
@@ -322,32 +344,32 @@ class ScenarioRunner:
         print(f"  Output directory: {self.output_base.resolve()}")
         print(f"{'='*70}\n")
 
-        for scenario_idx, input_file in scenario_files:
-            print(f"\n[Scenario {scenario_idx:02d}] Processing {input_file.name}")
+        for idx, (scenario_name, input_file) in enumerate(scenario_files, 1):
+            print(f"\n[Scenario {idx:02d}: {scenario_name}] Processing {input_file.name}")
             print(f"-" * 70)
 
             for rep_idx in range(1, self.n_replications + 1):
                 # Create output directory structure
-                target_dir = self.create_output_structure(scenario_idx, rep_idx)
+                target_dir = self.create_output_structure(scenario_name, rep_idx)
 
                 # Calculate seed
-                seed = self.calculate_seed(scenario_idx, rep_idx)
+                seed = self.calculate_seed(scenario_name, rep_idx)
 
                 print(f"  [Replication {rep_idx:03d}] Seed: {seed}")
 
                 # Run the model
-                success, message = self.run_model(input_file, scenario_idx, rep_idx)
+                success, message = self.run_model(input_file, scenario_name, rep_idx)
 
                 if success:
                     # Organize outputs into structured directory
-                    self.organize_outputs(scenario_idx, rep_idx, target_dir)
+                    self.organize_outputs(scenario_name, rep_idx, target_dir)
                     completed += 1
                 else:
                     failed += 1
 
                 # Save metadata
                 self.save_run_metadata(
-                    target_dir, scenario_idx, rep_idx, input_file, seed, success
+                    target_dir, scenario_name, rep_idx, input_file, seed, success
                 )
 
         # Summary
@@ -377,13 +399,13 @@ def main():
 
     parser.add_argument(
         "-d", "--scenarios-dir",
-        default="./verification",
+        default="./inputs/experiment",
         help="Directory containing scenario input files"
     )
 
     parser.add_argument(
         "-o", "--output",
-        default="./output",
+        default="./output/experiment",
         help="Base directory for structured outputs"
     )
 
