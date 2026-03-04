@@ -19,6 +19,8 @@ import subprocess
 import shutil
 import glob
 import json
+import threading
+import concurrent.futures
 from pathlib import Path
 from typing import List, Tuple
 import argparse
@@ -35,9 +37,10 @@ class ScenarioRunner:
         output_base: str = "./output/experiment/",
         executable: str = "./dsk_SFC",
         n_replications: int = 1,
-        seed_base: int = 1000,
+        seed_base: int = 0,
         verbose: bool = True,
-        full_output: bool = False
+        full_output: bool = False,
+        workers: int = 1
     ):
         """
         Initialize the scenario runner.
@@ -58,6 +61,9 @@ class ScenarioRunner:
             If True, print progress messages
         full_output : bool
             If True, pass -f 1 flag to model for full output
+        workers : int
+            Number of parallel worker processes. 1 = sequential (default).
+            0 = auto-detect (uses all available CPU cores).
         """
         self.scenarios_dir = Path(scenarios_dir)
         self.output_base = Path(output_base)
@@ -66,6 +72,8 @@ class ScenarioRunner:
         self.seed_base = seed_base
         self.verbose = verbose
         self.full_output = full_output
+        self.workers = workers
+        self._print_lock = threading.Lock()
 
         # Validate inputs
         self._validate_setup()
@@ -80,6 +88,13 @@ class ScenarioRunner:
 
         if not os.access(self.executable, os.X_OK):
             raise PermissionError(f"Executable is not executable: {self.executable}")
+
+        # Resolve workers: 0 means auto-detect all CPU cores
+        max_cores = os.cpu_count() or 1
+        if self.workers == 0:
+            self.workers = max_cores
+        else:
+            self.workers = max(1, min(self.workers, max_cores))
 
     def extract_scenario_name(self, input_file: Path) -> str:
         """
@@ -123,7 +138,7 @@ class ScenarioRunner:
 
         return enumerated
 
-    def calculate_seed(self, scenario_name: str, replication_idx: int) -> int:
+    def calculate_seed(self, replication_idx: int) -> int:
         """
         Calculate deterministic seed based on scenario name and replication index.
 
@@ -138,9 +153,7 @@ class ScenarioRunner:
         --------
         int : Deterministic seed value
         """
-        # Create a consistent hash from scenario name
-        scenario_hash = hash(scenario_name) % 1000  # Keep it reasonable
-        return abs(scenario_hash) * self.seed_base + replication_idx
+        return self.seed_base + replication_idx
 
     def create_output_structure(self, scenario_name: str, replication_idx: int) -> Path:
         """
@@ -185,7 +198,7 @@ class ScenarioRunner:
         Tuple[bool, str] : (success, message)
         """
         # Calculate seed
-        seed = self.calculate_seed(scenario_name, replication_idx)
+        seed = self.calculate_seed(replication_idx)
 
         # Create unique run name using actual scenario name
         run_name = f"{scenario_name}_rep{replication_idx:03d}"
@@ -243,7 +256,7 @@ class ScenarioRunner:
             Target directory for this run's outputs
         """
         run_name = f"{scenario_name}_rep{replication_idx:03d}"
-        seed = self.calculate_seed(scenario_name, replication_idx)
+        seed = self.calculate_seed(replication_idx)
 
         # Model writes to ./output/ directory, not the organized output directory
         model_output_dir = (Path.cwd() / "output").resolve()
@@ -322,9 +335,47 @@ class ScenarioRunner:
         with open(metadata_file, 'w') as f:
             json.dump(metadata, f, indent=2)
 
+    def _log(self, message: str):
+        """Thread-safe print helper (only when verbose)."""
+        if self.verbose:
+            with self._print_lock:
+                print(message)
+
+    def _run_single_replication(
+        self,
+        scenario_name: str,
+        input_file: Path,
+        rep_idx: int
+    ) -> Tuple[str, int, bool, str]:
+        """
+        Execute the full pipeline for one (scenario, replication) pair.
+
+        Returns:
+        --------
+        Tuple[str, int, bool, str] : (scenario_name, rep_idx, success, message)
+        """
+        target_dir = self.create_output_structure(scenario_name, rep_idx)
+        seed = self.calculate_seed(rep_idx)
+
+        self._log(f"  [Rep {rep_idx:03d}] {scenario_name} | Seed: {seed}")
+
+        success, message = self.run_model(input_file, scenario_name, rep_idx)
+
+        if success:
+            self.organize_outputs(scenario_name, rep_idx, target_dir)
+        else:
+            self._log(f"  [Rep {rep_idx:03d}] {scenario_name} FAILED: {message}")
+
+        self.save_run_metadata(
+            target_dir, scenario_name, rep_idx, input_file, seed, success
+        )
+
+        return (scenario_name, rep_idx, success, message)
+
     def run_all_scenarios(self) -> dict:
         """
         Execute model across all scenarios and Monte Carlo replications.
+        Uses multiple parallel workers when self.workers > 1.
 
         Returns:
         --------
@@ -336,41 +387,65 @@ class ScenarioRunner:
         completed = 0
         failed = 0
 
+        parallel_label = (
+            f"{self.workers} parallel workers" if self.workers > 1 else "sequential"
+        )
         print(f"\n{'='*70}")
         print(f"Starting batch execution:")
         print(f"  Scenarios: {len(scenario_files)}")
         print(f"  Replications per scenario: {self.n_replications}")
         print(f"  Total runs: {total_runs}")
+        print(f"  Execution mode: {parallel_label}")
         print(f"  Output directory: {self.output_base.resolve()}")
         print(f"{'='*70}\n")
 
-        for idx, (scenario_name, input_file) in enumerate(scenario_files, 1):
-            print(f"\n[Scenario {idx:02d}: {scenario_name}] Processing {input_file.name}")
-            print(f"-" * 70)
+        # Build flat work list: all (scenario, replication) pairs
+        work_items = [
+            (scenario_name, input_file, rep_idx)
+            for scenario_name, input_file in scenario_files
+            for rep_idx in range(1, self.n_replications + 1)
+        ]
 
-            for rep_idx in range(1, self.n_replications + 1):
-                # Create output directory structure
-                target_dir = self.create_output_structure(scenario_name, rep_idx)
-
-                # Calculate seed
-                seed = self.calculate_seed(scenario_name, rep_idx)
-
-                print(f"  [Replication {rep_idx:03d}] Seed: {seed}")
-
-                # Run the model
-                success, message = self.run_model(input_file, scenario_name, rep_idx)
-
+        if self.workers == 1:
+            # Sequential execution — identical to original behaviour
+            for scenario_name, input_file, rep_idx in work_items:
+                self._log(f"\n[{scenario_name}] Replication {rep_idx:03d}")
+                self._log("-" * 70)
+                _, _, success, _ = self._run_single_replication(
+                    scenario_name, input_file, rep_idx
+                )
                 if success:
-                    # Organize outputs into structured directory
-                    self.organize_outputs(scenario_name, rep_idx, target_dir)
                     completed += 1
                 else:
                     failed += 1
+        else:
+            # Parallel execution using a thread pool
+            # (subprocess.run releases the GIL; threads are sufficient)
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=self.workers
+            ) as executor:
+                futures = {
+                    executor.submit(
+                        self._run_single_replication,
+                        scenario_name, input_file, rep_idx
+                    ): (scenario_name, rep_idx)
+                    for scenario_name, input_file, rep_idx in work_items
+                }
 
-                # Save metadata
-                self.save_run_metadata(
-                    target_dir, scenario_name, rep_idx, input_file, seed, success
-                )
+                for future in concurrent.futures.as_completed(futures):
+                    scenario_name, rep_idx = futures[future]
+                    try:
+                        _, _, success, _ = future.result()
+                    except Exception as exc:
+                        success = False
+                        self._log(
+                            f"  [{scenario_name} rep {rep_idx:03d}] "
+                            f"Unexpected error: {exc}"
+                        )
+                    if success:
+                        completed += 1
+                    else:
+                        failed += 1
 
         # Summary
         print(f"\n{'='*70}")
@@ -425,7 +500,7 @@ def main():
     parser.add_argument(
         "-s", "--seed-base",
         type=int,
-        default=1000,
+        default=1,
         help="Base value for seed calculation"
     )
 
@@ -441,6 +516,18 @@ def main():
         help="Suppress verbose output"
     )
 
+    parser.add_argument(
+        "-w", "--workers",
+        type=int,
+        default=1,
+        metavar="N",
+        help=(
+            "Number of parallel worker processes. "
+            "1 = sequential (default). "
+            "0 = auto-detect (uses all available CPU cores)."
+        )
+    )
+
     args = parser.parse_args()
 
     try:
@@ -451,7 +538,8 @@ def main():
             n_replications=args.replications,
             seed_base=args.seed_base,
             verbose=not args.quiet,
-            full_output=args.full_output
+            full_output=args.full_output,
+            workers=args.workers
         )
 
         results = runner.run_all_scenarios()

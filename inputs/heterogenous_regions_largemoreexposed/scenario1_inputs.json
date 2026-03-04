@@ -152,11 +152,9 @@
             "a1_0": [
                 0.005,
                 0.005,
-                0.005,
                 0.005
             ],
             "b1_0": [
-                1000,
                 1000,
                 1000,
                 1000
@@ -164,17 +162,14 @@
             "a2_0": [
                 1,
                 1,
-                1,
                 1
             ],
             "b2_0": [
                 100,
                 100,
-                100,
-                100
+                40
             ],
             "a3_0": [
-                0.75,
                 0.75,
                 0.75,
                 0.75
@@ -182,11 +177,9 @@
             "b3_0": [
                 150,
                 150,
-                150,
                 150
             ],
             "a4_0": [
-                0.75,
                 0.75,
                 0.75,
                 0.75
@@ -194,11 +187,9 @@
             "b4_0": [
                 150,
                 150,
-                150,
                 150
             ],
             "a5_0": [
-                1,
                 1,
                 1,
                 1
@@ -206,11 +197,9 @@
             "b5_0": [
                 100,
                 100,
-                100,
                 100
             ],
             "a6_0": [
-                1,
                 1,
                 1,
                 1
@@ -218,11 +207,9 @@
             "b6_0": [
                 100,
                 100,
-                100,
-                100
+                40
             ],
             "a7_0": [
-                1,
                 1,
                 1,
                 1
@@ -230,11 +217,9 @@
             "b7_0": [
                 100,
                 100,
-                100,
                 100
             ],
             "a8_0": [
-                1,
                 1,
                 1,
                 1
@@ -242,11 +227,9 @@
             "b8_0": [
                 100,
                 100,
-                100,
-                100
+                40
             ],
             "a9_0": [
-                0.75,
                 0.75,
                 0.75,
                 0.75
@@ -254,11 +237,9 @@
             "b9_0": [
                 150,
                 150,
-                150,
                 150
             ],
             "shockexponent1_1": [
-                0.25,
                 0.25,
                 0.25,
                 0.25
@@ -266,11 +247,9 @@
             "shockexponent1_2": [
                 0.25,
                 0.25,
-                0.25,
                 0.25
             ],
             "shockexponent2_1": [
-                3,
                 3,
                 3,
                 3
@@ -278,11 +257,9 @@
             "shockexponent2_2": [
                 8,
                 8,
-                8,
                 8
             ],
             "shockexponent3_1": [
-                3,
                 3,
                 3,
                 3
@@ -290,11 +267,9 @@
             "shockexponent3_2": [
                 8,
                 8,
-                8,
                 8
             ],
             "shockexponent4_1": [
-                3,
                 3,
                 3,
                 3
@@ -302,11 +277,9 @@
             "shockexponent4_2": [
                 8,
                 8,
-                8,
                 8
             ],
             "shockexponent5_1": [
-                3,
                 3,
                 3,
                 3
@@ -314,11 +287,9 @@
             "shockexponent5_2": [
                 8,
                 8,
-                8,
                 8
             ],
             "shockexponent6_1": [
-                3,
                 3,
                 3,
                 3
@@ -326,11 +297,9 @@
             "shockexponent6_2": [
                 8,
                 8,
-                8,
                 8
             ],
             "shockexponent7_1": [
-                3,
                 3,
                 3,
                 3
@@ -338,11 +307,9 @@
             "shockexponent7_2": [
                 8,
                 8,
-                8,
                 8
             ],
             "shockexponent8_1": [
-                3,
                 3,
                 3,
                 3
@@ -350,17 +317,14 @@
             "shockexponent8_2": [
                 8,
                 8,
-                8,
                 8
             ],
             "shockexponent9_1": [
                 3,
                 3,
-                3,
                 3
             ],
             "shockexponent9_2": [
-                8,
                 8,
                 8,
                 8
@@ -369,27 +333,27 @@
     ],
     "flags": [
         {
-            "flag_shockexperiment": 1,
+            "flag_shockexperiment": 0,
             "flag_exogenousshocks": 0,
             "flag_cum_emissions": 0,
             "flag_tax_CO2": 4,
             "flag_energyshocks": 0,
             "flag_capshocks": 0,
             "flag_outputshocks": 0,
-            "flag_inventshocks": 1,
+            "flag_inventshocks": 0,
             "flag_encapshocks": 0,
             "flag_popshocks": 0,
             "flag_demandshocks": 0,
             "flag_RDshocks": 0,
             "flag_prodshocks1": 0,
-            "flag_prodshocks2": 0,
+            "flag_prodshocks2": 1,
             "flag_share_END": 2,
             "flag_energy_exp": 3,
             "flagbailout": 0,
             "flag_entry": 0,
             "flag_nonCO2_force": 1,
             "flag_validation": 0,
-            "flag_inventories": 1,
+            "flag_inventories": 0,
             "flag_scrap_age": 1,
             "flag_uniformshocks": 1,
             "flag_desc": 0
@@ -470,44 +434,38 @@
         }
     ],
     "regions": {
-        "NR": 4,
+        "NR": 3,
         "K_firm_shares": [
-            0.25,
-            0.25,
-            0.25,
-            0.25
+            0.3,
+            0.2,
+            0.5
         ],
         "C_firm_shares": [
-            0.25,
-            0.25,
-            0.25,
-            0.25
+            0.3,
+            0.2,
+            0.5
         ],
         "energy": {
             "dirty_capacity_shares": [
-                0.25,
-                0.25,
-                0.25,
-                0.25
+                0.3,
+                0.2,
+                0.5
             ],
             "green_capacity_shares": [
-                0.25,
-                0.25,
-                0.25,
-                0.25
+                0.3,
+                0.2,
+                0.5
             ]
         },
         "de_growth_probability": [
-            0.25,
-            0.25,
-            0.25,
-            0.25
+            0.3,
+            0.2,
+            0.5
         ],
         "ge_growth_probability": [
-            0.25,
-            0.25,
-            0.25,
-            0.25
+            0.3,
+            0.2,
+            0.5
         ]
     },
     "shocks_kfirms": [

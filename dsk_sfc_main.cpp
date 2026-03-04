@@ -403,6 +403,14 @@ int main(int argc, char *argv[])
       }
     }
 
+    // Recompute regional aggregates after shocks so regional labor supply
+    // is synchronized with end-of-period national labor supply
+    REGIONAL_UPDATE();
+    if (verbose)
+    {
+      cout << "Exiting function REGIONAL_UPDATE (post-shocks) in period " << t << endl;
+    }
+
     DEPOSITCHECK();
     if (verbose)
     {
@@ -7168,14 +7176,34 @@ void REGIONAL_CONSISTENCY_CHECK(void)
   if (fabs(national_value) > 1e-10)
   {
     deviation = fabs((regional_sum - national_value) / national_value);
-    // Use more lenient tolerance for LS since it's allocated proportionally
-    if (deviation > tolerance * 10) // 10x tolerance for proportional allocationlue) / national_value);
-      if (deviation > regionalaccountingtolerance)
-      {
-        Errors << "Period " << t << ": Regional LS (labor supply) sum (" << regional_sum
-               << ") does not match national LS (" << national_value
-               << "), deviation = " << deviation << endl;
-      }
+    if (deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Regional LS (labor supply) sum (" << regional_sum
+             << ") does not match national LS (" << national_value
+             << "), deviation = " << deviation << endl;
+    }
+  }
+
+  // Warning-only check: LS-weighted regional unemployment should match national unemployment
+  double weighted_reg_u_sum = 0;
+  double regional_ls_sum = 0;
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    weighted_reg_u_sum += reg_U[rr] * reg_LS[rr];
+    regional_ls_sum += reg_LS[rr];
+  }
+
+  if (regional_ls_sum > 1e-10)
+  {
+    double weighted_reg_u = weighted_reg_u_sum / regional_ls_sum;
+    double national_u = U(1);
+    double unemployment_deviation = fabs(weighted_reg_u - national_u);
+    if (unemployment_deviation > regionalaccountingtolerance)
+    {
+      Errors << "Period " << t << ": Warning - LS-weighted regional unemployment ("
+             << weighted_reg_u << ") differs from national U (" << national_u
+             << "), deviation = " << unemployment_deviation << endl;
+    }
   }
 
   Errors.close();
@@ -8295,7 +8323,7 @@ void SAVE(void)
         target.width(60);
         target << reg_Investment_r[region - 1]; // 4: reg_Investment_r (Total real investment)
         target.width(60);
-        target << (1.0 - reg_U[region - 1]) / NR; // 5: 1 - reg_U(1) (Employment rate)
+        target << (1.0 - reg_U[region - 1]); // 5: 1 - reg_U(1) (Employment rate)
         target.width(60);
         target << reg_Am[region - 1]; // 6: reg_Am(1) (Mean productivity across K and C-firms)
         target.width(60);
@@ -8380,9 +8408,9 @@ void SAVE(void)
     inv_ymc.width(60);
     inv_ymc << Loans_2.Row(1).Sum(); // 15
     inv_ymc.width(60);
-    inv_ymc << Deposits.Row(1).Sum(); // 16
+    inv_ymc << Deposits.Row(1).Sum() / (GDP_n(1) * 4); // 16
     inv_ymc.width(60);
-    inv_ymc << baddebt_b.Sum(); // 17
+    inv_ymc << baddebt_b.Sum() / (GDP_n(1) * 4); // 17
     inv_ymc.width(60);
     inv_ymc << CreditSupply_all; // 18
     inv_ymc.width(60);
@@ -8424,7 +8452,9 @@ void SAVE(void)
     inv_ymc.width(60);
     inv_ymc << Emiss2_TOT; // 37
     inv_ymc.width(60);
-    inv_ymc << Emiss_en << endl; // 38
+    inv_ymc << Emiss_en; // 38
+    inv_ymc.width(60);
+    inv_ymc << CreditDemand_all / CreditSupply_all << endl; // 39
     inv_ymc.close();
   }
 }
