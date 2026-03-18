@@ -410,7 +410,10 @@ void REGIONAL_UPDATE(void)
 				reg_Pi1[rr - 1] += Pi1(ii);
 				reg_Pitot1[rr - 1] += Pi1(ii);
 				reg_Dividends_1[rr - 1] += Dividends_1(ii); // Aggregate dividends for K-firms
-				reg_NW_1[rr - 1] += NW_1(1, ii);
+				// Use Deposits_1 directly: NW_1 = Deposits_1 (as SFC_CHECK computes),
+				// but NW_1(1,ii) is not updated until SFC_CHECK runs, so it holds
+				// the previous period's value here. Deposits_1(1,ii) is current.
+				reg_NW_1[rr - 1] += Deposits_1(1, ii);
 				reg_Deposits1[rr - 1] += Deposits_1(1, ii);
 				// Note: K-firms don't have capital stock (they produce machines, don't hold them)
 			}
@@ -424,7 +427,6 @@ void REGIONAL_UPDATE(void)
 			{
 				reg_GDP_n[rr - 1] += Q2(jj) * p2(jj);
 				reg_Q2[rr - 1] += Q2(jj);
-				reg_Dividends_2[rr] = 0;
 				reg_Q2tot[rr - 1] += Q2(jj);
 				reg_Loans_2[rr - 1] += Loans_2(1, jj);
 				reg_Inventories[rr - 1] += Inventories(1, jj);
@@ -444,7 +446,11 @@ void REGIONAL_UPDATE(void)
 				reg_Emiss2_TOT[rr - 1] += Emiss2(jj);
 				reg_Pi2[rr - 1] += Pi2(jj);
 				reg_Pitot2[rr - 1] += Pi2(jj);
-				reg_NW2[rr - 1] += NW_2(1, jj);
+				// Compute NW_2 from components directly, matching SFC_CHECK's formula:
+				// NW_2 = CapitalStock + deltaCapitalStock + Inventories + Deposits_2 - Loans_2.
+				// NW_2(1,jj) is only updated in ENTRYEXIT and not refreshed after
+				// BANKING/BAILOUT/SETTLEMENT modify the balance-sheet components.
+				reg_NW2[rr - 1] += CapitalStock(1, jj) + deltaCapitalStock(1, jj) + Inventories(1, jj) + Deposits_2(1, jj) - Loans_2(1, jj);
 				reg_Deposits2[rr - 1] += Deposits_2(1, jj);
 				reg_CapitalStock2[rr - 1] += CapitalStock(1, jj);
 				reg_Dividends_2[rr - 1] += Dividends_2(jj); // Aggregate dividends for C-firms
@@ -479,17 +485,25 @@ void REGIONAL_UPDATE(void)
 			}
 		}
 
-		// Allocate household net worth to regions based on GDP share
+		// Update GDP_n(1) to match post-ENTRYEXIT prices used in reg_GDP_n.
+		// MACRO() computes GDP_n(1) before ENTRYEXIT changes p1/p2, so the
+		// regional sum (computed here with current prices) is the authoritative value.
 		double total_regional_GDP = 0;
 		for (int rr = 1; rr <= NR; ++rr)
 		{
 			total_regional_GDP += reg_GDP_n[rr - 1];
 		}
+		GDP_n(1) = total_regional_GDP;
+
+		// Allocate household net worth to regions based on GDP share.
+		// Use Deposits_h(1) as the NW_h base: NW_h(1) = Deposits_h(1) by
+		// definition (SFC_CHECK), but NW_h(1) is only assigned there and holds
+		// the previous period's value here. Deposits_h(1) is live and current.
 		if (total_regional_GDP > 0)
 		{
 			for (int rr = 1; rr <= NR; ++rr)
 			{
-				reg_NW_h[rr - 1] = NW_h(1) * (reg_GDP_n[rr - 1] / total_regional_GDP);
+				reg_NW_h[rr - 1] = Deposits_h(1) * (reg_GDP_n[rr - 1] / total_regional_GDP);
 			}
 		}
 

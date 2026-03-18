@@ -36,7 +36,7 @@ extern std::vector<double> reg_Am1, reg_Am2, reg_Am_a, reg_Am_en, reg_GDP_r, reg
 extern std::vector<double> reg_Emiss1_TOT, reg_Emiss2_TOT, reg_Emiss_en;
 extern double Emiss1_TOT, Emiss2_TOT, Emiss_en, Cum_emissions, LS, LD;
 // Forward declare firm-level matrices
-extern Matrix NW_1, NW_2, Deposits_1, Deposits_2, CapitalStock, Loans_2, Inventories, EI, N, S2;
+extern Matrix NW_1, NW_2, Deposits_1, Deposits_2, CapitalStock, deltaCapitalStock, Loans_2, Inventories, EI, N, S2;
 extern RowVector S1, Ld1, Ld2, K, I, SI, A1p, A2, nclient, Pi1, Pi2, Emiss2, CreditDemand;
 extern RowVector NW_h;
 

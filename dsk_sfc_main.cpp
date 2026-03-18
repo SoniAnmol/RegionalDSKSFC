@@ -1278,6 +1278,7 @@ void RESIZE(void)
     reg_A2_en_dead.assign(NR, 0.0);
     reg_A2_en_survive.assign(NR, 0.0);
     reg_exit_marketshare2.assign(NR, 0.0);
+    reg_n_exit2.assign(NR, 0.0);
     reg_exit_payments2.assign(NR, 0.0);
     reg_exit_equity2.assign(NR, 0.0);
     reg_exiting_1.assign(NR, 0.0);
@@ -1933,6 +1934,7 @@ void SETVARS(void)
       reg_Am_a[rr] = 0;
       reg_Am_en[rr] = 0;
       reg_exit_marketshare2[rr] = 0;
+      reg_n_exit2[rr] = 0;
       reg_exit_payments2[rr] = 0;
       reg_exit_equity2[rr] = 0;
       reg_exiting_1[rr] = 0;
@@ -5331,6 +5333,13 @@ void ENTRYEXIT(void)
 
   // Determine the number of machines which each entering C-firm will have based on number of available second-hand machines
   n_exit2 = exiting_2.Sum();
+  if (NR > 0)
+  {
+    for (int rr = 0; rr < NR; rr++)
+    {
+      reg_n_exit2[rr] = reg_exit_payments2[rr] + reg_exit_equity2[rr] + reg_exit_marketshare2[rr];
+    }
+  }
   n_mach_resid = min(n_mach_needed, n_mach_exit);
   if (n_exit2 > n_mach_resid)
   {
@@ -7802,7 +7811,9 @@ void SAVE(void)
       target.width(60);
       target << NW_f(1) / (GDP_n(1) * 4); // 73
       target.width(60);
-      target << Wages / (Pitot1 + Pitot2 + BankProfits.Sum() + ProfitEnergy + FuelCost + Wages) << endl; // 74
+      target << Wages / (Pitot1 + Pitot2 + BankProfits.Sum() + ProfitEnergy + FuelCost + Wages); // 74
+      target.width(60);
+      target << n_exit2 << endl; // 75
     };
 
     write_resultsexp_row(inv_res);
@@ -7983,6 +7994,8 @@ void SAVE(void)
         target << reg_NW_1[region - 1] + reg_NW2[region - 1]; // 45
         target.width(60);
         target << ((reg_GDP_r_lag[region - 1] > 0) ? (pow(reg_GDP_r[region - 1] / reg_GDP_r_lag[region - 1], 4) - 1) : 0); // 46
+        target.width(60);
+        target << reg_n_exit2[region - 1]; // 47
         target << endl;
       };
 
@@ -8361,7 +8374,9 @@ void SAVE(void)
         target.width(60);
         target << reg_Emiss2_TOT[region - 1]; // 23: reg_Emiss2_TOT (C-firm emissions)
         target.width(60);
-        target << reg_Emiss_en[region - 1] << endl; // 24: reg_Emiss_en (Energy sector emissions)
+        target << reg_Emiss_en[region - 1]; // 24: reg_Emiss_en (Energy sector emissions)
+        target.width(60);
+        target << reg_n_exit2[region - 1] << endl; // 25: reg_n_exit2 (Number of exiting C-firms)
       };
 
       for (int rr = 1; rr <= NR; ++rr)
@@ -8434,27 +8449,43 @@ void SAVE(void)
     inv_ymc.width(60);
     inv_ymc << Tmixed(1); // 28
     inv_ymc.width(60);
-    inv_ymc << Q1tot; // 29
+    inv_ymc << counter_bankfailure; // 29
     inv_ymc.width(60);
-    inv_ymc << Q2tot; // 30
+    inv_ymc << Q1tot; // 30
     inv_ymc.width(60);
-    inv_ymc << N1r; // 31
+    inv_ymc << Q2tot; // 31
     inv_ymc.width(60);
-    inv_ymc << N2r; // 32
+    inv_ymc << N1r; // 32
     inv_ymc.width(60);
-    inv_ymc << LS; // 33
+    inv_ymc << N2r; // 33
     inv_ymc.width(60);
-    inv_ymc << Q_ge; // 34
+    inv_ymc << LS; // 34
     inv_ymc.width(60);
-    inv_ymc << Q_de; // 35
+    inv_ymc << Q_ge; // 35
     inv_ymc.width(60);
-    inv_ymc << Emiss1_TOT; // 36
+    inv_ymc << Q_de; // 36
     inv_ymc.width(60);
-    inv_ymc << Emiss2_TOT; // 37
+    inv_ymc << Emiss1_TOT; // 37
     inv_ymc.width(60);
-    inv_ymc << Emiss_en; // 38
+    inv_ymc << Emiss2_TOT; // 38
     inv_ymc.width(60);
-    inv_ymc << CreditDemand_all / CreditSupply_all << endl; // 39
+    inv_ymc << Emiss_en; // 39
+    inv_ymc.width(60);
+    inv_ymc << CreditDemand_all / CreditSupply_all; // 40
+    inv_ymc.width(60);
+    inv_ymc << n_exit2; // 41
+    inv_ymc.width(60);
+    inv_ymc << NW_b.Row(1).Sum() / (GDP_n(1) * 4); // 42
+    inv_ymc.width(60);
+    inv_ymc << NW_gov(1) / (GDP_n(1) * 4); // 43
+    inv_ymc.width(60);
+    inv_ymc << NW_e(1) / (GDP_n(1) * 4); // 44
+    inv_ymc.width(60);
+    inv_ymc << NW_h(1); // 45
+    inv_ymc.width(60);
+    inv_ymc << NW_2.Row(1).Sum(); // 46
+    inv_ymc.width(60);
+    inv_ymc << NW_1.Row(1).Sum() << endl; // 47
     inv_ymc.close();
   }
 }
