@@ -192,8 +192,10 @@
     {
       "flag_shockexperiment": 1,
       "flag_exogenousshocks": 0,
+      "flag_clim_tech": 1,
       "flag_cum_emissions": 0,
       "flag_tax_CO2": 4,
+      "flag_encapshocks": 0,
       "flag_energyshocks": 0,
       "flag_capshocks": 0,
       "flag_outputshocks": 0,
@@ -202,7 +204,7 @@
       "flag_popshocks": 0,
       "flag_demandshocks": 0,
       "flag_RDshocks": 0,
-      "flag_prodshocks1": 1,
+      "flag_prodshocks1": 3,
       "flag_prodshocks2": 0,
       "flag_share_END": 2,
       "flag_energy_exp": 3,
@@ -323,6 +325,26 @@
       0.5,
       0.3,
       0.2
+    ],
+    "a_0_regional": [
+      0.005,
+      0.005,
+      0.005
+    ],
+    "b_0_regional": [
+      1000,
+      1000,
+      1000
+    ],
+    "shockexponent1_regional": [
+      0.25,
+      0.25,
+      0.25
+    ],
+    "shockexponent2_regional": [
+      6,
+      8,
+      12
     ]
   },
   "shocks_kfirms": [

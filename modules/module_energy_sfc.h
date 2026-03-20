@@ -77,7 +77,14 @@ extern std::vector<int> region_firm_assignment_C;
 // -- Regional Accounting Variables -- //
 extern std::vector<double> reg_GDP_r;
 extern std::vector<double> reg_Consumption_r;
+extern std::vector<double> reg_Consumption;
 extern std::vector<double> reg_Investment_r;
+extern std::vector<double> reg_ReplacementInvestment_r;
+extern std::vector<double> reg_EnergyPayments;
+extern std::vector<double> reg_K_gelag;
+extern std::vector<double> reg_K_delag;
+extern std::vector<double> reg_Dividends_e;
+extern std::vector<double> reg_Dividends_b;
 extern std::vector<double> reg_U;
 extern std::vector<double> reg_Am;
 extern std::vector<double> reg_Loans_2;

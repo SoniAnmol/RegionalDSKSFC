@@ -1,5 +1,79 @@
 #include "module_macro_sfc.h"
 
+static void UPDATE_UNEMPLOYMENT_RATES(void)
+{
+	if (LS > 0)
+	{
+		U(1) = (LS - LD) / LS;
+	}
+	else
+	{
+		U(1) = 0;
+	}
+
+	if (NR <= 0)
+	{
+		return;
+	}
+
+	std::vector<double> reg_LD_totals(NR, 0.0);
+	double mapped_reg_LD_total = 0;
+	double total_LD_firms = LD1tot + LD2tot;
+
+	for (int rr = 1; rr <= NR; ++rr)
+	{
+		double reg_LD_firms = 0;
+
+		for (int ii = 1; ii <= N1; ++ii)
+		{
+			if (region_firm_assignment_K[ii - 1] == rr)
+			{
+				reg_LD_firms += Ld1(ii);
+			}
+		}
+
+		for (int jj = 1; jj <= N2; ++jj)
+		{
+			if (region_firm_assignment_C[jj - 1] == rr)
+			{
+				reg_LD_firms += Ld2(jj);
+			}
+		}
+
+		double reg_LD_rd = 0;
+		double reg_LD_en = 0;
+		if (total_LD_firms > 0)
+		{
+			reg_LD_rd = LD1rdtot * (reg_LD_firms / total_LD_firms);
+			reg_LD_en = LDentot * (reg_LD_firms / total_LD_firms);
+		}
+
+		double reg_LD_total = reg_LD_firms + reg_LD_rd + reg_LD_en;
+		reg_LD_totals[rr - 1] = reg_LD_total;
+		mapped_reg_LD_total += reg_LD_total;
+	}
+
+	for (int rr = 1; rr <= NR; ++rr)
+	{
+		double reg_LD_total = reg_LD_totals[rr - 1];
+
+		if (LS > 0 && mapped_reg_LD_total > 0)
+		{
+			reg_LS[rr - 1] = LS * (reg_LD_total / mapped_reg_LD_total);
+		}
+		else if (LS > 0)
+		{
+			reg_LS[rr - 1] = LS / NR;
+		}
+		else
+		{
+			reg_LS[rr - 1] = 0;
+		}
+
+		reg_U[rr - 1] = (reg_LS[rr - 1] > 0) ? (reg_LS[rr - 1] - reg_LD_total) / reg_LS[rr - 1] : 0;
+	}
+}
+
 void LABOR(void)
 {
 	// Calculate total labour demand
@@ -138,6 +212,20 @@ void MACRO(void)
 		A2_en_mi += log(A2_en(j));
 		A2_ef_mi += log(A2_ef(j));
 		H2 += f2(1, j) * f2(1, j);
+
+		// Accumulate regional Am_a and Am_en for C-firms
+		if (NR > 0)
+		{
+			int rr = region_firm_assignment_C[j - 1];
+			if (rr >= 1 && rr <= NR && LD2 > 0)
+			{
+				reg_Am_a[rr - 1] += Ld2(j) / LD2 * A2e(j);
+			}
+			if (rr >= 1 && rr <= NR && (D2_en_TOT + D1_en_TOT) > 0)
+			{
+				reg_Am_en[rr - 1] += D2_en(j) / (D2_en_TOT + D1_en_TOT) * A2e_en(j);
+			}
+		}
 	}
 
 	A_mi /= N2r;
@@ -177,6 +265,20 @@ void MACRO(void)
 		if ((D2_en_TOT + D1_en_TOT) > 0)
 		{
 			Am_en(1) += D1_en(i) / (D2_en_TOT + D1_en_TOT) * A1p_en(i);
+		}
+
+		// Accumulate regional Am_a and Am_en for K-firms
+		if (NR > 0)
+		{
+			int rr = region_firm_assignment_K[i - 1];
+			if (rr >= 1 && rr <= NR && LD2 > 0)
+			{
+				reg_Am_a[rr - 1] += Ld1(i) / LD2 * A1p(i) * a;
+			}
+			if (rr >= 1 && rr <= NR && (D2_en_TOT + D1_en_TOT) > 0)
+			{
+				reg_Am_en[rr - 1] += D1_en(i) / (D2_en_TOT + D1_en_TOT) * A1p_en(i);
+			}
 		}
 	}
 
@@ -228,55 +330,8 @@ void MACRO(void)
 		GDP_ng = log(GDP_n(1)) - log(GDP_n(2));
 	}
 
-	// Determine unemployment rate
-	U(1) = (LS - LD) / LS;
-
-	// Calculate regional unemployment rates if regions are defined
-	if (NR > 0)
-	{
-		for (int rr = 1; rr <= NR; ++rr)
-		{
-			double reg_LS_used = 0;
-			double reg_LD = 0;
-
-			// Aggregate labor demand from K-firms in this region
-			for (int ii = 1; ii <= N1; ++ii)
-			{
-				if (region_firm_assignment_K[ii - 1] == rr)
-				{
-					reg_LS_used += Ld1(ii);
-				}
-			}
-
-			// Aggregate labor demand from C-firms in this region
-			for (int jj = 1; jj <= N2; ++jj)
-			{
-				if (region_firm_assignment_C[jj - 1] == rr)
-				{
-					reg_LS_used += Ld2(jj);
-				}
-			}
-
-			// Calculate regional labor demand including R&D and energy sector proportionally
-			double total_LD_firms = LD1tot + LD2tot; // Total Ld1 + Ld2 across all firms
-			double reg_LD_rd = 0;
-			double reg_LD_en = 0;
-			if (total_LD_firms > 0)
-			{
-				reg_LD_rd = LD1rdtot * (reg_LS_used / total_LD_firms);
-				reg_LD_en = LDentot * (reg_LS_used / total_LD_firms);
-			}
-
-			// Total regional labor demand
-			reg_LD = reg_LS_used + reg_LD_rd + reg_LD_en;
-
-			// Allocate regional labor supply proportionally to total labor demand
-			double reg_LS = (LD > 0 && LS > 0) ? LS * (reg_LD / LD) : 0;
-
-			// Regional unemployment rate = (reg_LS - reg_LD) / reg_LS
-			reg_U[rr - 1] = (reg_LS > 0) ? (reg_LS - reg_LD) / reg_LS : 0;
-		}
-	}
+	// Determine national and regional unemployment rates
+	UPDATE_UNEMPLOYMENT_RATES();
 
 	// Update wage rate
 	WAGE();
@@ -298,6 +353,8 @@ void REGIONAL_UPDATE(void)
 			reg_Q1tot[rr] = 0;
 			reg_Q2tot[rr] = 0;
 			reg_Loans_2[rr] = 0;
+			reg_CreditDemand_all[rr] = 0;
+			reg_CreditSupply_all[rr] = 0;
 			reg_Inventories[rr] = 0;
 			reg_N[rr] = 0;
 			reg_N1[rr] = 0;
@@ -306,6 +363,10 @@ void REGIONAL_UPDATE(void)
 			reg_S2[rr] = 0;
 			reg_K[rr] = 0;
 			reg_Investment[rr] = 0;
+			reg_Investment_n[rr] = 0;
+			reg_ReplacementInvestment_r[rr] = 0;
+			reg_EnergyPayments[rr] = 0;
+			reg_Wages[rr] = 0;
 			reg_EI[rr] = 0;
 			reg_SI[rr] = 0;
 			reg_Ld1[rr] = 0;
@@ -316,12 +377,17 @@ void REGIONAL_UPDATE(void)
 			reg_Emiss2_TOT[rr] = 0;
 			reg_Pi1[rr] = 0;
 			reg_Pi2[rr] = 0;
-			reg_NW1[rr] = 0;
+			reg_Pitot1[rr] = 0;
+			reg_Pitot2[rr] = 0;
+			reg_Dividends_1[rr] = 0; // Initialize dividends for K-firms
+			reg_Dividends_2[rr] = 0;
+			reg_NW_1[rr] = 0;
 			reg_NW2[rr] = 0;
 			reg_Deposits1[rr] = 0;
 			reg_Deposits2[rr] = 0;
 			reg_CapitalStock1[rr] = 0;
 			reg_CapitalStock2[rr] = 0;
+			reg_CapitalStock[rr] = 0;
 		}
 
 		// Recalculate regional GDP_n (depends on prices which change in ENTRYEXIT)
@@ -339,10 +405,17 @@ void REGIONAL_UPDATE(void)
 				reg_S1[rr - 1] += S1(ii);
 				reg_Ld1[rr - 1] += Ld1(ii);
 				reg_Emiss1_TOT[rr - 1] += Emiss1(ii);
+				reg_EnergyPayments[rr - 1] += EnergyPayments_1(ii);
+				reg_Wages[rr - 1] += Wages_1(ii);
 				reg_Pi1[rr - 1] += Pi1(ii);
-				reg_NW1[rr - 1] += NW_1(1, ii);
+				reg_Pitot1[rr - 1] += Pi1(ii);
+				reg_Dividends_1[rr - 1] += Dividends_1(ii); // Aggregate dividends for K-firms
+				// Use Deposits_1 directly: NW_1 = Deposits_1 (as SFC_CHECK computes),
+				// but NW_1(1,ii) is not updated until SFC_CHECK runs, so it holds
+				// the previous period's value here. Deposits_1(1,ii) is current.
+				reg_NW_1[rr - 1] += Deposits_1(1, ii);
 				reg_Deposits1[rr - 1] += Deposits_1(1, ii);
-				reg_CapitalStock1[rr - 1] += CapitalStock(1, ii);
+				// Note: K-firms don't have capital stock (they produce machines, don't hold them)
 			}
 		}
 
@@ -362,19 +435,82 @@ void REGIONAL_UPDATE(void)
 				reg_S2[rr - 1] += S2(1, jj);
 				reg_K[rr - 1] += K(jj);
 				reg_Investment[rr - 1] += I(jj);
+				reg_Investment_n[rr - 1] += EI_n(jj) + SI_n(jj);
 				reg_EI[rr - 1] += EI(1, jj);
+				reg_ReplacementInvestment_r[rr - 1] += SI(jj);
 				reg_SI[rr - 1] += SI(jj);
+				reg_EnergyPayments[rr - 1] += EnergyPayments_2(jj);
+				reg_Wages[rr - 1] += Wages_2(jj);
 				reg_Ld2[rr - 1] += Ld2(jj);
 				reg_Emiss2[rr - 1] += Emiss2(jj);
 				reg_Emiss2_TOT[rr - 1] += Emiss2(jj);
 				reg_Pi2[rr - 1] += Pi2(jj);
-				reg_NW2[rr - 1] += NW_2(1, jj);
+				reg_Pitot2[rr - 1] += Pi2(jj);
+				// Compute NW_2 from components directly, matching SFC_CHECK's formula:
+				// NW_2 = CapitalStock + deltaCapitalStock + Inventories + Deposits_2 - Loans_2.
+				// NW_2(1,jj) is only updated in ENTRYEXIT and not refreshed after
+				// BANKING/BAILOUT/SETTLEMENT modify the balance-sheet components.
+				reg_NW2[rr - 1] += CapitalStock(1, jj) + deltaCapitalStock(1, jj) + Inventories(1, jj) + Deposits_2(1, jj) - Loans_2(1, jj);
 				reg_Deposits2[rr - 1] += Deposits_2(1, jj);
 				reg_CapitalStock2[rr - 1] += CapitalStock(1, jj);
+				reg_Dividends_2[rr - 1] += Dividends_2(jj); // Aggregate dividends for C-firms
+				reg_CreditDemand_all[rr - 1] += CreditDemand(jj);
+			}
+		}
+
+		// Calculate total regional capital stock (C-firms only, matching national CapitalStock)
+		for (int rr = 1; rr <= NR; ++rr)
+		{
+			reg_CapitalStock[rr - 1] = reg_CapitalStock2[rr - 1];
+		}
+
+		// Allocate credit supply proportionally to regional demand so regional totals sum to national
+		double total_reg_credit_demand = 0;
+		for (int rr = 1; rr <= NR; ++rr)
+		{
+			total_reg_credit_demand += reg_CreditDemand_all[rr - 1];
+		}
+		if (total_reg_credit_demand > 0)
+		{
+			for (int rr = 1; rr <= NR; ++rr)
+			{
+				reg_CreditSupply_all[rr - 1] = CreditSupply_all * (reg_CreditDemand_all[rr - 1] / total_reg_credit_demand);
+			}
+		}
+		else
+		{
+			for (int rr = 1; rr <= NR; ++rr)
+			{
+				reg_CreditSupply_all[rr - 1] = 0;
+			}
+		}
+
+		// Update GDP_n(1) to match post-ENTRYEXIT prices used in reg_GDP_n.
+		// MACRO() computes GDP_n(1) before ENTRYEXIT changes p1/p2, so the
+		// regional sum (computed here with current prices) is the authoritative value.
+		double total_regional_GDP = 0;
+		for (int rr = 1; rr <= NR; ++rr)
+		{
+			total_regional_GDP += reg_GDP_n[rr - 1];
+		}
+		GDP_n(1) = total_regional_GDP;
+
+		// Allocate household net worth to regions based on GDP share.
+		// Use Deposits_h(1) as the NW_h base: NW_h(1) = Deposits_h(1) by
+		// definition (SFC_CHECK), but NW_h(1) is only assigned there and holds
+		// the previous period's value here. Deposits_h(1) is live and current.
+		if (total_regional_GDP > 0)
+		{
+			for (int rr = 1; rr <= NR; ++rr)
+			{
+				reg_NW_h[rr - 1] = Deposits_h(1) * (reg_GDP_n[rr - 1] / total_regional_GDP);
 			}
 		}
 
 		// Calculate regional average productivity and derived variables
+		std::vector<double> reg_LD_totals(NR, 0.0);
+		double mapped_reg_LD_total = 0;
+
 		for (int rr = 1; rr <= NR; ++rr)
 		{
 			double reg_A1_sum = 0;
@@ -415,9 +551,19 @@ void REGIONAL_UPDATE(void)
 			// Calculate regional real investment
 			reg_Investment_r[rr - 1] = reg_EI[rr - 1] + reg_SI[rr - 1];
 
-			// Calculate regional labor supply (proportional to labor demand)
-			double reg_LS_used = reg_Ld1[rr - 1] + reg_Ld2[rr - 1];
-			reg_LS[rr - 1] = (LD > 0 && LS > 0) ? LS * (reg_LS_used / LD) : 0;
+			// Calculate regional labor supply (proportional to total regional labor demand)
+			double reg_LD_firms = reg_Ld1[rr - 1] + reg_Ld2[rr - 1];
+			double total_LD_firms = LD1tot + LD2tot;
+			double reg_LD_rd = 0;
+			double reg_LD_en = 0;
+			if (total_LD_firms > 0)
+			{
+				reg_LD_rd = LD1rdtot * (reg_LD_firms / total_LD_firms);
+				reg_LD_en = LDentot * (reg_LD_firms / total_LD_firms);
+			}
+			double reg_LD_total = reg_LD_firms + reg_LD_rd + reg_LD_en;
+			reg_LD_totals[rr - 1] = reg_LD_total;
+			mapped_reg_LD_total += reg_LD_total;
 
 			// Calculate regional cumulative emissions
 			double national_emiss_tot = Emiss1_TOT + Emiss2_TOT + Emiss_en;
@@ -432,6 +578,33 @@ void REGIONAL_UPDATE(void)
 				reg_Cum_emissions[rr - 1] = 0;
 			}
 		}
+
+		for (int rr = 1; rr <= NR; ++rr)
+		{
+			if (LS > 0 && mapped_reg_LD_total > 0)
+			{
+				reg_LS[rr - 1] = LS * (reg_LD_totals[rr - 1] / mapped_reg_LD_total);
+			}
+			else if (LS > 0)
+			{
+				reg_LS[rr - 1] = LS / NR;
+			}
+			else
+			{
+				reg_LS[rr - 1] = 0;
+			}
+
+			reg_U[rr - 1] = (reg_LS[rr - 1] > 0) ? (reg_LS[rr - 1] - reg_LD_totals[rr - 1]) / reg_LS[rr - 1] : 0;
+		}
+	}
+
+	if (LS > 0)
+	{
+		U(1) = (LS - LD) / LS;
+	}
+	else
+	{
+		U(1) = 0;
 	}
 }
 
