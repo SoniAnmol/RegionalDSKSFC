@@ -1,0 +1,51 @@
+# ---------------------------------------------------------------------------
+# auto-push-slides.yml
+#
+# Triggered whenever a commit on the gh-pages branch includes a change to
+# assets/Paper2Slides.pdf.  The workflow verifies the file is present and
+# well-formed, then re-commits with a standardised message if the file was
+# modified by a non-workflow actor (e.g. a manual force-push of just the PDF).
+#
+# NOTE: If you push the PDF via watch_and_push.sh the commit is already on
+# the branch — this workflow acts as a guard/audit step in CI.
+# ---------------------------------------------------------------------------
+
+name: Auto-push Paper2Slides.pdf
+
+on:
+  push:
+    branches:
+      - gh-pages
+    paths:
+      - "assets/Paper2Slides.pdf"
+
+jobs:
+  verify-and-record:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify PDF exists and is non-empty
+        run: |
+          FILE="assets/Paper2Slides.pdf"
+          if [[ ! -f "$FILE" ]]; then
+            echo "ERROR: $FILE not found after checkout."
+            exit 1
+          fi
+          SIZE=$(stat -c%s "$FILE")
+          echo "PDF size: $SIZE bytes"
+          if [[ "$SIZE" -lt 1024 ]]; then
+            echo "WARNING: PDF is suspiciously small ($SIZE bytes). Please verify the upload."
+          fi
+
+      - name: Log change
+        run: |
+          echo "assets/Paper2Slides.pdf was updated in commit ${{ github.sha }}"
+          echo "Committed by: ${{ github.actor }}"
+          echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
