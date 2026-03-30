@@ -15,7 +15,7 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-WATCHED_FILE="assets/Paper2Slides.pdf"
+WATCHED_FILE="assets/Paper2_Slides.pdf"
 BRANCH="gh-pages"
 
 cd "$REPO_DIR"

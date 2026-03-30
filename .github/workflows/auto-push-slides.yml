@@ -17,7 +17,7 @@ on:
     branches:
       - gh-pages
     paths:
-      - "assets/Paper2Slides.pdf"
+      - "assets/Paper2_Slides.pdf"
 
 jobs:
   verify-and-record:
@@ -33,7 +33,7 @@ jobs:
 
       - name: Verify PDF exists and is non-empty
         run: |
-          FILE="assets/Paper2Slides.pdf"
+          FILE="assets/Paper2_Slides.pdf"
           if [[ ! -f "$FILE" ]]; then
             echo "ERROR: $FILE not found after checkout."
             exit 1
