@@ -485,15 +485,15 @@ void REGIONAL_UPDATE(void)
 			}
 		}
 
-		// Update GDP_n(1) to match post-ENTRYEXIT prices used in reg_GDP_n.
-		// MACRO() computes GDP_n(1) before ENTRYEXIT changes p1/p2, so the
-		// regional sum (computed here with current prices) is the authoritative value.
+		// Compute total regional GDP_n for allocation ratios (household NW, etc.)
+		// Do NOT overwrite national GDP_n(1) — it was correctly computed by MACRO()
+		// before ENTRYEXIT. Overwriting with post-ENTRYEXIT prices injects
+		// entry/exit noise into the nominal GDP growth series.
 		double total_regional_GDP = 0;
 		for (int rr = 1; rr <= NR; ++rr)
 		{
 			total_regional_GDP += reg_GDP_n[rr - 1];
 		}
-		GDP_n(1) = total_regional_GDP;
 
 		// Allocate household net worth to regions based on GDP share.
 		// Use Deposits_h(1) as the NW_h base: NW_h(1) = Deposits_h(1) by
@@ -853,4 +853,155 @@ void TAYLOR(void)
 
 	r_bonds = r * (1 - bondsmarkdown);
 	r_deb = r * (1 + bankmarkup);
+}
+
+void RG_BLOCK_SP(void)
+{
+	// Regional Government Block — Phase 1: Social Protection
+	// Called BEFORE PAY_LAB_INV so that Benefits includes regional SP when
+	// household deposits and consumption are computed.
+	// Only active when NR > 0 and gamma_bar > 0 (gamma_bar=0 ensures complete neutrality)
+
+	if (NR <= 0 || gamma_bar <= 0.0)
+	{
+		return;
+	}
+
+	// Use current-period national unemployment from LABOR (LS, LD are fresh).
+	// This guarantees SP_total = (LS-LD)*w*wu when all wu_rg are the same,
+	// exactly matching DSK's G = (LS-LD)*w*wu computed inside LABOR.
+	// We distribute national unemployment to regions proportionally to reg_LS
+	// so that heterogeneous wu_rg still works correctly.
+	UPDATE_UNEMPLOYMENT_RATES();
+
+	double national_unemployed = std::max(0.0, (double)(LS - LD));
+
+	// Sum reg_LS for proportional allocation
+	double total_reg_LS = 0.0;
+	for (int rr = 0; rr < NR; rr++)
+	{
+		total_reg_LS += reg_LS[rr];
+	}
+
+	SP_total = 0.0;
+	for (int rr = 0; rr < NR; rr++)
+	{
+		double share = (total_reg_LS > 0) ? reg_LS[rr] / total_reg_LS : 1.0 / NR;
+		double unemployed_r = national_unemployed * share;
+		SP_rg[rr] = unemployed_r * w(2) * wu_rg[rr];
+		SP_total += SP_rg[rr];
+	}
+
+	// Add SP to Benefits and G BEFORE PAY_LAB_INV
+	// PAY_LAB_INV will then credit Deposits_h += (Wages + Benefits) automatically
+	Benefits += SP_total;
+	G += SP_total;
+}
+
+void RG_BLOCK_FISCAL(void)
+{
+	// Regional Government Block — Phase 2: Revenue, Grants, EA, Public Capital
+	// Called between REGIONAL_UPDATE and BANKING in the simulation loop.
+	// Depends on Taxes_1/Taxes_2 (from PROFIT) and reg_Wages (from REGIONAL_UPDATE).
+	// SP_rg values were already set by RG_BLOCK_SP; used here for EA residual.
+	// Only active when NR > 0 and gamma_bar > 0 (gamma_bar=0 ensures complete neutrality)
+
+	if (NR <= 0 || gamma_bar <= 0.0)
+	{
+		return;
+	}
+
+	// Step 1: Compute national grant pool
+	GRANTPOOL = gamma_bar * Taxes;
+
+	// Step 2: Compute per-region tax-sharing receipts, grants, EA
+	for (int rr = 1; rr <= NR; rr++)
+	{
+		// 2a: Compute regional tax base from firms in this region
+		double T_K_r = 0.0;
+		double T_C_r = 0.0;
+
+		for (int ii = 1; ii <= N1; ii++)
+		{
+			if (region_firm_assignment_K[ii - 1] == rr)
+			{
+				T_K_r += Taxes_1(ii);
+			}
+		}
+
+		for (int jj = 1; jj <= N2; jj++)
+		{
+			if (region_firm_assignment_C[jj - 1] == rr)
+			{
+				T_C_r += Taxes_2(jj);
+			}
+		}
+
+		// 2b: Tax-sharing receipts = share of (firm taxes + wage taxes in region)
+		TS_rg[rr - 1] = tau_share_rg[rr - 1] * (T_K_r + T_C_r + aliqw * reg_Wages[rr - 1]);
+
+		// 2c: Base grant from national pool
+		GT_base_rg[rr - 1] = omega_rg[rr - 1] * GRANTPOOL;
+
+		// 2d: Top-up grant covers shortfall if own revenue + base grant insufficient for SP
+		// SP_rg was already computed by RG_BLOCK_SP
+		double own_revenue = TS_rg[rr - 1] + GT_base_rg[rr - 1];
+		GT_topup_rg[rr - 1] = std::max(0.0, SP_rg[rr - 1] - own_revenue);
+
+		// 2e: Total grant
+		GT_rg[rr - 1] = GT_base_rg[rr - 1] + GT_topup_rg[rr - 1];
+
+		// 2f: Total regional revenue
+		REV_rg[rr - 1] = TS_rg[rr - 1] + GT_rg[rr - 1];
+
+		// 2g: Expenditure allocation (remainder after SP)
+		EA_rg[rr - 1] = std::max(0.0, REV_rg[rr - 1] - SP_rg[rr - 1]);
+
+		// 2h: Total regional expenditure (balanced budget: REV = EXP)
+		EXP_rg[rr - 1] = SP_rg[rr - 1] + EA_rg[rr - 1];
+
+		// 2i: Public capital accumulation (stock with depreciation)
+		K_pub_rg[rr - 1] = K_pub_rg[rr - 1] * (1.0 - delta_pub) + EA_rg[rr - 1];
+	}
+
+	// Step 3: Compute national aggregates
+	REV_rg_total = 0.0;
+	TR_rg_total = 0.0;
+	EA_total = 0.0;
+	K_pub_total = 0.0;
+
+	for (int rr = 0; rr < NR; rr++)
+	{
+		REV_rg_total += REV_rg[rr];
+		TR_rg_total += GT_rg[rr];
+		EA_total += EA_rg[rr];
+		K_pub_total += K_pub_rg[rr];
+	}
+
+	// Step 4: Route EA as government purchases to K-firms
+	// EA credited to K-firm deposits as financial transfer; production effect next period
+	if (EA_total > 0.0)
+	{
+		G += EA_total;
+		GovPurchases_1 = EA_total;
+
+		for (int rr = 1; rr <= NR; rr++)
+		{
+			if (EA_rg[rr - 1] > 0.0 && reg_N1[rr - 1] > 0)
+			{
+				double ea_per_firm = EA_rg[rr - 1] / reg_N1[rr - 1];
+
+				for (int ii = 1; ii <= N1; ii++)
+				{
+					if (region_firm_assignment_K[ii - 1] == rr)
+					{
+						Deposits_1(1, ii) += ea_per_firm;
+						int bank = static_cast<int>(BankingSupplier_1(ii));
+						Deposits(1, bank) += ea_per_firm;
+						Inflows(bank) += ea_per_firm;
+					}
+				}
+			}
+		}
+	}
 }

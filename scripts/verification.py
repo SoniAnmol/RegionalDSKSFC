@@ -56,7 +56,7 @@ SCENARIO_NAMES = {
 NUM_RUNS = 50
 
 # Number of regions in the model
-NUM_REGIONS = 3
+NUM_REGIONS = 4
 
 
 # ==============================================================================

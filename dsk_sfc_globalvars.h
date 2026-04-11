@@ -621,6 +621,25 @@ std::vector<double> reg_CapitalStock2;    // Regional capital stock C-firms
 std::vector<double> reg_CapitalStock;     // Regional total capital stock (K+C firms)
 std::vector<double> reg_NW_h;             // Regional household net worth (allocated by GDP share)
 
+// Regional Government Block variables
+std::vector<double> TS_rg;               // Tax-sharing receipts per region
+std::vector<double> GT_base_rg;          // Base grant per region
+std::vector<double> GT_topup_rg;         // Top-up grant per region
+std::vector<double> GT_rg;               // Total grant per region (base + top-up)
+std::vector<double> REV_rg;              // Total regional revenue (tax-sharing + grants)
+std::vector<double> SP_rg;               // Social protection spending per region
+std::vector<double> EA_rg;               // Expenditure allocation per region
+std::vector<double> EXP_rg;              // Total regional expenditure (SP + EA)
+std::vector<double> K_pub_rg;            // Public capital stock per region
+double GRANTPOOL;                         // National grant pool (gamma_bar * Taxes)
+double REV_rg_total;                      // Sum of regional revenues
+double TR_rg_total;                       // Sum of regional grants
+double SP_total;                          // Sum of regional social protection
+double EA_total;                          // Sum of regional expenditure allocation
+double K_pub_total;                       // Sum of regional public capital stocks
+double K_pub_total_lag;                   // Lagged total public capital (for SFC check)
+double GovPurchases_1;                    // Government purchases credited to K-firms (for SFC)
+
 // Climate
 RowVector Tmixed(2);             // Temperature in the mixed layer
 RowVector Emiss_yearly_calib(2); // Emissions calibrated w.r.t. year 2010

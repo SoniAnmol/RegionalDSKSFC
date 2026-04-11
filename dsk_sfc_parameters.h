@@ -164,4 +164,11 @@ std::vector<std::vector<double>> b_0_regional;            // [nshocks][NR]
 std::vector<std::vector<double>> shockexponent1_regional; // [nshocks][NR] - OVERRIDES scalar shockexponent1 when NR>0
 std::vector<std::vector<double>> shockexponent2_regional; // [nshocks][NR] - OVERRIDES scalar shockexponent2 when NR>0
 
+// Regional Government Block parameters
+double gamma_bar;                         // Share of national taxes allocated to grant pool
+double delta_pub;                         // Depreciation rate of public capital
+std::vector<double> tau_share_rg;         // Tax-sharing coefficients per region (sum to 1)
+std::vector<double> omega_rg;             // Grant distribution weights per region (sum to 1)
+std::vector<double> wu_rg;                // Regional unemployment benefit rates
+
 #endif
