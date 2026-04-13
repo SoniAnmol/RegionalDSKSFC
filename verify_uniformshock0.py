@@ -48,78 +48,86 @@ for label, scenarios in [("R-DSK", rdsk_scenarios), ("DSK", dsk_scenarios)]:
         scenarios[s] = df
 
 # ── Comparison functions ─────────────────────────────────────────────────
-def compare_metric(df_a, df_b, metric, label_a="DSK", label_b="R-DSK",
-                   t_min=T_MIN, alpha=ALPHA, region="macro"):
-    if "region" in df_a.columns and df_a["region"].nunique() > 1:
-        df_a = df_a[df_a["region"] == region]
-    if "region" in df_b.columns and df_b["region"].nunique() > 1:
-        df_b = df_b[df_b["region"] == region]
+def _filter_macro(df, region="macro"):
+    if "region" in df.columns and df["region"].nunique() > 1:
+        return df[df["region"] == region]
+    return df
 
-    a = df_a.loc[df_a["t"] > t_min, ["run", metric]].groupby("run")[metric].mean().dropna()
-    b = df_b.loc[df_b["t"] > t_min, ["run", metric]].groupby("run")[metric].mean().dropna()
 
+def _run_level_means(df, metric, t_min=T_MIN):
+    return df.loc[df["t"] > t_min, ["run", metric]].groupby("run")[metric].mean().dropna()
+
+
+def _run_level_crisis(df, t_min=T_MIN, threshold=CRISIS_THRESHOLD):
+    work = df.loc[df["t"] > t_min, ["run", "GDP_r_growth"]].copy()
+    valid = work["GDP_r_growth"].notna()
+    work["_crisis"] = np.where(valid, (work["GDP_r_growth"] < threshold).astype(int), np.nan)
+    obs = work[valid].groupby("run")["_crisis"].count()
+    crises = work[valid].groupby("run")["_crisis"].sum()
+    return (crises / obs.replace(0, np.nan)).astype(float).dropna()
+
+
+def _sig_star(p, alpha=ALPHA):
+    if p < 0.001:
+        return "***"
+    elif p < 0.01:
+        return "**"
+    elif p < alpha:
+        return "*"
+    return ""
+
+
+def compute_comparison(df_dsk, df_rdsk, metric, is_crisis=False):
+    df_dsk = _filter_macro(df_dsk)
+    df_rdsk = _filter_macro(df_rdsk)
+    if is_crisis:
+        a = _run_level_crisis(df_dsk)
+        b = _run_level_crisis(df_rdsk)
+    else:
+        a = _run_level_means(df_dsk, metric)
+        b = _run_level_means(df_rdsk, metric)
     t_stat, p_value = stats.ttest_ind(a, b, equal_var=True)
-    passed = p_value >= alpha
-    tag = "PASS" if passed else "FAIL"
-    print(f"  [{tag}] {metric:25s}  p={p_value:.4e}  "
-          f"(DSK: {a.mean():.4f}±{a.std():.4f}, R-DSK: {b.mean():.4f}±{b.std():.4f})")
-    return passed
-
-
-def compare_crisis(df_a, df_b, label_a="DSK", label_b="R-DSK",
-                   t_min=T_MIN, threshold=CRISIS_THRESHOLD, alpha=ALPHA):
-    def _run_level(df):
-        if "region" in df.columns and df["region"].nunique() > 1:
-            df = df[df["region"] == "macro"]
-        work = df.loc[df["t"] > t_min, ["run", "GDP_r_growth"]].copy()
-        valid = work["GDP_r_growth"].notna()
-        work["_crisis"] = np.where(valid, (work["GDP_r_growth"] < threshold).astype(int), np.nan)
-        obs = work[valid].groupby("run")["_crisis"].count()
-        crises = work[valid].groupby("run")["_crisis"].sum()
-        return (crises / obs.replace(0, np.nan)).astype(float).dropna()
-
-    a = _run_level(df_a)
-    b = _run_level(df_b)
-    t_stat, p_value = stats.ttest_ind(a, b, equal_var=True)
-    passed = p_value >= alpha
-    tag = "PASS" if passed else "FAIL"
-    print(f"  [{tag}] {'crisis_likelihood':25s}  p={p_value:.4e}  "
-          f"(DSK: {a.mean():.4f}±{a.std():.4f}, R-DSK: {b.mean():.4f}±{b.std():.4f})")
-    return passed
+    ratio = b.mean() / a.mean() if a.mean() != 0 else np.nan
+    return ratio, t_stat, p_value
 
 
 # ── Run comparisons ─────────────────────────────────────────────────────
-metrics = ["Unemployment", "GDP_r_volatility", "GDP_r_growth"]
-all_pass = True
-total = 0
-failures = 0
+metrics = ["Unemployment", "GDP_r_volatility", "GDP_r_growth", "crisis_likelihood"]
+scenario_nums = sorted(s for s in dsk_scenarios if s in rdsk_scenarios)
 
-for s_num in sorted(dsk_scenarios.keys()):
-    if s_num not in rdsk_scenarios:
-        print(f"\nScenario {s_num}: SKIPPED (not found in R-DSK output)")
-        continue
-    print(f"\n{'='*60}")
-    print(f" Scenario {s_num}")
-    print(f"{'='*60}")
+# Collect results: results[metric][scenario] = (ratio, t_stat, p_value)
+results = {m: {} for m in metrics}
+for s_num in scenario_nums:
     df_dsk = dsk_scenarios[s_num]
     df_rdsk = rdsk_scenarios[s_num]
-
     for m in metrics:
-        total += 1
-        if not compare_metric(df_dsk, df_rdsk, m):
-            failures += 1
-            all_pass = False
+        results[m][s_num] = compute_comparison(
+            df_dsk, df_rdsk, m, is_crisis=(m == "crisis_likelihood")
+        )
 
-    # crisis likelihood
-    total += 1
-    if not compare_crisis(df_dsk, df_rdsk):
-        failures += 1
-        all_pass = False
+# ── Print table ─────────────────────────────────────────────────────────
+scenario_labels = {1: "Baseline", 2: "Cap. shocks", 3: "Prod. shocks"}
+col_width = 22
 
-print(f"\n{'='*60}")
-print(f" SUMMARY:  {total - failures}/{total} passed   ({failures} failures)")
-if all_pass:
-    print(" ALL TESTS PASSED")
-else:
-    print(f" {failures} TESTS FAILED")
-print(f"{'='*60}")
+header_parts = [f"{'Metric':>25s}"]
+for s_num in scenario_nums:
+    label = scenario_labels.get(s_num, f"Scenario {s_num}")
+    header_parts.append(f"{label:^{col_width}s}")
+sep = "  ".join(["-" * 25] + ["-" * col_width] * len(scenario_nums))
+
+print()
+print("  ".join(header_parts))
+print(sep)
+
+for m in metrics:
+    row_parts = [f"{m:>25s}"]
+    for s_num in scenario_nums:
+        ratio, t_stat, p_val = results[m][s_num]
+        star = _sig_star(p_val)
+        cell = f"{ratio:.4f} (t={t_stat:+.2f}){star}"
+        row_parts.append(f"{cell:^{col_width}s}")
+    print("  ".join(row_parts))
+
+print(sep)
+print(f"\nRatio = R-DSK / DSK  (run-level means, t > {T_MIN})")
+print(f"Significance: * p<0.05, ** p<0.01, *** p<0.001")

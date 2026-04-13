@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Francesco Lamperti, Severin Reissl, Luca Fierro, Andrea Roventini 
+# Copyright (C) 2025 Anmol Soni, Tania Teribech, Tina Comes, Giuli Piccllio, Francesco Lamperti, Andrea Roventini 
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,160 +15,202 @@
 
 ########################################################################################
 
-The folder contains all files necessary to compile the model and simulate the scenarios shown in the paper.
+Regional DSK-SFC Model
+======================
 
-The model is structured as follows:
-- dsk_sfc_main.cpp is the main model script which contains the main simulation loop as well as a majority of model functions
-- Some functions pertaining to climate, the energy sector, finance, and macroeconomic aspects are contained in separate scripts contained in the "modules" folder. Each .cpp file comes with an associated header file
+This repository contains the regionalised version of the DSK-SFC model (R-DSK). It extends the national-level DSK-SFC model from Reissl et al. (2025) with multiple regions, regional government fiscal policy (social protection and fiscal blocks), and region-specific climate shock parameters.
+
+
+#################
+Model Structure
+#################
+
+- dsk_sfc_main.cpp is the main model script containing the main simulation loop and a majority of model functions
+- The "modules" folder contains domain-specific functions, each with a .cpp and .h file:
+  - module_climate_sfc  : C-Roads climate box, cumulative emissions, climate policy (CO2 tax), climate shocks (one-off and repeated)
+  - module_energy_sfc   : Energy demand, production, investment, R&D, emissions by industry
+  - module_macro_sfc    : Labour allocation, macro aggregates, wage dynamics, government budget, Taylor rule, regional government fiscal block (social protection & fiscal)
+  - module_finance_sfc  : Credit determination, loan rates, banking profits, bailouts, interbank settlement
 - dsk_sfc_functions.h declares the model functions
 - dsk_sfc_parameters.h declares the model parameters
 - dsk_sfc_inits.h declares the model initial values
-- dsk_sfc_flags.h declares the model flags (indicator variables used to specify different simulation settings)
+- dsk_sfc_flags.h declares the model flags (indicator variables for simulation settings)
+- dsk_sfc_globalvars.h declares global variables including regional matrices
 - dsk_sfc_include.h declares all libraries and other files needed
-- The folder "auxiliary" contains a range of functions used in the code, especially related to the generation of quasi-random numbers
-- dsk_sfc_inputs.json is the input file which supplies parameters, flags and initial values
- 
+- The "auxiliary" folder contains functions for quasi-random number generation (betadev, bnldev, gasdev, gammln, ran1)
+- The "newmat10" folder contains the Newmat C++ matrix library
+- The "rapidjson" folder contains the RapidJSON header-only library for parsing JSON input files
+- The "include" folder contains the CLI11 header-only library for command-line argument parsing
+
+
+################
+Input Files
+################
+
+All input files are JSON-formatted and supply parameters, flags, initial values, and regional configuration.
+
+Structure of an input JSON file (top-level keys):
+  params, climparams, climshockparams, flags, inits, climinits, regions, shocks_kfirms, shocks_cfirms, shock_scalar
+
+The "inputs" folder contains:
+
+  dsk_sfc_inputs.json                          : Default single-region configuration
+  regions_input.json                           : Example regional configuration (NR=3, heterogeneous regions)
+
+  homogenous_regions_homogenous_shocks/        : Verification scenarios (NR=4, identical regions, identical shocks)
+    scenario1_inputs.json                        : Baseline (no shocks): flag_shockexperiment=0
+    scenario2_inputs.json                        : Capital stock shocks: flag_shockexperiment=1, flag_capshocks=1
+    scenario3_inputs.json                        : Productivity shocks:  flag_shockexperiment=1, flag_prodshocks1=6
+
+  heterogenous_regions_homogenous_shocks/      : Heterogeneous regions with homogeneous shocks (5 scenarios)
+  heterogenous_regions_largemoreexposed/       : Large region more exposed to climate shocks (5 scenarios)
+  heterogenous_regions_smallmoreexposed/       : Small region more exposed to climate shocks (5 scenarios)
+
 
 #########################
-Compilation instructions:
+Compilation instructions
 #########################
 
-As highlighted in the paper, results of individual simulation runs may differ across machines and operating systems due to use of different compilers, compiler versions, compiler options, as well as differences in processor architecture. To precisely reproduce the results reported in the paper, we recommend simulating the Linux executable supplied with the model code. The calibration and simulation runs shown in the paper were produced on the High Performance Cluster of the Euro-Mediterranean Center on Climate change (CMCC), running Linux CentOS 7.6 x86\_64 on compute nodes with Intel Xeon Gold 6154 CPUs. Results were subsequently reproduced on the corresponding author's computer running Ubuntu 20.04.4 LTS in WSL2 on an Intel Core i7-1165G7 CPU. The executable was compiled on the corresponding author's computer using GNU GCC 9.4.0.
-
-#####################################################################
-Compilation and debug runs on Windows machines using WSL and VS Code:
-
-- Make sure that WSL is enabled in Windows features
-- Install Ubuntu from the Microsoft store
-- Open the Ubuntu console and execute the following commands:
-'sudo apt-get update'
-'sudo apt-get install build-essential gdb cmake'
-- Install VS code
-- In VS code, install the Remote-WSL extension
-- Having done so, install the following VS Code extensions in the remote:
-	- C/C++
-	- CMake
-	- CMake Tools
-- Inside the remote VS Code window, open the folder containing the DSK-SFC model
-- Change the path given in the CMakeSettings.json file, "wslPath" (line 25), to the appropriate path on your machine
-- In the file CMakeLists.txt, ensure that the option CMAKE_BUILD_TYPE is set as set(CMAKE_BUILD_TYPE Debug)
-- Compile the model by executing:
-'cmake .'
-'make'
-- Using the launch configuration contained in the .vscode folder, you should be able to perform debug runs in VSCode by pressing F5 once the model has been compiled.
+The model requires a C++17 compatible compiler and CMake 3.10+.
 
 #####################
 Compilation in Linux:
 
-- Open the console and type and execute:
+- Open the console and execute:
 'sudo apt-get update'
 'sudo apt-get install build-essential gdb cmake'
-- cd into the DSK-SFC source directory, then type and execute:
+- cd into the source directory, then execute:
 'cmake .'
 'make'
 
 #####################
-Compliation in macOS:
+Compilation in macOS:
 
 - Install Homebrew; open the terminal and execute:
 '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
-- Install cmake; execute:
+- Install cmake:
 'brew install cmake'
-- cd into the DSK-SFC source directory, then type and execute:
+- cd into the source directory, then execute:
+'cmake .'
+'make'
+
+#####################################################################
+Compilation on Windows using WSL and VS Code:
+
+- Make sure that WSL is enabled in Windows features
+- Install Ubuntu from the Microsoft store
+- Open the Ubuntu console and execute:
+'sudo apt-get update'
+'sudo apt-get install build-essential gdb cmake'
+- Install VS Code
+- In VS Code, install the Remote-WSL extension
+- Install C/C++, CMake, and CMake Tools extensions in the remote
+- Open the folder containing the model in the remote VS Code window
+- Update the path in CMakeSettings.json "wslPath" (line 25) to match your machine
+- Compile:
 'cmake .'
 'make'
 
 ###################################
 Compilation in Windows using MinGW:
 
-- Install Chocolatey (see https://chocolatey.org/install) using an Admin PowerShell (e.g. open via Win + X), then type and execute:
+- Install Chocolatey (see https://chocolatey.org/install) using an Admin PowerShell, then execute:
 'choco install mingw cmake'
-- Make sure the Path environmental variable includes C:\ProgramData\chocolatey\bin and C:\Program Files\cmake\bin (e.g. you should be able to invoke gcc and cmake in a command prompt)
-- Open a command prompt and cd into the DSK-SFC source directory, then type and execute:
+- Ensure the Path includes C:\ProgramData\chocolatey\bin and C:\Program Files\cmake\bin
+- Open a command prompt and cd into the source directory, then execute:
 'cmake -G "MinGW Makefiles" .'
 'cmake --build .'
-
 
 
 #################
 Running the model
 #################
 
-The compiled executable dsk_SFC takes several arguments to be entered when the executable is called from the console:
+The compiled executable dsk_SFC accepts the following arguments:
 
-1. The path to a json file containing parameter values, initial values and flags
-2. -r, A name for the run (without spaces), which will be appended, along with the seed, to the name of every output file generated (default="test")
-3. -s, The seed, which should be a positive integer (default=1)
-4. -f, A dummy, indicating whether full output (1) or reduced output (0) should be written to files (default=0)
-5. -c, A dummy indicating whether error messages should be printed to the console (1) or only saved to the error log file (0) (default=0)
-6. -v, A dummy indicating whether simulation progress updates should be printed to the console (1=yes, 0=no) (default=0)
+1. inputfile (required) : Path to a JSON file containing parameters, flags, and initial values
+2. -r, --run            : Run name (no spaces), appended to output filenames (default="test")
+3. -s                   : Seed, a positive integer (default=1)
+4. -f, --fulloutput     : Full output (1) or reduced output (0) (default=0)
+5. -c, --cerr           : Print errors to console (1) or only to log file (0) (default=0)
+6. -v, --verbose        : Print progress updates to console (1=yes, 0=no) (default=0)
 
-Arguments 2-6 are optional; default values will be used if they are not supplied. To see instructions execute:
-
+To see usage instructions:
 './dsk_SFC --help'
- 
-in Linux/macOS or
 
-'.\dsk_SFC --help'
+Example (Linux/macOS):
+'./dsk_SFC inputs/dsk_sfc_inputs.json -r test -s 1 -f 0 -c 0 -v 0'
 
-in Windows.
-
-Example Linux and macOS:
-
-'./dsk_SFC dsk_sfc_inputs.json -r test -s 1 -f 0 -c 0 -v 0'
-
-Example Windows:
-
-'.\dsk_SFC dsk_sfc_inputs.json -r test -s 1 -f 0 -c 0 -v 0'
-
-All simulated data will be saved in a folder named "output" located in the same directory as the executable dsk_SFC; this folder will be created if it does not exist yet. All error log files will be saved in a folder named "output/errors" located in the same directory as the executable dsk_SFC; this folder will be created if it does not exist yet.
+Example (Windows):
+'.\dsk_SFC inputs\dsk_sfc_inputs.json -r test -s 1 -f 0 -c 0 -v 0'
 
 
-#########
-Scenarios
-#########
+################
+Output Files
+################
 
-To simulate the scenarios shown in the paper, the relevant flags in the input file dsk_sfc_inputs.json must be set to the values given below. All instructions are provided starting from the unchanged .json file found in the folder.
+All output files are saved under the "output" folder (created automatically).
+Error logs are saved under "output/errors".
 
-1. Validation run:
-set flag_validation=1
-set flag_shockexperiment=0
+For each run, the model produces:
+  ymc_<runname>_<seed>.txt                : Macro-level time series
+  ymc_<region>_<runname>_<seed>.txt       : Regional time series (one per region, if NR > 0)
 
-2. Baseline run:
-No changes needed w.r.t. configuration provided
+When flag_shockexperiment=1, additionally:
+  resultsexp_<runname>_<seed>.txt         : Shock experiment results (national)
+  resultsexp_reg<N>_<runname>_<seed>.txt  : Shock experiment results per region (if NR > 0)
+  shockpars_<runname>_<seed>.txt          : Shock parameter draws
 
-3. Carbon tax experiment:
-set flag_desc=1
-
-4. Climate shocks:
-	Capital stock shocks:
-	set flag_exogenousshocks=0
-	set flag_capshocks=1
-
-	Productivity shocks:
-	set flag_exogenousshocks=0
-	set flag_prodshocks1=6
-
-5. Unemployment benefit scenarios:
-set flag_desc=2 (small increase in benefit ratio)
-set flag_desc=3 (large increase in benefit ratio) 
+When -f 1 (full output), firm-level matrices are also saved.
 
 
-6. Additional experiments (appendix):
+##############################
+Batch runs with run_scenarios.py
+##############################
 
-6.1 High carbon tax + endogenous maximum expansion rate of green capacity:
-set flag_desc=1
-set flag_energy_exp=4
+The script run_scenarios.py automates batch execution across multiple scenarios with Monte Carlo replications and parallel processing.
 
-6.2 Lower carbon tax + green energy investment subsidy + endogenous maximum expansion rate of green capacity:
-set flag_desc=4
-set flag_energy_exp=4
+Arguments:
+  -d, --scenarios-dir   : Directory containing scenario input files (default=./inputs/experiment)
+  -o, --output          : Base output directory (default=./output/experiment)
+  -e, --executable      : Path to model executable (default=./dsk_SFC)
+  -n, --replications    : Monte Carlo replications per scenario (default=1)
+  -s, --seed-base       : Base seed value (default=1)
+  -f, --full-output     : Enable full firm-level output
+  -q, --quiet           : Suppress verbose output
+  -w, --workers         : Parallel workers: 0=auto-detect CPUs, 1=sequential (default=1)
 
-6.3 Green energy investment subsidy + public R&D + endogenous maximum expansion rate of green capacity:
-set flag_desc=5
-set flag_energy_exp=4
+Example:
+'python3 run_scenarios.py -d inputs/homogenous_regions_homogenous_shocks -o output/verification -n 50 -w 0'
+
+Output is organised hierarchically: <output>/<scenario>/<rep_NNN>/
 
 
-All scenarios shown in the paper are simulated for 600 periods, of which the first 200 are discarded as a transient during analysis of output data.
-The model is simulated 108 times with seeds 1-108 for each scenario.
-We include example R scripts which can be used to perform parallel runs of the model and to automatically modify values in the dsk_sfc_inputs.json file.
+#####################
+Verification Scenarios
+#####################
+
+The homogenous_regions_homogenous_shocks input set recreates three scenarios from Reissl et al. (2025) on the regionalised model with NR=4 identical regions:
+
+  Scenario 1 (Baseline)           : flag_shockexperiment=0
+  Scenario 2 (Capital shocks)     : flag_shockexperiment=1, flag_capshocks=1
+  Scenario 3 (Productivity shocks): flag_shockexperiment=1, flag_prodshocks1=6
+
+These scenarios are simulated for 600 periods (first 200 discarded as transient).
+
+Key flags for shock behaviour:
+  flag_exogenousshocks  : 1 = single exogenous shock (SINGLESHOCK), 0 = repeated endogenous shocks (SHOCKS)
+  flag_uniformshocks    : 1 = single draw broadcast to all firms per region, 0 = independent per-firm draws
+
+
+#################
+Utility Scripts
+#################
+
+scripts/plot_resultsexp.py   : Visualise national-level shock experiment results
+scripts/plot_ymc.py          : Plot macroeconomic time series
+scripts/verification.py      : Compare R-DSK vs DSK baseline outputs
+verify_uniformshock0.py      : Verification script: KS-test comparison of R-DSK vs DSK across all scenarios
+
+fnModifyInputs.R             : R helper for modifying JSON input files
+runPar.R                     : R script for parallel model execution
