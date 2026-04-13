@@ -634,7 +634,7 @@ void SHOCKS(void)
      * If NR > 0 (regional model):
      *   - Uses same global temperature Tmixed(2) for all regions (global hazard source)
      *   - Computes regional disaster parameters X_a_reg, X_b_reg using region-specific and shock-specific
-     *     a_0_regional[shock][region], b_0_regional[shock][region], 
+     *     a_0_regional[shock][region], b_0_regional[shock][region],
      *     shockexponent1_regional[shock][region], shockexponent2_regional[shock][region]
      *   - Regional exponents OVERRIDE scalar values from climshockparams (no multiplication)
      *   - Scalar exponents are IGNORED in regional mode (NR > 0)
@@ -649,6 +649,14 @@ void SHOCKS(void)
      * If NR == 0 (non-regional/global model):
      *   - Uses existing scalar X_a, X_b with firm-level or uniform shocks per flag_uniformshocks
      *   - Backward compatible with original model
+     *
+     * flag_uniformshocks controls within-region shock heterogeneity (NR > 0):
+     *   - flag_uniformshocks != 0: Draw one shock per region, broadcast identically to all firms
+     *     in that region (spatially correlated hazard — default)
+     *   - flag_uniformshocks == 0: Draw independent shocks per firm, using that firm's regional
+     *     parameters X_a_reg/X_b_reg (matches DSK per-firm draw pattern)
+     *   - Only affects betadev-based channels (1-9, 13==1, 14==1, 15==1, 16); scalar channels
+     *     (10-12, risk-based variants) are unaffected
      */
     // This function generates repeated endogenous climate shocks
 
@@ -664,11 +672,11 @@ void SHOCKS(void)
             {
                 // Use regional exponents indexed [shock-1][region-1] (0-based arrays)
                 // These completely override scalar shockexponent1(i) and shockexponent2(i)
-                double exp1 = shockexponent1_regional[i-1][rr-1];
-                double exp2 = shockexponent2_regional[i-1][rr-1];
-                double a0 = a_0_regional[i-1][rr-1];
-                double b0 = b_0_regional[i-1][rr-1];
-                
+                double exp1 = shockexponent1_regional[i - 1][rr - 1];
+                double exp2 = shockexponent2_regional[i - 1][rr - 1];
+                double a0 = a_0_regional[i - 1][rr - 1];
+                double b0 = b_0_regional[i - 1][rr - 1];
+
                 X_a_reg(i, rr) = a0 * pow(1 + log((Tmixed(2) + T_pre) / (T_pre + Tmixedinit1)), exp1);
                 X_b_reg(i, rr) = b0 * pow((T_pre + Tmixedinit1) / (Tmixed(2) + T_pre), exp2);
             }
@@ -691,24 +699,42 @@ void SHOCKS(void)
         {
             if (NR > 0)
             {
-                // Regional mode: draw one shock per region, broadcast to all firms in that region
-                for (int rr = 1; rr <= NR; rr++)
+                if (flag_uniformshocks == 0)
                 {
-                    rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                    double shock_machprod_reg = rnd;
-                    rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                    double shock_techprod_reg = rnd;
-
-                    // Broadcast to all K-firms in this region
+                    // Per-firm draws using regional parameters
                     for (i = 1; i <= N1; i++)
                     {
-                        if (region_firm_assignment_K[i - 1] == rr)
-                        {
-                            shocks_machprod(i) = shock_machprod_reg;
-                            A1(i) = max(A0, A1(i) * (1 - shock_machprod_reg));
+                        int rr = region_firm_assignment_K[i - 1];
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        shocks_machprod(i) = rnd;
+                        A1(i) = max(A0, A1(i) * (1 - shocks_machprod(i)));
 
-                            shocks_techprod(i) = shock_techprod_reg;
-                            A1p(i) = max(A0 * pm, A1p(i) * (1 - shock_techprod_reg));
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        shocks_techprod(i) = rnd;
+                        A1p(i) = max(A0 * pm, A1p(i) * (1 - shocks_techprod(i)));
+                    }
+                }
+                else
+                {
+                    // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
+                    for (int rr = 1; rr <= NR; rr++)
+                    {
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        double shock_machprod_reg = rnd;
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        double shock_techprod_reg = rnd;
+
+                        // Broadcast to all K-firms in this region
+                        for (i = 1; i <= N1; i++)
+                        {
+                            if (region_firm_assignment_K[i - 1] == rr)
+                            {
+                                shocks_machprod(i) = shock_machprod_reg;
+                                A1(i) = max(A0, A1(i) * (1 - shock_machprod_reg));
+
+                                shocks_techprod(i) = shock_techprod_reg;
+                                A1p(i) = max(A0 * pm, A1p(i) * (1 - shock_techprod_reg));
+                            }
                         }
                     }
                 }
@@ -734,24 +760,42 @@ void SHOCKS(void)
         {
             if (NR > 0)
             {
-                // Regional mode: draw one shock per region, broadcast to all firms in that region
-                for (int rr = 1; rr <= NR; rr++)
+                if (flag_uniformshocks == 0)
                 {
-                    rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                    double shock_machprod_reg = rnd;
-                    rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                    double shock_techprod_reg = rnd;
-
-                    // Broadcast to all K-firms in this region
+                    // Per-firm draws using regional parameters
                     for (i = 1; i <= N1; i++)
                     {
-                        if (region_firm_assignment_K[i - 1] == rr)
-                        {
-                            shocks_machprod(i) = shock_machprod_reg;
-                            A1_en(i) = max(A0_en, A1_en(i) * (1 - shock_machprod_reg));
+                        int rr = region_firm_assignment_K[i - 1];
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        shocks_machprod(i) = rnd;
+                        A1_en(i) = max(A0_en, A1_en(i) * (1 - shocks_machprod(i)));
 
-                            shocks_techprod(i) = shock_techprod_reg;
-                            A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shock_techprod_reg));
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        shocks_techprod(i) = rnd;
+                        A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shocks_techprod(i)));
+                    }
+                }
+                else
+                {
+                    // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
+                    for (int rr = 1; rr <= NR; rr++)
+                    {
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        double shock_machprod_reg = rnd;
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        double shock_techprod_reg = rnd;
+
+                        // Broadcast to all K-firms in this region
+                        for (i = 1; i <= N1; i++)
+                        {
+                            if (region_firm_assignment_K[i - 1] == rr)
+                            {
+                                shocks_machprod(i) = shock_machprod_reg;
+                                A1_en(i) = max(A0_en, A1_en(i) * (1 - shock_machprod_reg));
+
+                                shocks_techprod(i) = shock_techprod_reg;
+                                A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shock_techprod_reg));
+                            }
                         }
                     }
                 }
@@ -777,26 +821,46 @@ void SHOCKS(void)
         {
             if (NR > 0)
             {
-                // Regional mode: draw one shock per region, broadcast to all firms in that region
-                for (int rr = 1; rr <= NR; rr++)
+                if (flag_uniformshocks == 0)
                 {
-                    rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                    double shock_machprod_reg = rnd;
-                    rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                    double shock_techprod_reg = rnd;
-
-                    // Broadcast to all K-firms in this region
+                    // Per-firm draws using regional parameters
                     for (i = 1; i <= N1; i++)
                     {
-                        if (region_firm_assignment_K[i - 1] == rr)
-                        {
-                            shocks_machprod(i) = shock_machprod_reg;
-                            A1(i) = max(A0, A1(i) * (1 - shock_machprod_reg));
-                            A1_en(i) = max(A0_en, A1_en(i) * (1 - shock_machprod_reg));
+                        int rr = region_firm_assignment_K[i - 1];
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        shocks_machprod(i) = rnd;
+                        A1(i) = max(A0, A1(i) * (1 - shocks_machprod(i)));
+                        A1_en(i) = max(A0_en, A1_en(i) * (1 - shocks_machprod(i)));
 
-                            shocks_techprod(i) = shock_techprod_reg;
-                            A1p(i) = max(A0 * pm, A1p(i) * (1 - shock_techprod_reg));
-                            A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shock_techprod_reg));
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        shocks_techprod(i) = rnd;
+                        A1p(i) = max(A0 * pm, A1p(i) * (1 - shocks_techprod(i)));
+                        A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shocks_techprod(i)));
+                    }
+                }
+                else
+                {
+                    // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
+                    for (int rr = 1; rr <= NR; rr++)
+                    {
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        double shock_machprod_reg = rnd;
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        double shock_techprod_reg = rnd;
+
+                        // Broadcast to all K-firms in this region
+                        for (i = 1; i <= N1; i++)
+                        {
+                            if (region_firm_assignment_K[i - 1] == rr)
+                            {
+                                shocks_machprod(i) = shock_machprod_reg;
+                                A1(i) = max(A0, A1(i) * (1 - shock_machprod_reg));
+                                A1_en(i) = max(A0_en, A1_en(i) * (1 - shock_machprod_reg));
+
+                                shocks_techprod(i) = shock_techprod_reg;
+                                A1p(i) = max(A0 * pm, A1p(i) * (1 - shock_techprod_reg));
+                                A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shock_techprod_reg));
+                            }
                         }
                     }
                 }
@@ -824,28 +888,50 @@ void SHOCKS(void)
         {
             if (NR > 0)
             {
-                // Regional mode: draw one shock per region, broadcast to all firms in that region
-                for (int rr = 1; rr <= NR; rr++)
+                if (flag_uniformshocks == 0)
                 {
-                    rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                    double shock_machprod_reg = rnd;
-                    rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                    double shock_techprod_reg = rnd;
-
-                    // Broadcast to all K-firms in this region
+                    // Per-firm draws using regional parameters
                     for (i = 1; i <= N1; i++)
                     {
-                        if (region_firm_assignment_K[i - 1] == rr)
+                        int rr = region_firm_assignment_K[i - 1];
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        shocks_machprod(i) = rnd;
+                        A1(i) = max(A0, A1(i) * (1 - shocks_machprod(i)));
+                        for (tt = t0; tt <= t; tt++)
                         {
-                            shocks_machprod(i) = shock_machprod_reg;
-                            A1(i) = max(A0, A1(i) * (1 - shock_machprod_reg));
-                            for (tt = t0; tt <= t; tt++)
-                            {
-                                A(tt, i) = max(A0, A(tt, i) * (1 - shock_machprod_reg));
-                            }
+                            A(tt, i) = max(A0, A(tt, i) * (1 - shocks_machprod(i)));
+                        }
 
-                            shocks_techprod(i) = shock_techprod_reg;
-                            A1p(i) = max(A0 * pm, A1p(i) * (1 - shock_techprod_reg));
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        shocks_techprod(i) = rnd;
+                        A1p(i) = max(A0 * pm, A1p(i) * (1 - shocks_techprod(i)));
+                    }
+                }
+                else
+                {
+                    // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
+                    for (int rr = 1; rr <= NR; rr++)
+                    {
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        double shock_machprod_reg = rnd;
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        double shock_techprod_reg = rnd;
+
+                        // Broadcast to all K-firms in this region
+                        for (i = 1; i <= N1; i++)
+                        {
+                            if (region_firm_assignment_K[i - 1] == rr)
+                            {
+                                shocks_machprod(i) = shock_machprod_reg;
+                                A1(i) = max(A0, A1(i) * (1 - shock_machprod_reg));
+                                for (tt = t0; tt <= t; tt++)
+                                {
+                                    A(tt, i) = max(A0, A(tt, i) * (1 - shock_machprod_reg));
+                                }
+
+                                shocks_techprod(i) = shock_techprod_reg;
+                                A1p(i) = max(A0 * pm, A1p(i) * (1 - shock_techprod_reg));
+                            }
                         }
                     }
                 }
@@ -875,28 +961,50 @@ void SHOCKS(void)
         {
             if (NR > 0)
             {
-                // Regional mode: draw one shock per region, broadcast to all firms in that region
-                for (int rr = 1; rr <= NR; rr++)
+                if (flag_uniformshocks == 0)
                 {
-                    rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                    double shock_machprod_reg = rnd;
-                    rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                    double shock_techprod_reg = rnd;
-
-                    // Broadcast to all K-firms in this region
+                    // Per-firm draws using regional parameters
                     for (i = 1; i <= N1; i++)
                     {
-                        if (region_firm_assignment_K[i - 1] == rr)
+                        int rr = region_firm_assignment_K[i - 1];
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        shocks_machprod(i) = rnd;
+                        A1_en(i) = max(A0_en, A1_en(i) * (1 - shocks_machprod(i)));
+                        for (tt = t0; tt <= t; tt++)
                         {
-                            shocks_machprod(i) = shock_machprod_reg;
-                            A1_en(i) = max(A0_en, A1_en(i) * (1 - shock_machprod_reg));
-                            for (tt = t0; tt <= t; tt++)
-                            {
-                                A_en(tt, i) = max(A0_en, A_en(tt, i) * (1 - shock_machprod_reg));
-                            }
+                            A_en(tt, i) = max(A0_en, A_en(tt, i) * (1 - shocks_machprod(i)));
+                        }
 
-                            shocks_techprod(i) = shock_techprod_reg;
-                            A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shock_techprod_reg));
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        shocks_techprod(i) = rnd;
+                        A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shocks_techprod(i)));
+                    }
+                }
+                else
+                {
+                    // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
+                    for (int rr = 1; rr <= NR; rr++)
+                    {
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        double shock_machprod_reg = rnd;
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        double shock_techprod_reg = rnd;
+
+                        // Broadcast to all K-firms in this region
+                        for (i = 1; i <= N1; i++)
+                        {
+                            if (region_firm_assignment_K[i - 1] == rr)
+                            {
+                                shocks_machprod(i) = shock_machprod_reg;
+                                A1_en(i) = max(A0_en, A1_en(i) * (1 - shock_machprod_reg));
+                                for (tt = t0; tt <= t; tt++)
+                                {
+                                    A_en(tt, i) = max(A0_en, A_en(tt, i) * (1 - shock_machprod_reg));
+                                }
+
+                                shocks_techprod(i) = shock_techprod_reg;
+                                A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shock_techprod_reg));
+                            }
                         }
                     }
                 }
@@ -926,31 +1034,56 @@ void SHOCKS(void)
         {
             if (NR > 0)
             {
-                // Regional mode: draw one shock per region, broadcast to all firms in that region
-                for (int rr = 1; rr <= NR; rr++)
+                if (flag_uniformshocks == 0)
                 {
-                    rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                    double shock_machprod_reg = rnd;
-                    rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                    double shock_techprod_reg = rnd;
-
-                    // Broadcast to all K-firms in this region
+                    // Per-firm draws using regional parameters
                     for (i = 1; i <= N1; i++)
                     {
-                        if (region_firm_assignment_K[i - 1] == rr)
+                        int rr = region_firm_assignment_K[i - 1];
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        shocks_machprod(i) = rnd;
+                        A1(i) = max(A0, A1(i) * (1 - shocks_machprod(i)));
+                        A1_en(i) = max(A0_en, A1_en(i) * (1 - shocks_machprod(i)));
+                        for (tt = t0; tt <= t; tt++)
                         {
-                            shocks_machprod(i) = shock_machprod_reg;
-                            A1(i) = max(A0, A1(i) * (1 - shock_machprod_reg));
-                            A1_en(i) = max(A0_en, A1_en(i) * (1 - shock_machprod_reg));
-                            for (tt = t0; tt <= t; tt++)
-                            {
-                                A(tt, i) = max(A0, A(tt, i) * (1 - shock_machprod_reg));
-                                A_en(tt, i) = max(A0_en, A_en(tt, i) * (1 - shock_machprod_reg));
-                            }
+                            A(tt, i) = max(A0, A(tt, i) * (1 - shocks_machprod(i)));
+                            A_en(tt, i) = max(A0_en, A_en(tt, i) * (1 - shocks_machprod(i)));
+                        }
 
-                            shocks_techprod(i) = shock_techprod_reg;
-                            A1p(i) = max(A0 * pm, A1p(i) * (1 - shock_techprod_reg));
-                            A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shock_techprod_reg));
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        shocks_techprod(i) = rnd;
+                        A1p(i) = max(A0 * pm, A1p(i) * (1 - shocks_techprod(i)));
+                        A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shocks_techprod(i)));
+                    }
+                }
+                else
+                {
+                    // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
+                    for (int rr = 1; rr <= NR; rr++)
+                    {
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        double shock_machprod_reg = rnd;
+                        rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
+                        double shock_techprod_reg = rnd;
+
+                        // Broadcast to all K-firms in this region
+                        for (i = 1; i <= N1; i++)
+                        {
+                            if (region_firm_assignment_K[i - 1] == rr)
+                            {
+                                shocks_machprod(i) = shock_machprod_reg;
+                                A1(i) = max(A0, A1(i) * (1 - shock_machprod_reg));
+                                A1_en(i) = max(A0_en, A1_en(i) * (1 - shock_machprod_reg));
+                                for (tt = t0; tt <= t; tt++)
+                                {
+                                    A(tt, i) = max(A0, A(tt, i) * (1 - shock_machprod_reg));
+                                    A_en(tt, i) = max(A0_en, A_en(tt, i) * (1 - shock_machprod_reg));
+                                }
+
+                                shocks_techprod(i) = shock_techprod_reg;
+                                A1p(i) = max(A0 * pm, A1p(i) * (1 - shock_techprod_reg));
+                                A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shock_techprod_reg));
+                            }
                         }
                     }
                 }
@@ -983,27 +1116,47 @@ void SHOCKS(void)
         {
             if (NR > 0)
             {
-                // Regional mode: draw one shock per region, broadcast to all firms in that region
-                for (int rr = 1; rr <= NR; rr++)
+                if (flag_uniformshocks == 0)
                 {
-                    rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                    double shock_labprod_reg = rnd;
-
-                    // Broadcast to all C-firms in this region
+                    // Per-firm draws using regional parameters (C-firms first, then K-firms to match DSK RNG order)
                     for (j = 1; j <= N2; j++)
                     {
-                        if (region_firm_assignment_C[j - 1] == rr)
-                        {
-                            shocks_labprod2(j) = shock_labprod_reg;
-                        }
+                        int rr = region_firm_assignment_C[j - 1];
+                        rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
+                        shocks_labprod2(j) = rnd;
                     }
 
-                    // Broadcast to all K-firms in this region
                     for (i = 1; i <= N1; i++)
                     {
-                        if (region_firm_assignment_K[i - 1] == rr)
+                        int rr = region_firm_assignment_K[i - 1];
+                        rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
+                        shocks_labprod1(i) = rnd;
+                    }
+                }
+                else
+                {
+                    // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
+                    for (int rr = 1; rr <= NR; rr++)
+                    {
+                        rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
+                        double shock_labprod_reg = rnd;
+
+                        // Broadcast to all C-firms in this region
+                        for (j = 1; j <= N2; j++)
                         {
-                            shocks_labprod1(i) = shock_labprod_reg;
+                            if (region_firm_assignment_C[j - 1] == rr)
+                            {
+                                shocks_labprod2(j) = shock_labprod_reg;
+                            }
+                        }
+
+                        // Broadcast to all K-firms in this region
+                        for (i = 1; i <= N1; i++)
+                        {
+                            if (region_firm_assignment_K[i - 1] == rr)
+                            {
+                                shocks_labprod1(i) = shock_labprod_reg;
+                            }
                         }
                     }
                 }
@@ -1030,27 +1183,47 @@ void SHOCKS(void)
         {
             if (NR > 0)
             {
-                // Regional mode: draw one shock per region, broadcast to all firms in that region
-                for (int rr = 1; rr <= NR; rr++)
+                if (flag_uniformshocks == 0)
                 {
-                    rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                    double shock_eneff_reg = rnd;
-
-                    // Broadcast to all C-firms in this region
+                    // Per-firm draws using regional parameters (C-firms first, then K-firms to match DSK RNG order)
                     for (j = 1; j <= N2; j++)
                     {
-                        if (region_firm_assignment_C[j - 1] == rr)
-                        {
-                            shocks_eneff2(j) = shock_eneff_reg;
-                        }
+                        int rr = region_firm_assignment_C[j - 1];
+                        rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
+                        shocks_eneff2(j) = rnd;
                     }
 
-                    // Broadcast to all K-firms in this region
                     for (i = 1; i <= N1; i++)
                     {
-                        if (region_firm_assignment_K[i - 1] == rr)
+                        int rr = region_firm_assignment_K[i - 1];
+                        rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
+                        shocks_eneff1(i) = rnd;
+                    }
+                }
+                else
+                {
+                    // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
+                    for (int rr = 1; rr <= NR; rr++)
+                    {
+                        rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
+                        double shock_eneff_reg = rnd;
+
+                        // Broadcast to all C-firms in this region
+                        for (j = 1; j <= N2; j++)
                         {
-                            shocks_eneff1(i) = shock_eneff_reg;
+                            if (region_firm_assignment_C[j - 1] == rr)
+                            {
+                                shocks_eneff2(j) = shock_eneff_reg;
+                            }
+                        }
+
+                        // Broadcast to all K-firms in this region
+                        for (i = 1; i <= N1; i++)
+                        {
+                            if (region_firm_assignment_K[i - 1] == rr)
+                            {
+                                shocks_eneff1(i) = shock_eneff_reg;
+                            }
                         }
                     }
                 }
@@ -1077,31 +1250,55 @@ void SHOCKS(void)
         {
             if (NR > 0)
             {
-                // Regional mode: draw one shock per region, broadcast to all firms in that region
-                for (int rr = 1; rr <= NR; rr++)
+                if (flag_uniformshocks == 0)
                 {
-                    rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                    double shock_labprod_reg = rnd;
-                    rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                    double shock_eneff_reg = rnd;
-
-                    // Broadcast to all C-firms in this region
+                    // Per-firm draws using regional parameters (C-firms first, then K-firms to match DSK RNG order)
                     for (j = 1; j <= N2; j++)
                     {
-                        if (region_firm_assignment_C[j - 1] == rr)
-                        {
-                            shocks_labprod2(j) = shock_labprod_reg;
-                            shocks_eneff2(j) = shock_eneff_reg;
-                        }
+                        int rr = region_firm_assignment_C[j - 1];
+                        rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
+                        shocks_labprod2(j) = rnd;
+                        rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
+                        shocks_eneff2(j) = rnd;
                     }
 
-                    // Broadcast to all K-firms in this region
                     for (i = 1; i <= N1; i++)
                     {
-                        if (region_firm_assignment_K[i - 1] == rr)
+                        int rr = region_firm_assignment_K[i - 1];
+                        rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
+                        shocks_labprod1(i) = rnd;
+                        rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
+                        shocks_eneff1(i) = rnd;
+                    }
+                }
+                else
+                {
+                    // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
+                    for (int rr = 1; rr <= NR; rr++)
+                    {
+                        rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
+                        double shock_labprod_reg = rnd;
+                        rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
+                        double shock_eneff_reg = rnd;
+
+                        // Broadcast to all C-firms in this region
+                        for (j = 1; j <= N2; j++)
                         {
-                            shocks_labprod1(i) = shock_labprod_reg;
-                            shocks_eneff1(i) = shock_eneff_reg;
+                            if (region_firm_assignment_C[j - 1] == rr)
+                            {
+                                shocks_labprod2(j) = shock_labprod_reg;
+                                shocks_eneff2(j) = shock_eneff_reg;
+                            }
+                        }
+
+                        // Broadcast to all K-firms in this region
+                        for (i = 1; i <= N1; i++)
+                        {
+                            if (region_firm_assignment_K[i - 1] == rr)
+                            {
+                                shocks_labprod1(i) = shock_labprod_reg;
+                                shocks_eneff1(i) = shock_eneff_reg;
+                            }
                         }
                     }
                 }
@@ -1251,16 +1448,30 @@ void SHOCKS(void)
                 // Regional mode: draw one shock per region, broadcast to all firms in that region
                 if (flag_capshocks == 1)
                 {
-                    for (int rr = 1; rr <= NR; rr++)
+                    if (flag_uniformshocks == 0)
                     {
-                        rnd = betadev(X_a_reg(6, rr), X_b_reg(6, rr), p_seed);
-                        double shock_capstock_reg = rnd;
-
+                        // Per-firm draws using regional parameters
                         for (j = 1; j <= N2; j++)
                         {
-                            if (region_firm_assignment_C[j - 1] == rr)
+                            int rr = region_firm_assignment_C[j - 1];
+                            rnd = betadev(X_a_reg(6, rr), X_b_reg(6, rr), p_seed);
+                            shocks_capstock(j) = rnd;
+                        }
+                    }
+                    else
+                    {
+                        // Uniform regional mode: broadcast
+                        for (int rr = 1; rr <= NR; rr++)
+                        {
+                            rnd = betadev(X_a_reg(6, rr), X_b_reg(6, rr), p_seed);
+                            double shock_capstock_reg = rnd;
+
+                            for (j = 1; j <= N2; j++)
                             {
-                                shocks_capstock(j) = shock_capstock_reg;
+                                if (region_firm_assignment_C[j - 1] == rr)
+                                {
+                                    shocks_capstock(j) = shock_capstock_reg;
+                                }
                             }
                         }
                     }
@@ -1324,26 +1535,47 @@ void SHOCKS(void)
                 // Regional mode: draw one shock per region, broadcast to all firms in that region
                 if (flag_outputshocks == 1)
                 {
-                    for (int rr = 1; rr <= NR; rr++)
+                    if (flag_uniformshocks == 0)
                     {
-                        rnd = betadev(X_a_reg(7, rr), X_b_reg(7, rr), p_seed);
-                        double shock_output_reg = rnd;
-
-                        // Apply to C-firms
+                        // Per-firm draws using regional parameters (C-firms first, then K-firms to match DSK RNG order)
                         for (j = 1; j <= N2; j++)
                         {
-                            if (region_firm_assignment_C[j - 1] == rr)
-                            {
-                                shocks_output2(j) = shock_output_reg;
-                            }
+                            int rr = region_firm_assignment_C[j - 1];
+                            rnd = betadev(X_a_reg(7, rr), X_b_reg(7, rr), p_seed);
+                            shocks_output2(j) = rnd;
                         }
 
-                        // Apply to K-firms
                         for (i = 1; i <= N1; i++)
                         {
-                            if (region_firm_assignment_K[i - 1] == rr)
+                            int rr = region_firm_assignment_K[i - 1];
+                            rnd = betadev(X_a_reg(7, rr), X_b_reg(7, rr), p_seed);
+                            shocks_output1(i) = rnd;
+                        }
+                    }
+                    else
+                    {
+                        // Uniform regional mode: broadcast
+                        for (int rr = 1; rr <= NR; rr++)
+                        {
+                            rnd = betadev(X_a_reg(7, rr), X_b_reg(7, rr), p_seed);
+                            double shock_output_reg = rnd;
+
+                            // Apply to C-firms
+                            for (j = 1; j <= N2; j++)
                             {
-                                shocks_output1(i) = shock_output_reg;
+                                if (region_firm_assignment_C[j - 1] == rr)
+                                {
+                                    shocks_output2(j) = shock_output_reg;
+                                }
+                            }
+
+                            // Apply to K-firms
+                            for (i = 1; i <= N1; i++)
+                            {
+                                if (region_firm_assignment_K[i - 1] == rr)
+                                {
+                                    shocks_output1(i) = shock_output_reg;
+                                }
                             }
                         }
                     }
@@ -1435,16 +1667,30 @@ void SHOCKS(void)
                 // Regional mode: draw one shock per region, broadcast to all firms in that region
                 if (flag_inventshocks == 1)
                 {
-                    for (int rr = 1; rr <= NR; rr++)
+                    if (flag_uniformshocks == 0)
                     {
-                        rnd = betadev(X_a_reg(8, rr), X_b_reg(8, rr), p_seed);
-                        double shock_invent_reg = rnd;
-
+                        // Per-firm draws using regional parameters
                         for (j = 1; j <= N2; j++)
                         {
-                            if (region_firm_assignment_C[j - 1] == rr)
+                            int rr = region_firm_assignment_C[j - 1];
+                            rnd = betadev(X_a_reg(8, rr), X_b_reg(8, rr), p_seed);
+                            shocks_invent(j) = rnd;
+                        }
+                    }
+                    else
+                    {
+                        // Uniform regional mode: broadcast
+                        for (int rr = 1; rr <= NR; rr++)
+                        {
+                            rnd = betadev(X_a_reg(8, rr), X_b_reg(8, rr), p_seed);
+                            double shock_invent_reg = rnd;
+
+                            for (j = 1; j <= N2; j++)
                             {
-                                shocks_invent(j) = shock_invent_reg;
+                                if (region_firm_assignment_C[j - 1] == rr)
+                                {
+                                    shocks_invent(j) = shock_invent_reg;
+                                }
                             }
                         }
                     }
@@ -1505,17 +1751,30 @@ void SHOCKS(void)
         {
             if (NR > 0)
             {
-                // Regional mode: draw one shock per region, broadcast to all firms in that region
-                for (int rr = 1; rr <= NR; rr++)
+                if (flag_uniformshocks == 0)
                 {
-                    rnd = betadev(X_a_reg(9, rr), X_b_reg(9, rr), p_seed);
-                    double shock_rd_reg = rnd;
-
+                    // Per-firm draws using regional parameters
                     for (i = 1; i <= N1; i++)
                     {
-                        if (region_firm_assignment_K[i - 1] == rr)
+                        int rr = region_firm_assignment_K[i - 1];
+                        rnd = betadev(X_a_reg(9, rr), X_b_reg(9, rr), p_seed);
+                        shocks_rd(i) = rnd;
+                    }
+                }
+                else
+                {
+                    // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
+                    for (int rr = 1; rr <= NR; rr++)
+                    {
+                        rnd = betadev(X_a_reg(9, rr), X_b_reg(9, rr), p_seed);
+                        double shock_rd_reg = rnd;
+
+                        for (i = 1; i <= N1; i++)
                         {
-                            shocks_rd(i) = shock_rd_reg;
+                            if (region_firm_assignment_K[i - 1] == rr)
+                            {
+                                shocks_rd(i) = shock_rd_reg;
+                            }
                         }
                     }
                 }
