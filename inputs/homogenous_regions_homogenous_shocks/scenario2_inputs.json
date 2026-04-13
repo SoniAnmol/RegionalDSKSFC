@@ -393,7 +393,7 @@
             "flag_validation": 0,
             "flag_inventories": 0,
             "flag_scrap_age": 1,
-            "flag_uniformshocks": 0,
+            "flag_uniformshocks": 1,
             "flag_desc": 0
         }
     ],
