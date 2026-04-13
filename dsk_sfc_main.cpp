@@ -7899,7 +7899,9 @@ void SAVE(void)
       target.width(60);
       target << Wages / (Pitot1 + Pitot2 + BankProfits.Sum() + ProfitEnergy + FuelCost + Wages); // 74
       target.width(60);
-      target << n_exit2 << endl; // 75
+      target << n_exit2; // 75
+      target.width(60);
+      target << Deficit << endl; // 76
     };
 
     write_resultsexp_row(inv_res);
