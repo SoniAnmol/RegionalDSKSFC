@@ -272,6 +272,12 @@ int main(int argc, char *argv[])
       cout << "Exiting function ENERGY in period " << t << endl;
     }
 
+    RG_BLOCK_SP();
+    if (verbose)
+    {
+      cout << "Exiting function RG_BLOCK_SP in period " << t << endl;
+    }
+
     PAY_LAB_INV();
     if (verbose)
     {
@@ -306,6 +312,12 @@ int main(int argc, char *argv[])
     if (verbose)
     {
       cout << "Exiting function REGIONAL_UPDATE in period " << t << endl;
+    }
+
+    RG_BLOCK_FISCAL();
+    if (verbose)
+    {
+      cout << "Exiting function RG_BLOCK_FISCAL in period " << t << endl;
     }
 
     BANKING();
@@ -601,6 +613,11 @@ void SETPARAMS(const rapidjson::Document &inputs)
   uu2_en = inputs["climparams"][0]["uu2_en"].GetDouble();
   exp_quota_param = inputs["params"][0]["exp_quota_param"].GetDouble();
   ge_subsidy = inputs["params"][0]["ge_subsidy"].GetDouble();
+
+  // Regional Government Block parameters
+  gamma_bar = inputs["params"][0].HasMember("gamma_bar") ? inputs["params"][0]["gamma_bar"].GetDouble() : 0.0;
+  delta_pub = inputs["params"][0].HasMember("delta_pub") ? inputs["params"][0]["delta_pub"].GetDouble() : 0.025;
+
   t_start_climbox = inputs["climparams"][0]["t_start_climbox"].GetInt();
   T_pre = inputs["climparams"][0]["T_pre"].GetDouble();
   intercept_temp = inputs["climparams"][0]["intercept_temp"].GetDouble();
@@ -784,6 +801,32 @@ void SETPARAMS(const rapidjson::Document &inputs)
         b_0_reg(idx) = b_0_regional[i - 1][rr - 1];
         shockexponent1_reg(idx) = shockexponent1_regional[i - 1][rr - 1];
         shockexponent2_reg(idx) = shockexponent2_regional[i - 1][rr - 1];
+      }
+    }
+
+    // Regional Government Block parameters from regions section
+    tau_share_rg.resize(NR, 1.0 / NR);
+    omega_rg.resize(NR, 1.0 / NR);
+    wu_rg.resize(NR, wu);
+    if (inputs["regions"].HasMember("tau_share_rg"))
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        tau_share_rg[rr] = inputs["regions"]["tau_share_rg"][rr].GetDouble();
+      }
+    }
+    if (inputs["regions"].HasMember("omega_rg"))
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        omega_rg[rr] = inputs["regions"]["omega_rg"][rr].GetDouble();
+      }
+    }
+    if (inputs["regions"].HasMember("wu_rg"))
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        wu_rg[rr] = inputs["regions"]["wu_rg"][rr].GetDouble();
       }
     }
   }
@@ -1326,6 +1369,18 @@ void RESIZE(void)
     reg_CapitalStock2.assign(NR, 0.0);
     reg_CapitalStock.assign(NR, 0.0);
     reg_NW_h.assign(NR, 0.0);
+
+    // Regional Government Block
+    TS_rg.assign(NR, 0.0);
+    GT_base_rg.assign(NR, 0.0);
+    GT_topup_rg.assign(NR, 0.0);
+    GT_rg.assign(NR, 0.0);
+    REV_rg.assign(NR, 0.0);
+    SP_rg.assign(NR, 0.0);
+    EA_rg.assign(NR, 0.0);
+    EXP_rg.assign(NR, 0.0);
+    K_pub_rg.assign(NR, 0.0);
+    // tau_share_rg, omega_rg, wu_rg are set in SETPARAMS from JSON; do not overwrite here
   }
 }
 
@@ -1865,6 +1920,17 @@ void SETVARS(void)
   FirmTransfers = 0;
   FirmTransfers_1 = 0;
   FirmTransfers_2 = 0;
+
+  // Regional Government Block national scalars (reset each period)
+  GRANTPOOL = 0;
+  REV_rg_total = 0;
+  TR_rg_total = 0;
+  SP_total = 0;
+  EA_total = 0;
+  K_pub_total_lag = K_pub_total;
+  K_pub_total = 0;
+  GovPurchases_1 = 0;
+
   Divtot_1 = 0;
   Divtot_2 = 0;
   Pitot1 = 0;
@@ -1944,6 +2010,16 @@ void SETVARS(void)
       reg_A2_en_survive[rr] = 0;
       reg_CreditDemand_all[rr] = 0;
       reg_CreditSupply_all[rr] = 0;
+
+      // Regional Government Block flows (reset each period; K_pub_rg is a stock, not reset)
+      TS_rg[rr] = 0;
+      GT_base_rg[rr] = 0;
+      GT_topup_rg[rr] = 0;
+      GT_rg[rr] = 0;
+      REV_rg[rr] = 0;
+      SP_rg[rr] = 0;
+      EA_rg[rr] = 0;
+      EXP_rg[rr] = 0;
     }
   }
 
@@ -6726,7 +6802,7 @@ void SFC_CHECK(void)
 
   // Calculate the sectoral balances
   Balance_h = Wages + Benefits + InterestDeposits_h + Dividends(1) + TransferFuel - Taxes_h - Consumption - FirmTransfers;
-  Balance_1 = Sales1.Sum() + InterestDeposits_1.Sum() + FirmTransfers_1 - Wages_1.Sum() - EnergyPayments_1.Sum() - Dividends_1.Sum() - Taxes_1.Sum() - Taxes_CO2_1.Sum();
+  Balance_1 = Sales1.Sum() + InterestDeposits_1.Sum() + FirmTransfers_1 + GovPurchases_1 - Wages_1.Sum() - EnergyPayments_1.Sum() - Dividends_1.Sum() - Taxes_1.Sum() - Taxes_CO2_1.Sum();
   Balance_2 = Sales2.Sum() + InterestDeposits_2.Sum() + FirmTransfers_2 - Wages_2.Sum() - Investment_2.Sum() - LoanInterest_2.Sum() - EnergyPayments_2.Sum() - Dividends_2.Sum() - Taxes_2.Sum() - Taxes_CO2_2.Sum();
   Balance_b = LoanInterest.Sum() + InterestBonds_b.Sum() + InterestReserves_b.Sum() + Bailout_b.Row(1).Sum() + BankTransfer - InterestDeposits.Sum() - Taxes_b.Sum() - InterestAdvances_b.Sum() - Dividends_b.Sum();
   Balance_e = EnergyPayments + InterestDeposits_e + Subsidy_Exp - Wages_en - Dividends_e - Taxes_CO2_e - FuelCost - Taxes_e_shock;
@@ -6765,7 +6841,17 @@ void SFC_CHECK(void)
   // Compare stock and flow measures of K-firm net worth
   for (i = 1; i <= N1; i++)
   {
-    Balances_1(i) = Sales1(i) + InterestDeposits_1(i) - Wages_1(i) - EnergyPayments_1(i) - Dividends_1(i) - Taxes_1(i) - Taxes_CO2_1(i);
+    // Compute per-firm EA credit (must match RG_BLOCK_FISCAL routing)
+    double ea_firm_i = 0.0;
+    if (NR > 0 && gamma_bar > 0.0)
+    {
+      int rr = region_firm_assignment_K[i - 1]; // 1-based region index
+      if (rr >= 1 && rr <= NR && reg_N1[rr - 1] > 0 && EA_rg[rr - 1] > 0.0)
+      {
+        ea_firm_i = EA_rg[rr - 1] / reg_N1[rr - 1];
+      }
+    }
+    Balances_1(i) = Sales1(i) + InterestDeposits_1(i) - Wages_1(i) - EnergyPayments_1(i) - Dividends_1(i) - Taxes_1(i) - Taxes_CO2_1(i) + ea_firm_i;
     NW_1(1, i) = Deposits_1(1, i);
     NW_1_c(i) = NW_1(2, i) + Balances_1(i) + baddebt_1(i) + Injection_1(i);
   }
@@ -6810,8 +6896,8 @@ void SFC_CHECK(void)
   }
 
   // Compare stock and flow measures of government net worth
-  NW_gov(1) = -GB(1);
-  NW_gov_c = NW_gov(2) + Balance_g;
+  NW_gov(1) = -GB(1) + K_pub_total;
+  NW_gov_c = NW_gov(2) + Balance_g + (K_pub_total - K_pub_total_lag);
   deviation = fabs((NW_gov(1) - NW_gov_c) / NW_gov_c);
   if (deviation > regionalaccountingtolerance)
   {
@@ -6840,7 +6926,7 @@ void SFC_CHECK(void)
 
   // Sum of all sectoral net worths should be equal to nominal value of tangible assets in the economy
   NWSum = NW_h(1) + NW_1.Row(1).Sum() + NW_2.Row(1).Sum() + NW_b.Row(1).Sum() + NW_e(1) + NW_cb(1) + NW_gov(1) + NW_f(1);
-  RealAssets = CapitalStock.Row(1).Sum() + deltaCapitalStock.Row(1).Sum() + Inventories.Row(1).Sum() + CapitalStock_e(1);
+  RealAssets = CapitalStock.Row(1).Sum() + deltaCapitalStock.Row(1).Sum() + Inventories.Row(1).Sum() + CapitalStock_e(1) + K_pub_total;
   deviation = fabs((NWSum - RealAssets) / RealAssets);
   if (deviation > regionalaccountingtolerance)
   {
@@ -7813,7 +7899,9 @@ void SAVE(void)
       target.width(60);
       target << Wages / (Pitot1 + Pitot2 + BankProfits.Sum() + ProfitEnergy + FuelCost + Wages); // 74
       target.width(60);
-      target << n_exit2 << endl; // 75
+      target << n_exit2; // 75
+      target.width(60);
+      target << Deficit << endl; // 76
     };
 
     write_resultsexp_row(inv_res);
@@ -8376,7 +8464,17 @@ void SAVE(void)
         target.width(60);
         target << reg_Emiss_en[region - 1]; // 24: reg_Emiss_en (Energy sector emissions)
         target.width(60);
-        target << reg_n_exit2[region - 1] << endl; // 25: reg_n_exit2 (Number of exiting C-firms)
+        target << reg_n_exit2[region - 1]; // 25: reg_n_exit2 (Number of exiting C-firms)
+        target.width(60);
+        target << REV_rg[region - 1]; // 26: REV_rg (Regional revenue)
+        target.width(60);
+        target << SP_rg[region - 1]; // 27: SP_rg (Regional social protection)
+        target.width(60);
+        target << EA_rg[region - 1]; // 28: EA_rg (Regional expenditure allocation)
+        target.width(60);
+        target << EXP_rg[region - 1]; // 29: EXP_rg (Regional total expenditure)
+        target.width(60);
+        target << K_pub_rg[region - 1] << endl; // 30: K_pub_rg (Regional public capital)
       };
 
       for (int rr = 1; rr <= NR; ++rr)
@@ -8485,7 +8583,19 @@ void SAVE(void)
     inv_ymc.width(60);
     inv_ymc << NW_2.Row(1).Sum(); // 46
     inv_ymc.width(60);
-    inv_ymc << NW_1.Row(1).Sum() << endl; // 47
+    inv_ymc << NW_1.Row(1).Sum(); // 47
+    inv_ymc.width(60);
+    inv_ymc << G; // 48
+    inv_ymc.width(60);
+    inv_ymc << REV_rg_total; // 49
+    inv_ymc.width(60);
+    inv_ymc << TR_rg_total; // 50
+    inv_ymc.width(60);
+    inv_ymc << SP_total; // 51
+    inv_ymc.width(60);
+    inv_ymc << EA_total; // 52
+    inv_ymc.width(60);
+    inv_ymc << K_pub_total << endl; // 53
     inv_ymc.close();
   }
 }

@@ -47,6 +47,8 @@ void REGIONAL_UPDATE(void); // Recalculates regional aggregates post-ENTRYEXIT t
 void WAGE(void);            // Determines change in wage rate
 void GOV_BUDGET(void);      // Determines unemployment benefits & government deficit; implements bond market
 void TAYLOR(void);          // Determines change in monetary policy rate
+void RG_BLOCK_SP(void);     // Regional Government Block Phase 1: Social Protection (before PAY_LAB_INV)
+void RG_BLOCK_FISCAL(void); // Regional Government Block Phase 2: Revenue, Grants, EA, Public Capital
 
 extern int flag_desc;
 
@@ -267,5 +269,14 @@ extern double cached_Q2tot;
 extern double cached_Emiss1_TOT;
 extern double cached_Emiss2_TOT;
 extern double cached_Emiss_TOT;
+
+// Regional Government Block variables
+extern std::vector<double> TS_rg, GT_base_rg, GT_topup_rg, GT_rg, REV_rg, SP_rg, EA_rg, EXP_rg, K_pub_rg;
+extern double GRANTPOOL, REV_rg_total, TR_rg_total, SP_total, EA_total, K_pub_total, K_pub_total_lag, GovPurchases_1;
+extern double gamma_bar, delta_pub;
+extern std::vector<double> tau_share_rg, omega_rg, wu_rg;
+extern double aliq, aliqw;
+extern RowVector BankingSupplier_1;
+extern RowVector Taxes_1, Taxes_2;
 
 #endif
