@@ -9,48 +9,64 @@
     <title>Italy Labour Supply Animation | Regional-DSK</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        .animation-page {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
+        html, body {
+            height: 100%;
         }
 
+        .animation-page {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Compact title bar replaces the big hero header */
         .animation-header {
+            flex-shrink: 0;
             background: var(--color-hero-bg);
             color: #fff;
-            padding: 48px 0 36px;
-            text-align: center;
+            padding: 10px 28px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .animation-header .back-link {
+            font-size: 0.82rem;
+            color: rgba(255,255,255,0.65);
+            text-decoration: none;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .animation-header .back-link:hover {
+            color: #fff;
         }
 
         .animation-header h1 {
             font-family: var(--font-serif);
-            font-size: clamp(1.4rem, 3vw, 2rem);
+            font-size: 1rem;
             font-weight: normal;
-            margin-bottom: 10px;
+            color: #fff;
+            margin: 0;
         }
 
-        .animation-header p {
-            font-size: 0.9rem;
-            color: rgba(255, 255, 255, 0.6);
-            letter-spacing: 0.04em;
-        }
-
+        /* Wrapper grows to fill the remaining height */
         .animation-wrapper {
             flex: 1;
             display: flex;
             flex-direction: column;
-            padding: 16px 16px 32px;
-            width: 100%;
+            padding: 10px;
+            overflow: hidden;
         }
 
+        /* height:0 + flex:1 is the key to making the iframe truly fill space */
         .animation-frame {
             flex: 1;
+            height: 0;
             border: 1px solid var(--color-border);
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             overflow: hidden;
-            height: calc(100vh - var(--nav-height) - 130px);
-            min-height: 500px;
         }
 
         .animation-frame iframe {
@@ -58,33 +74,6 @@
             height: 100%;
             border: none;
             display: block;
-        }
-
-        .animation-meta {
-            margin-top: 20px;
-            font-size: 0.82rem;
-            color: var(--color-text-muted);
-            text-align: center;
-        }
-
-        .animation-meta a {
-            color: var(--color-accent);
-        }
-
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.85rem;
-            color: var(--color-accent);
-            margin-bottom: 24px;
-            text-decoration: none;
-            transition: color var(--transition);
-        }
-
-        .back-link:hover {
-            color: var(--color-accent-dk);
-            text-decoration: none;
         }
     </style>
 </head>
@@ -106,30 +95,18 @@
         </div>
     </nav>
 
-    <!-- Header -->
+    <!-- Compact header bar -->
     <div class="animation-header">
-        <div class="container">
-            <h1>Italy &ndash; Labour Supply Animation</h1>
-            <p>Regional-DSK &nbsp;&middot;&nbsp; Working Paper 2026</p>
-        </div>
+        <a class="back-link" href="index.html">&#8592; Back</a>
+        <h1>Italy &ndash; Labour Supply Animation &nbsp;&middot;&nbsp; Regional-DSK 2026</h1>
     </div>
 
-    <!-- Animation -->
+    <!-- Animation fills the rest of the viewport -->
     <div class="animation-wrapper">
-        <a class="back-link" href="index.html">&#8592; Back to project page</a>
-
         <div class="animation-frame">
             <iframe src="assets/italy_ls_animation.html" title="Italy Labour Supply Animation" allowfullscreen>
             </iframe>
         </div>
-
-        <p class="animation-meta">
-            Generated with <a href="https://plotly.com/python/" target="_blank" rel="noopener noreferrer">Plotly</a>.
-            &nbsp;&middot;&nbsp;
-            <a href="index.html">Regional-DSK Project</a>
-            &nbsp;&middot;&nbsp;
-            Contact: <a href="mailto:a.soni@maastrichtuniversity.nl">a.soni@maastrichtuniversity.nl</a>
-        </p>
     </div>
 
 </body>
