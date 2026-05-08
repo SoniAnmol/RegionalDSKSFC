@@ -76,6 +76,49 @@
             border: none;
             display: block;
         }
+
+        /* ── Mobile ─────────────────────────────────────────── */
+        @media (max-width: 640px) {
+            .animation-header {
+                padding: 8px 12px;
+                gap: 10px;
+            }
+
+            .animation-header h1 {
+                font-size: 0.8rem;
+                /* Hide the long subtitle on very small screens */
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .animation-wrapper {
+                padding: 6px;
+            }
+
+            /* Allow horizontal scroll inside the frame so the plot is reachable */
+            .animation-frame {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+
+        /* Landscape hint shown only on portrait phones */
+        .landscape-hint {
+            display: none;
+            background: var(--color-accent-lt);
+            color: var(--color-accent-dk);
+            font-size: 0.78rem;
+            text-align: center;
+            padding: 6px 12px;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 640px) and (orientation: portrait) {
+            .landscape-hint {
+                display: block;
+            }
+        }
     </style>
 </head>
 
@@ -96,6 +139,9 @@
         </div>
     </nav>
 
+    <!-- Landscape hint for portrait phones -->
+    <div class="landscape-hint">&#8635; Rotate to landscape for the best view</div>
+
     <!-- Compact header bar -->
     <div class="animation-header">
         <a class="back-link" href="index.html">&#8592; Back</a>
@@ -105,11 +151,13 @@
     <!-- Animation fills the rest of the viewport -->
     <div class="animation-wrapper">
         <div class="animation-frame">
-            <iframe src="assets/italy_ls_animation.html" title="Italy Labour Supply Animation" allowfullscreen>
+            <iframe src="assets/italy_ls_animation.html" title="Italy Labour Supply Animation"
+                    allowfullscreen scrolling="yes">
             </iframe>
         </div>
     </div>
 
+    <script src="script.js"></script>
 </body>
 
 </html>
