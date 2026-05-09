@@ -81,7 +81,7 @@
             "b2inf": 1,
             "aliq": 0.1,
             "aliqb": 0.1,
-            "wu": 0.4,
+            "wu": 0.35,
             "de": 0.99,
             "a1": 0.965,
             "a2": 0.3,
@@ -101,7 +101,7 @@
             "passthrough": 1,
             "exp_quota_param": 200,
             "ge_subsidy": 0.75,
-            "gamma_bar": 0,
+            "gamma_bar": 0.2,
             "delta_pub": 0.025
         }
     ],
@@ -158,7 +158,7 @@
             ],
             "b1_0": [
                 1000,
-                1000,
+                400,
                 1000
             ],
             "a2_0": [
@@ -340,9 +340,9 @@
             "flag_cum_emissions": 0,
             "flag_tax_CO2": 4,
             "flag_energyshocks": 0,
-            "flag_capshocks": 0,
+            "flag_capshocks": 1,
             "flag_outputshocks": 0,
-            "flag_inventshocks": 1,
+            "flag_inventshocks": 0,
             "flag_encapshocks": 0,
             "flag_popshocks": 0,
             "flag_demandshocks": 0,
@@ -355,7 +355,7 @@
             "flag_entry": 0,
             "flag_nonCO2_force": 1,
             "flag_validation": 0,
-            "flag_inventories": 1,
+            "flag_inventories": 0,
             "flag_scrap_age": 1,
             "flag_uniformshocks": 1,
             "flag_desc": 0
@@ -470,9 +470,9 @@
             0.5
         ],
         "tau_share_rg": [
-            0.333333,
-            0.333333,
-            0.333333
+            0.4,
+            0.4,
+            0.4
         ],
         "omega_rg": [
             0.333333,
@@ -480,9 +480,9 @@
             0.333333
         ],
         "wu_rg": [
-            0.4,
-            0.4,
-            0.4
+            0.05,
+            0.05,
+            0.05
         ]
     },
     "shocks_kfirms": [

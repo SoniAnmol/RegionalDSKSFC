@@ -278,15 +278,15 @@ void SINGLESHOCK(void)
                 for (i = 1; i <= N1; i++)
                 {
                     rnd = betadev(X_a(1), b_0(1), p_seed);
-                    shocks_machprod(i) = rnd;
+                    shocks_machprod(i) = rnd * Omega_adapt_national;
                     rnd = betadev(X_a(1), b_0(1), p_seed);
-                    shocks_techprod(i) = rnd;
+                    shocks_techprod(i) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_machprod = shocks_kfirms;
-                shocks_techprod = shocks_kfirms;
+                shocks_machprod = shocks_kfirms * Omega_adapt_national;
+                shocks_techprod = shocks_kfirms * Omega_adapt_national;
             }
         }
 
@@ -299,19 +299,19 @@ void SINGLESHOCK(void)
                 for (j = 1; j <= N2; j++)
                 {
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_labprod2(j) = rnd;
+                    shocks_labprod2(j) = rnd * Omega_adapt_national;
                 }
                 X_a(2) = (shocks_kfirms(1) * (b_0(2) - 2 / 3) + 1 / 3) / (1 - shocks_kfirms(1));
                 for (i = 1; i <= N1; i++)
                 {
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_labprod1(i) = rnd;
+                    shocks_labprod1(i) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_labprod2 = shocks_cfirms;
-                shocks_labprod1 = shocks_kfirms;
+                shocks_labprod2 = shocks_cfirms * Omega_adapt_national;
+                shocks_labprod1 = shocks_kfirms * Omega_adapt_national;
             }
         }
 
@@ -324,19 +324,19 @@ void SINGLESHOCK(void)
                 for (j = 1; j <= N2; j++)
                 {
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_eneff2(j) = rnd;
+                    shocks_eneff2(j) = rnd * Omega_adapt_national;
                 }
                 X_a(2) = (shocks_kfirms(1) * (b_0(2) - 2 / 3) + 1 / 3) / (1 - shocks_kfirms(1));
                 for (i = 1; i <= N1; i++)
                 {
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_eneff1(i) = rnd;
+                    shocks_eneff1(i) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_eneff2 = shocks_cfirms;
-                shocks_eneff1 = shocks_kfirms;
+                shocks_eneff2 = shocks_cfirms * Omega_adapt_national;
+                shocks_eneff1 = shocks_kfirms * Omega_adapt_national;
             }
         }
 
@@ -349,42 +349,42 @@ void SINGLESHOCK(void)
                 for (j = 1; j <= N2; j++)
                 {
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_labprod2(j) = rnd;
+                    shocks_labprod2(j) = rnd * Omega_adapt_national;
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_eneff2(j) = rnd;
+                    shocks_eneff2(j) = rnd * Omega_adapt_national;
                 }
                 X_a(2) = (shocks_kfirms(1) * (b_0(2) - 2 / 3) + 1 / 3) / (1 - shocks_kfirms(1));
                 for (i = 1; i <= N1; i++)
                 {
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_labprod1(i) = rnd;
+                    shocks_labprod1(i) = rnd * Omega_adapt_national;
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_eneff1(i) = rnd;
+                    shocks_eneff1(i) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_labprod2 = shocks_cfirms;
-                shocks_labprod1 = shocks_kfirms;
-                shocks_eneff2 = shocks_cfirms;
-                shocks_eneff1 = shocks_kfirms;
+                shocks_labprod2 = shocks_cfirms * Omega_adapt_national;
+                shocks_labprod1 = shocks_kfirms * Omega_adapt_national;
+                shocks_eneff2 = shocks_cfirms * Omega_adapt_national;
+                shocks_eneff1 = shocks_kfirms * Omega_adapt_national;
             }
         }
 
         if (flag_encapshocks > 0)
         {
-            shocks_encapstock_de = shock_scalar;
-            shocks_encapstock_ge = shock_scalar;
+            shocks_encapstock_de = shock_scalar * Omega_adapt_national;
+            shocks_encapstock_ge = shock_scalar * Omega_adapt_national;
         }
 
         if (flag_popshocks > 0)
         {
-            shock_pop = shock_scalar;
+            shock_pop = shock_scalar * Omega_adapt_national;
         }
 
         if (flag_demandshocks > 0)
         {
-            shock_cons = shock_scalar;
+            shock_cons = shock_scalar * Omega_adapt_national;
         }
 
         if (flag_capshocks > 0)
@@ -396,12 +396,12 @@ void SINGLESHOCK(void)
                 for (j = 1; j <= N2; j++)
                 {
                     rnd = betadev(X_a(6), b_0(6), p_seed);
-                    shocks_capstock(j) = rnd;
+                    shocks_capstock(j) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_capstock = shocks_cfirms;
+                shocks_capstock = shocks_cfirms * Omega_adapt_national;
             }
 
             if (flag_capshocks == 3)
@@ -424,19 +424,19 @@ void SINGLESHOCK(void)
                 for (j = 1; j <= N2; j++)
                 {
                     rnd = betadev(X_a(7), b_0(7), p_seed);
-                    shocks_output2(j) = rnd;
+                    shocks_output2(j) = rnd * Omega_adapt_national;
                 }
                 X_a(7) = (shocks_kfirms(1) * (b_0(7) - 2 / 3) + 1 / 3) / (1 - shocks_kfirms(1));
                 for (i = 1; i <= N1; i++)
                 {
                     rnd = betadev(X_a(7), b_0(7), p_seed);
-                    shocks_output1(i) = rnd;
+                    shocks_output1(i) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_output2 = shocks_cfirms;
-                shocks_output1 = shocks_kfirms;
+                shocks_output2 = shocks_cfirms * Omega_adapt_national;
+                shocks_output1 = shocks_kfirms * Omega_adapt_national;
             }
 
             if (flag_outputshocks == 3)
@@ -464,12 +464,12 @@ void SINGLESHOCK(void)
                 for (j = 1; j <= N2; j++)
                 {
                     rnd = betadev(X_a(8), b_0(8), p_seed);
-                    shocks_invent(j) = rnd;
+                    shocks_invent(j) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_invent = shocks_cfirms;
+                shocks_invent = shocks_cfirms * Omega_adapt_national;
             }
 
             if (flag_inventshocks == 3 && risk_c.Sum() == 0)
@@ -492,12 +492,12 @@ void SINGLESHOCK(void)
                 for (i = 1; i <= N1; i++)
                 {
                     rnd = betadev(X_a(9), b_0(9), p_seed);
-                    shocks_rd(i) = rnd;
+                    shocks_rd(i) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_rd = shocks_kfirms;
+                shocks_rd = shocks_kfirms * Omega_adapt_national;
             }
         }
     }
@@ -705,12 +705,13 @@ void SHOCKS(void)
                     for (i = 1; i <= N1; i++)
                     {
                         int rr = region_firm_assignment_K[i - 1];
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_machprod(i) = rnd;
+                        shocks_machprod(i) = rnd * om;
                         A1(i) = max(A0, A1(i) * (1 - shocks_machprod(i)));
 
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_techprod(i) = rnd;
+                        shocks_techprod(i) = rnd * om;
                         A1p(i) = max(A0 * pm, A1p(i) * (1 - shocks_techprod(i)));
                     }
                 }
@@ -719,10 +720,11 @@ void SHOCKS(void)
                     // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
                     for (int rr = 1; rr <= NR; rr++)
                     {
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_machprod_reg = rnd;
+                        double shock_machprod_reg = rnd * om;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_techprod_reg = rnd;
+                        double shock_techprod_reg = rnd * om;
 
                         // Broadcast to all K-firms in this region
                         for (i = 1; i <= N1; i++)
@@ -766,12 +768,13 @@ void SHOCKS(void)
                     for (i = 1; i <= N1; i++)
                     {
                         int rr = region_firm_assignment_K[i - 1];
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_machprod(i) = rnd;
+                        shocks_machprod(i) = rnd * om;
                         A1_en(i) = max(A0_en, A1_en(i) * (1 - shocks_machprod(i)));
 
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_techprod(i) = rnd;
+                        shocks_techprod(i) = rnd * om;
                         A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shocks_techprod(i)));
                     }
                 }
@@ -780,10 +783,11 @@ void SHOCKS(void)
                     // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
                     for (int rr = 1; rr <= NR; rr++)
                     {
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_machprod_reg = rnd;
+                        double shock_machprod_reg = rnd * om;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_techprod_reg = rnd;
+                        double shock_techprod_reg = rnd * om;
 
                         // Broadcast to all K-firms in this region
                         for (i = 1; i <= N1; i++)
@@ -827,13 +831,14 @@ void SHOCKS(void)
                     for (i = 1; i <= N1; i++)
                     {
                         int rr = region_firm_assignment_K[i - 1];
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_machprod(i) = rnd;
+                        shocks_machprod(i) = rnd * om;
                         A1(i) = max(A0, A1(i) * (1 - shocks_machprod(i)));
                         A1_en(i) = max(A0_en, A1_en(i) * (1 - shocks_machprod(i)));
 
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_techprod(i) = rnd;
+                        shocks_techprod(i) = rnd * om;
                         A1p(i) = max(A0 * pm, A1p(i) * (1 - shocks_techprod(i)));
                         A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shocks_techprod(i)));
                     }
@@ -843,10 +848,11 @@ void SHOCKS(void)
                     // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
                     for (int rr = 1; rr <= NR; rr++)
                     {
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_machprod_reg = rnd;
+                        double shock_machprod_reg = rnd * om;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_techprod_reg = rnd;
+                        double shock_techprod_reg = rnd * om;
 
                         // Broadcast to all K-firms in this region
                         for (i = 1; i <= N1; i++)
@@ -894,8 +900,9 @@ void SHOCKS(void)
                     for (i = 1; i <= N1; i++)
                     {
                         int rr = region_firm_assignment_K[i - 1];
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_machprod(i) = rnd;
+                        shocks_machprod(i) = rnd * om;
                         A1(i) = max(A0, A1(i) * (1 - shocks_machprod(i)));
                         for (tt = t0; tt <= t; tt++)
                         {
@@ -903,7 +910,7 @@ void SHOCKS(void)
                         }
 
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_techprod(i) = rnd;
+                        shocks_techprod(i) = rnd * om;
                         A1p(i) = max(A0 * pm, A1p(i) * (1 - shocks_techprod(i)));
                     }
                 }
@@ -912,10 +919,11 @@ void SHOCKS(void)
                     // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
                     for (int rr = 1; rr <= NR; rr++)
                     {
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_machprod_reg = rnd;
+                        double shock_machprod_reg = rnd * om;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_techprod_reg = rnd;
+                        double shock_techprod_reg = rnd * om;
 
                         // Broadcast to all K-firms in this region
                         for (i = 1; i <= N1; i++)
@@ -967,8 +975,9 @@ void SHOCKS(void)
                     for (i = 1; i <= N1; i++)
                     {
                         int rr = region_firm_assignment_K[i - 1];
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_machprod(i) = rnd;
+                        shocks_machprod(i) = rnd * om;
                         A1_en(i) = max(A0_en, A1_en(i) * (1 - shocks_machprod(i)));
                         for (tt = t0; tt <= t; tt++)
                         {
@@ -976,7 +985,7 @@ void SHOCKS(void)
                         }
 
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_techprod(i) = rnd;
+                        shocks_techprod(i) = rnd * om;
                         A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shocks_techprod(i)));
                     }
                 }
@@ -985,10 +994,11 @@ void SHOCKS(void)
                     // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
                     for (int rr = 1; rr <= NR; rr++)
                     {
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_machprod_reg = rnd;
+                        double shock_machprod_reg = rnd * om;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_techprod_reg = rnd;
+                        double shock_techprod_reg = rnd * om;
 
                         // Broadcast to all K-firms in this region
                         for (i = 1; i <= N1; i++)
@@ -1040,8 +1050,9 @@ void SHOCKS(void)
                     for (i = 1; i <= N1; i++)
                     {
                         int rr = region_firm_assignment_K[i - 1];
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_machprod(i) = rnd;
+                        shocks_machprod(i) = rnd * om;
                         A1(i) = max(A0, A1(i) * (1 - shocks_machprod(i)));
                         A1_en(i) = max(A0_en, A1_en(i) * (1 - shocks_machprod(i)));
                         for (tt = t0; tt <= t; tt++)
@@ -1051,7 +1062,7 @@ void SHOCKS(void)
                         }
 
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_techprod(i) = rnd;
+                        shocks_techprod(i) = rnd * om;
                         A1p(i) = max(A0 * pm, A1p(i) * (1 - shocks_techprod(i)));
                         A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shocks_techprod(i)));
                     }
@@ -1061,10 +1072,11 @@ void SHOCKS(void)
                     // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
                     for (int rr = 1; rr <= NR; rr++)
                     {
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_machprod_reg = rnd;
+                        double shock_machprod_reg = rnd * om;
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_techprod_reg = rnd;
+                        double shock_techprod_reg = rnd * om;
 
                         // Broadcast to all K-firms in this region
                         for (i = 1; i <= N1; i++)
@@ -1122,15 +1134,17 @@ void SHOCKS(void)
                     for (j = 1; j <= N2; j++)
                     {
                         int rr = region_firm_assignment_C[j - 1];
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_labprod2(j) = rnd;
+                        shocks_labprod2(j) = rnd * om;
                     }
 
                     for (i = 1; i <= N1; i++)
                     {
                         int rr = region_firm_assignment_K[i - 1];
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_labprod1(i) = rnd;
+                        shocks_labprod1(i) = rnd * om;
                     }
                 }
                 else
@@ -1138,8 +1152,9 @@ void SHOCKS(void)
                     // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
                     for (int rr = 1; rr <= NR; rr++)
                     {
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        double shock_labprod_reg = rnd;
+                        double shock_labprod_reg = rnd * om;
 
                         // Broadcast to all C-firms in this region
                         for (j = 1; j <= N2; j++)
@@ -1189,15 +1204,17 @@ void SHOCKS(void)
                     for (j = 1; j <= N2; j++)
                     {
                         int rr = region_firm_assignment_C[j - 1];
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_eneff2(j) = rnd;
+                        shocks_eneff2(j) = rnd * om;
                     }
 
                     for (i = 1; i <= N1; i++)
                     {
                         int rr = region_firm_assignment_K[i - 1];
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_eneff1(i) = rnd;
+                        shocks_eneff1(i) = rnd * om;
                     }
                 }
                 else
@@ -1205,8 +1222,9 @@ void SHOCKS(void)
                     // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
                     for (int rr = 1; rr <= NR; rr++)
                     {
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        double shock_eneff_reg = rnd;
+                        double shock_eneff_reg = rnd * om;
 
                         // Broadcast to all C-firms in this region
                         for (j = 1; j <= N2; j++)
@@ -1256,19 +1274,21 @@ void SHOCKS(void)
                     for (j = 1; j <= N2; j++)
                     {
                         int rr = region_firm_assignment_C[j - 1];
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_labprod2(j) = rnd;
+                        shocks_labprod2(j) = rnd * om;
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_eneff2(j) = rnd;
+                        shocks_eneff2(j) = rnd * om;
                     }
 
                     for (i = 1; i <= N1; i++)
                     {
                         int rr = region_firm_assignment_K[i - 1];
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_labprod1(i) = rnd;
+                        shocks_labprod1(i) = rnd * om;
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_eneff1(i) = rnd;
+                        shocks_eneff1(i) = rnd * om;
                     }
                 }
                 else
@@ -1276,10 +1296,11 @@ void SHOCKS(void)
                     // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
                     for (int rr = 1; rr <= NR; rr++)
                     {
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        double shock_labprod_reg = rnd;
+                        double shock_labprod_reg = rnd * om;
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        double shock_eneff_reg = rnd;
+                        double shock_eneff_reg = rnd * om;
 
                         // Broadcast to all C-firms in this region
                         for (j = 1; j <= N2; j++)
@@ -1345,17 +1366,18 @@ void SHOCKS(void)
 
                 for (tt = 1; tt <= t; tt++)
                 {
-                    shocks_encapstock_de(t) = shock_encap_avg;
+                    double dampened_encap = shock_encap_avg * Omega_adapt_national;
+                    shocks_encapstock_de(t) = dampened_encap;
                     if (G_de(tt) > 0)
                     {
-                        G_de(tt) = ROUND(G_de(tt) * (1 - shock_encap_avg));
+                        G_de(tt) = ROUND(G_de(tt) * (1 - dampened_encap));
                     }
 
-                    shocks_encapstock_ge(t) = shock_encap_avg;
+                    shocks_encapstock_ge(t) = dampened_encap;
                     if (G_ge(tt) > 0)
                     {
-                        G_ge(tt) = ROUND(G_ge(tt) * (1 - shock_encap_avg));
-                        G_ge_n(tt) = ROUND(G_ge_n(tt) * (1 - shock_encap_avg));
+                        G_ge(tt) = ROUND(G_ge(tt) * (1 - dampened_encap));
+                        G_ge_n(tt) = ROUND(G_ge_n(tt) * (1 - dampened_encap));
                     }
                 }
                 CapitalStock_e(1) = G_ge_n.Sum();
@@ -1402,7 +1424,7 @@ void SHOCKS(void)
                 shock_pop_avg /= NR;
 
                 shock_pop = shock_pop_avg;
-                LS = LS * (1 - shock_pop_avg);
+                LS = LS * (1 - shock_pop_avg * Omega_adapt_national);
             }
             else
             {
@@ -1431,7 +1453,7 @@ void SHOCKS(void)
                 }
                 shock_cons_avg /= NR;
 
-                shock_cons = shock_cons_avg;
+                shock_cons = shock_cons_avg * Omega_adapt_national;
             }
             else
             {
@@ -1454,8 +1476,9 @@ void SHOCKS(void)
                         for (j = 1; j <= N2; j++)
                         {
                             int rr = region_firm_assignment_C[j - 1];
+                            double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                             rnd = betadev(X_a_reg(6, rr), X_b_reg(6, rr), p_seed);
-                            shocks_capstock(j) = rnd;
+                            shocks_capstock(j) = rnd * om;
                         }
                     }
                     else
@@ -1463,8 +1486,9 @@ void SHOCKS(void)
                         // Uniform regional mode: broadcast
                         for (int rr = 1; rr <= NR; rr++)
                         {
+                            double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                             rnd = betadev(X_a_reg(6, rr), X_b_reg(6, rr), p_seed);
-                            double shock_capstock_reg = rnd;
+                            double shock_capstock_reg = rnd * om;
 
                             for (j = 1; j <= N2; j++)
                             {
@@ -1541,15 +1565,17 @@ void SHOCKS(void)
                         for (j = 1; j <= N2; j++)
                         {
                             int rr = region_firm_assignment_C[j - 1];
+                            double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                             rnd = betadev(X_a_reg(7, rr), X_b_reg(7, rr), p_seed);
-                            shocks_output2(j) = rnd;
+                            shocks_output2(j) = rnd * om;
                         }
 
                         for (i = 1; i <= N1; i++)
                         {
                             int rr = region_firm_assignment_K[i - 1];
+                            double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                             rnd = betadev(X_a_reg(7, rr), X_b_reg(7, rr), p_seed);
-                            shocks_output1(i) = rnd;
+                            shocks_output1(i) = rnd * om;
                         }
                     }
                     else
@@ -1557,8 +1583,9 @@ void SHOCKS(void)
                         // Uniform regional mode: broadcast
                         for (int rr = 1; rr <= NR; rr++)
                         {
+                            double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                             rnd = betadev(X_a_reg(7, rr), X_b_reg(7, rr), p_seed);
-                            double shock_output_reg = rnd;
+                            double shock_output_reg = rnd * om;
 
                             // Apply to C-firms
                             for (j = 1; j <= N2; j++)
@@ -1673,8 +1700,9 @@ void SHOCKS(void)
                         for (j = 1; j <= N2; j++)
                         {
                             int rr = region_firm_assignment_C[j - 1];
+                            double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                             rnd = betadev(X_a_reg(8, rr), X_b_reg(8, rr), p_seed);
-                            shocks_invent(j) = rnd;
+                            shocks_invent(j) = rnd * om;
                         }
                     }
                     else
@@ -1682,8 +1710,9 @@ void SHOCKS(void)
                         // Uniform regional mode: broadcast
                         for (int rr = 1; rr <= NR; rr++)
                         {
+                            double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                             rnd = betadev(X_a_reg(8, rr), X_b_reg(8, rr), p_seed);
-                            double shock_invent_reg = rnd;
+                            double shock_invent_reg = rnd * om;
 
                             for (j = 1; j <= N2; j++)
                             {
@@ -1757,8 +1786,9 @@ void SHOCKS(void)
                     for (i = 1; i <= N1; i++)
                     {
                         int rr = region_firm_assignment_K[i - 1];
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(9, rr), X_b_reg(9, rr), p_seed);
-                        shocks_rd(i) = rnd;
+                        shocks_rd(i) = rnd * om;
                     }
                 }
                 else
@@ -1766,8 +1796,9 @@ void SHOCKS(void)
                     // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
                     for (int rr = 1; rr <= NR; rr++)
                     {
+                        double om = (flag_adaptation == 1) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(9, rr), X_b_reg(9, rr), p_seed);
-                        double shock_rd_reg = rnd;
+                        double shock_rd_reg = rnd * om;
 
                         for (i = 1; i <= N1; i++)
                         {

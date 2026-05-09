@@ -957,11 +957,39 @@ void RG_BLOCK_FISCAL(void)
 		// 2g: Expenditure allocation (remainder after SP)
 		EA_rg[rr - 1] = std::max(0.0, REV_rg[rr - 1] - SP_rg[rr - 1]);
 
+		// 2g-adapt: Adaptation investment carve-out from EA (fiscally constrained)
+		double EA_pub = EA_rg[rr - 1]; // default: all EA goes to public capital
+		if (flag_adaptation == 1 && EA_rg[rr - 1] > 0.0)
+		{
+			double gdp_safe = std::max(reg_GDP_n[rr - 1], 1.0); // guard against zero-GDP region
+			I_adapt_rg[rr - 1] = std::min(iota_adapt_rg[rr - 1] * gdp_safe, EA_rg[rr - 1]);
+			EA_pub = EA_rg[rr - 1] - I_adapt_rg[rr - 1];
+		}
+		else
+		{
+			I_adapt_rg[rr - 1] = 0.0;
+		}
+
+		// 2g-adapt-stock: Update adaptation stock (depreciation + new investment)
+		K_adapt_rg[rr - 1] = K_adapt_rg_lag[rr - 1] * (1.0 - delta_adapt) + I_adapt_rg[rr - 1];
+
+		// 2g-adapt-omega: Shock dampening factor from LAGGED stock (temporal consistency)
+		if (flag_adaptation == 1)
+		{
+			double gdp_safe = std::max(reg_GDP_n[rr - 1], 1.0);
+			Omega_adapt_rg[rr - 1] = omega_floor_adapt +
+									 (1.0 - omega_floor_adapt) * std::exp(-phi_adapt * K_adapt_rg_lag[rr - 1] / gdp_safe);
+		}
+		else
+		{
+			Omega_adapt_rg[rr - 1] = 1.0; // no dampening when adaptation is off
+		}
+
 		// 2h: Total regional expenditure (balanced budget: REV = EXP)
 		EXP_rg[rr - 1] = SP_rg[rr - 1] + EA_rg[rr - 1];
 
-		// 2i: Public capital accumulation (stock with depreciation)
-		K_pub_rg[rr - 1] = K_pub_rg[rr - 1] * (1.0 - delta_pub) + EA_rg[rr - 1];
+		// 2i: Public capital accumulation (stock with depreciation; uses EA net of adaptation)
+		K_pub_rg[rr - 1] = K_pub_rg[rr - 1] * (1.0 - delta_pub) + EA_pub;
 	}
 
 	// Step 3: Compute national aggregates
@@ -969,6 +997,11 @@ void RG_BLOCK_FISCAL(void)
 	TR_rg_total = 0.0;
 	EA_total = 0.0;
 	K_pub_total = 0.0;
+	K_adapt_total = 0.0;
+	I_adapt_total = 0.0;
+
+	double gdp_sum_w = 0.0;
+	double omega_gdp_sum = 0.0;
 
 	for (int rr = 0; rr < NR; rr++)
 	{
@@ -976,10 +1009,16 @@ void RG_BLOCK_FISCAL(void)
 		TR_rg_total += GT_rg[rr];
 		EA_total += EA_rg[rr];
 		K_pub_total += K_pub_rg[rr];
+		K_adapt_total += K_adapt_rg[rr];
+		I_adapt_total += I_adapt_rg[rr];
+		double gdp_w = std::max(reg_GDP_n[rr], 1.0);
+		gdp_sum_w += gdp_w;
+		omega_gdp_sum += Omega_adapt_rg[rr] * gdp_w;
 	}
 
-	// Step 4: Route EA as government purchases to K-firms
-	// EA credited to K-firm deposits as financial transfer; production effect next period
+	Omega_adapt_national = (gdp_sum_w > 0.0) ? omega_gdp_sum / gdp_sum_w : 1.0;
+
+	// Step 4: Route EA as government purchases to K-firms for public capital accumulation
 	if (EA_total > 0.0)
 	{
 		G += EA_total;
@@ -989,18 +1028,35 @@ void RG_BLOCK_FISCAL(void)
 		{
 			if (EA_rg[rr - 1] > 0.0 && reg_N1[rr - 1] > 0)
 			{
-				double ea_per_firm = EA_rg[rr - 1] / reg_N1[rr - 1];
-
+				// Market-share-based allocation among K-firms in region
+				double total_share = 0.0;
 				for (int ii = 1; ii <= N1; ii++)
 				{
 					if (region_firm_assignment_K[ii - 1] == rr)
 					{
-						Deposits_1(1, ii) += ea_per_firm;
-						int bank = static_cast<int>(BankingSupplier_1(ii));
-						Deposits(1, bank) += ea_per_firm;
-						Inflows(bank) += ea_per_firm;
+						total_share += f1(1, ii);
 					}
 				}
+				double n_rg = reg_N1[rr - 1];
+				for (int ii = 1; ii <= N1; ii++)
+				{
+					if (region_firm_assignment_K[ii - 1] == rr)
+					{
+						double ea_firm = (total_share > 0.0)
+							? EA_rg[rr - 1] * (f1(1, ii) / total_share)
+							: EA_rg[rr - 1] / n_rg;
+						Deposits_1(1, ii) += ea_firm;
+						int bank = static_cast<int>(BankingSupplier_1(ii));
+						Deposits(1, bank) += ea_firm;
+						Inflows(bank) += ea_firm;
+					}
+				}
+			}
+			else if (EA_rg[rr - 1] > 0.0)
+			{
+				// No K-firms in region; EA cannot be disbursed.
+				G -= EA_rg[rr - 1];
+				GovPurchases_1 -= EA_rg[rr - 1];
 			}
 		}
 	}

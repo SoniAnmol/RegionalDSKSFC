@@ -618,6 +618,12 @@ void SETPARAMS(const rapidjson::Document &inputs)
   gamma_bar = inputs["params"][0].HasMember("gamma_bar") ? inputs["params"][0]["gamma_bar"].GetDouble() : 0.0;
   delta_pub = inputs["params"][0].HasMember("delta_pub") ? inputs["params"][0]["delta_pub"].GetDouble() : 0.025;
 
+  // Adaptation parameters (backward-compatible defaults when flag_adaptation == 0)
+  flag_adaptation = inputs["flags"][0].HasMember("flag_adaptation") ? inputs["flags"][0]["flag_adaptation"].GetInt() : 0;
+  delta_adapt = inputs["params"][0].HasMember("delta_adapt") ? inputs["params"][0]["delta_adapt"].GetDouble() : 0.05;
+  phi_adapt = inputs["params"][0].HasMember("phi_adapt") ? inputs["params"][0]["phi_adapt"].GetDouble() : 1.0;
+  omega_floor_adapt = inputs["params"][0].HasMember("omega_floor_adapt") ? inputs["params"][0]["omega_floor_adapt"].GetDouble() : 0.05;
+
   t_start_climbox = inputs["climparams"][0]["t_start_climbox"].GetInt();
   T_pre = inputs["climparams"][0]["T_pre"].GetDouble();
   intercept_temp = inputs["climparams"][0]["intercept_temp"].GetDouble();
@@ -827,6 +833,15 @@ void SETPARAMS(const rapidjson::Document &inputs)
       for (int rr = 0; rr < NR; rr++)
       {
         wu_rg[rr] = inputs["regions"]["wu_rg"][rr].GetDouble();
+      }
+    }
+    // Per-region adaptation investment rate (iota_adapt_rg, share of regional GDP)
+    iota_adapt_rg.resize(NR, 0.0);
+    if (inputs["regions"].HasMember("iota_adapt_rg"))
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        iota_adapt_rg[rr] = inputs["regions"]["iota_adapt_rg"][rr].GetDouble();
       }
     }
   }
@@ -1380,6 +1395,10 @@ void RESIZE(void)
     EA_rg.assign(NR, 0.0);
     EXP_rg.assign(NR, 0.0);
     K_pub_rg.assign(NR, 0.0);
+    K_adapt_rg.assign(NR, 0.0);
+    K_adapt_rg_lag.assign(NR, 0.0);
+    I_adapt_rg.assign(NR, 0.0);
+    Omega_adapt_rg.assign(NR, 1.0); // 1.0 = no dampening (flag_adaptation == 0 default)
     // tau_share_rg, omega_rg, wu_rg are set in SETPARAMS from JSON; do not overwrite here
   }
 }
@@ -1929,7 +1948,12 @@ void SETVARS(void)
   EA_total = 0;
   K_pub_total_lag = K_pub_total;
   K_pub_total = 0;
+  K_adapt_total_lag = K_adapt_total;
+  K_adapt_total = 0;
+  I_adapt_total = 0;
+  Omega_adapt_national = 1.0;
   GovPurchases_1 = 0;
+  GovPurchases_2 = 0;
 
   Divtot_1 = 0;
   Divtot_2 = 0;
@@ -2020,6 +2044,11 @@ void SETVARS(void)
       SP_rg[rr] = 0;
       EA_rg[rr] = 0;
       EXP_rg[rr] = 0;
+      // Adaptation: lag carry-forward (before new stock is computed in RG_BLOCK_FISCAL)
+      // K_adapt_rg[rr] and K_adapt_rg_lag[rr] are persistent stocks — NOT reset
+      K_adapt_rg_lag[rr] = K_adapt_rg[rr];
+      I_adapt_rg[rr] = 0.0;
+      Omega_adapt_rg[rr] = 1.0; // reset to no-dampening; recomputed in RG_BLOCK_FISCAL
     }
   }
 
@@ -6841,14 +6870,20 @@ void SFC_CHECK(void)
   // Compare stock and flow measures of K-firm net worth
   for (i = 1; i <= N1; i++)
   {
-    // Compute per-firm EA credit (must match RG_BLOCK_FISCAL routing)
+    // Compute per-firm EA credit (matches market-share allocation in RG_BLOCK_FISCAL)
     double ea_firm_i = 0.0;
     if (NR > 0 && gamma_bar > 0.0)
     {
       int rr = region_firm_assignment_K[i - 1]; // 1-based region index
       if (rr >= 1 && rr <= NR && reg_N1[rr - 1] > 0 && EA_rg[rr - 1] > 0.0)
       {
-        ea_firm_i = EA_rg[rr - 1] / reg_N1[rr - 1];
+        double total_share_rr = 0.0;
+        for (int ii2 = 1; ii2 <= N1; ii2++)
+          if (region_firm_assignment_K[ii2 - 1] == rr)
+            total_share_rr += f1(1, ii2);
+        ea_firm_i = (total_share_rr > 0.0)
+          ? EA_rg[rr - 1] * (f1(1, i) / total_share_rr)
+          : EA_rg[rr - 1] / reg_N1[rr - 1];
       }
     }
     Balances_1(i) = Sales1(i) + InterestDeposits_1(i) - Wages_1(i) - EnergyPayments_1(i) - Dividends_1(i) - Taxes_1(i) - Taxes_CO2_1(i) + ea_firm_i;
@@ -6889,6 +6924,10 @@ void SFC_CHECK(void)
   NW_cb(1) = GB_cb(1) + Advances(1) - Reserves(1) - Deposits_fuel_cb(1);
   NW_cb_c = NW_cb(2) + Balance_cb + Adjustment_cb;
   deviation = fabs((NW_cb(1) - NW_cb_c) / NW_cb_c);
+  {
+    bool fires = (deviation > tolerance && fabs(NW_cb(1) / GDP_n(1)) > tolerance && fabs(NW_cb_c / GDP_n(1)) > tolerance);
+    (void)fires;
+  }
   if (deviation > tolerance && fabs(NW_cb(1) / GDP_n(1)) > tolerance && fabs(NW_cb_c / GDP_n(1)) > tolerance)
   {
     std::cerr << "\n\n ERROR: Stock and flow measures of net worth for the CENTRAL BANK are not consistent in period " << t << endl;
@@ -8084,6 +8123,12 @@ void SAVE(void)
         target << ((reg_GDP_r_lag[region - 1] > 0) ? (pow(reg_GDP_r[region - 1] / reg_GDP_r_lag[region - 1], 4) - 1) : 0); // 46
         target.width(60);
         target << reg_n_exit2[region - 1]; // 47
+        target.width(60);
+        target << K_adapt_rg[region - 1]; // 48
+        target.width(60);
+        target << I_adapt_rg[region - 1]; // 49
+        target.width(60);
+        target << Omega_adapt_rg[region - 1]; // 50
         target << endl;
       };
 

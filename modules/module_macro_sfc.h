@@ -272,11 +272,21 @@ extern double cached_Emiss_TOT;
 
 // Regional Government Block variables
 extern std::vector<double> TS_rg, GT_base_rg, GT_topup_rg, GT_rg, REV_rg, SP_rg, EA_rg, EXP_rg, K_pub_rg;
-extern double GRANTPOOL, REV_rg_total, TR_rg_total, SP_total, EA_total, K_pub_total, K_pub_total_lag, GovPurchases_1;
+extern double GRANTPOOL, REV_rg_total, TR_rg_total, SP_total, EA_total, K_pub_total, K_pub_total_lag, GovPurchases_1, GovPurchases_2;
 extern double gamma_bar, delta_pub;
 extern std::vector<double> tau_share_rg, omega_rg, wu_rg;
+
+// Adaptation stock variables
+extern std::vector<double> K_adapt_rg, K_adapt_rg_lag, I_adapt_rg, Omega_adapt_rg;
+extern double K_adapt_total, I_adapt_total, K_adapt_total_lag, Omega_adapt_national;
+extern double delta_adapt, phi_adapt, omega_floor_adapt;
+extern std::vector<double> iota_adapt_rg;
+extern int flag_adaptation;
+extern std::vector<double> reg_GDP_n;
+
 extern double aliq, aliqw;
 extern RowVector BankingSupplier_1;
+extern RowVector BankingSupplier_2;
 extern RowVector Taxes_1, Taxes_2;
 
 #endif

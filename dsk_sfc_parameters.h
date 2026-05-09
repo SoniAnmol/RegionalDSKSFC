@@ -165,10 +165,16 @@ std::vector<std::vector<double>> shockexponent1_regional; // [nshocks][NR] - OVE
 std::vector<std::vector<double>> shockexponent2_regional; // [nshocks][NR] - OVERRIDES scalar shockexponent2 when NR>0
 
 // Regional Government Block parameters
-double gamma_bar;                         // Share of national taxes allocated to grant pool
-double delta_pub;                         // Depreciation rate of public capital
-std::vector<double> tau_share_rg;         // Tax-sharing coefficients per region (sum to 1)
-std::vector<double> omega_rg;             // Grant distribution weights per region (sum to 1)
-std::vector<double> wu_rg;                // Regional unemployment benefit rates
+double gamma_bar;                 // Share of national taxes allocated to grant pool
+double delta_pub;                 // Depreciation rate of public capital
+std::vector<double> tau_share_rg; // Tax-sharing coefficients per region (sum to 1)
+std::vector<double> omega_rg;     // Grant distribution weights per region (sum to 1)
+std::vector<double> wu_rg;        // Regional unemployment benefit rates
+
+// Adaptation parameters (used when flag_adaptation == 1)
+double delta_adapt;                // Depreciation rate of adaptation stock
+double phi_adapt;                  // Effectiveness scaling in Omega = omega_floor + (1-omega_floor)*exp(-phi*K/GDP)
+double omega_floor_adapt;          // Minimum shock multiplier floor (prevents full protection)
+std::vector<double> iota_adapt_rg; // Per-region adaptation investment rate (share of regional GDP)
 
 #endif

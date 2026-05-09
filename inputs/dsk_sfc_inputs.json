@@ -102,7 +102,10 @@
             "exp_quota_param": 200,
             "ge_subsidy": 0.75,
             "gamma_bar": 0,
-            "delta_pub": 0.025
+            "delta_pub": 0.025,
+            "delta_adapt": 0.05,
+            "phi_adapt": 1.0,
+            "omega_floor_adapt": 0.05
         }
     ],
     "climparams": [
@@ -214,7 +217,8 @@
             "flag_inventories": 0,
             "flag_scrap_age": 1,
             "flag_uniformshocks": 1,
-            "flag_desc": 0
+            "flag_desc": 0,
+            "flag_adaptation": 0
         }
     ],
     "inits": [

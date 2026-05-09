@@ -81,7 +81,7 @@
             "b2inf": 1,
             "aliq": 0.1,
             "aliqb": 0.1,
-            "wu": 0.4,
+            "wu": 0.35,
             "de": 0.99,
             "a1": 0.965,
             "a2": 0.3,
@@ -101,8 +101,11 @@
             "passthrough": 1,
             "exp_quota_param": 200,
             "ge_subsidy": 0.75,
-            "gamma_bar": 0,
-            "delta_pub": 0.025
+            "gamma_bar": 0.2,
+            "delta_pub": 0.025,
+            "delta_adapt": 0.03,
+            "phi_adapt": 4.0,
+            "omega_floor_adapt": 0.25
         }
     ],
     "climparams": [
@@ -168,7 +171,7 @@
             ],
             "b2_0": [
                 100,
-                40,
+                100,
                 100
             ],
             "a3_0": [
@@ -208,7 +211,7 @@
             ],
             "b6_0": [
                 100,
-                40,
+                100,
                 100
             ],
             "a7_0": [
@@ -228,8 +231,8 @@
             ],
             "b8_0": [
                 100,
-                40,
-                100
+                100,
+                40
             ],
             "a9_0": [
                 0.75,
@@ -335,7 +338,7 @@
     ],
     "flags": [
         {
-            "flag_shockexperiment": 1,
+            "flag_shockexperiment": 0,
             "flag_exogenousshocks": 0,
             "flag_cum_emissions": 0,
             "flag_tax_CO2": 4,
@@ -348,7 +351,7 @@
             "flag_demandshocks": 0,
             "flag_RDshocks": 0,
             "flag_prodshocks1": 0,
-            "flag_prodshocks2": 1,
+            "flag_prodshocks2": 0,
             "flag_share_END": 2,
             "flag_energy_exp": 3,
             "flagbailout": 0,
@@ -358,7 +361,8 @@
             "flag_inventories": 0,
             "flag_scrap_age": 1,
             "flag_uniformshocks": 1,
-            "flag_desc": 0
+            "flag_desc": 0,
+            "flag_adaptation": 1
         }
     ],
     "inits": [
@@ -470,9 +474,9 @@
             0.5
         ],
         "tau_share_rg": [
-            0.333333,
-            0.333333,
-            0.333333
+            0.4,
+            0.4,
+            0.4
         ],
         "omega_rg": [
             0.333333,
@@ -480,9 +484,14 @@
             0.333333
         ],
         "wu_rg": [
-            0.4,
-            0.4,
-            0.4
+            0.05,
+            0.05,
+            0.05
+        ],
+        "iota_adapt_rg": [
+            0.005,
+            0.01,
+            0.005
         ]
     },
     "shocks_kfirms": [
