@@ -136,6 +136,8 @@ int flag_desc;
 
 int flag_adaptation; // Switches regional adaptation stock module on or off
                      // = 0 [BASELINE] off (no dampening, no investment carve-out)
-                     // = 1 on
+                     // = 1 protection only (Omega shock dampening via K_adapt stock)
+                     // = 2 recovery only   (B_rec backlog → GRecPaid → affected C-firms)
+                     // = 3 protection + recovery
 
 #endif

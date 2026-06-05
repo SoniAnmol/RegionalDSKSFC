@@ -559,6 +559,8 @@ std::vector<double> reg_Q1;                      // Regional production of K-fir
 std::vector<double> reg_Q2;                      // Regional production of C-firms
 std::vector<double> reg_Q1tot;                   // Regional copy of national Q1tot
 std::vector<double> reg_Q2tot;                   // Regional copy of national Q2tot
+std::vector<double> reg_H1;                      // Regional normalised Herfindahl index K-firms
+std::vector<double> reg_H2;                      // Regional normalised Herfindahl index C-firms
 std::vector<double> reg_GDP_r;                   // Regional real GDP
 std::vector<double> reg_GDP_r_lag;               // Regional lagged real GDP (previous period)
 std::vector<double> reg_Consumption_r;           // Regional total real consumption
@@ -640,11 +642,40 @@ std::vector<double> Omega_adapt_rg; // Shock dampening factor per region [omega_
 double K_adapt_total;               // Sum of regional adaptation stocks
 double I_adapt_total;               // Sum of regional adaptation investment
 double K_adapt_total_lag;           // Lagged total adaptation stock (for SFC tracking)
-double Omega_adapt_national;        // GDP-weighted average Omega across regions
+double Omega_adapt_national;        // GDP-weighted average Omega across regions (kept for excluded channels)
+
+// Channel-specific adaptation stocks and fragility thresholds (NC_adapt=6 active channels)
+// Channel indices: 0=machprod, 1=labprod, 2=eneff, 3=encapstock, 4=capstock, 5=invent
+int NC_adapt = 6;
+std::vector<std::vector<double>> K_adapt_c_rg;     // [NC_adapt][NR] channel-specific adaptation stock
+std::vector<std::vector<double>> K_adapt_c_rg_lag; // [NC_adapt][NR] lagged channel-specific stock (used in threshold formula)
+std::vector<std::vector<double>> I_adapt_c_rg;     // [NC_adapt][NR] channel-specific investment flow (reset each period)
+std::vector<std::vector<double>> Omega_c_rg;       // [NC_adapt][NR] effective channel Omega (diagnostic; reset to 1.0 each period)
+std::vector<std::vector<double>> h_thresh_c_rg;    // [NC_adapt][NR] protection threshold (computed in RG_BLOCK_FISCAL, used in SHOCKS)
+
+// Recovery expenditure state variables (active when flag_adaptation == 2 or 3)
+std::vector<double> I_Rec_rg;     // New recovery obligation per region (flow, reset each period)
+std::vector<double> B_rec_rg;     // Recovery backlog per region (persistent stock, carry-forward)
+std::vector<double> B_rec_rg_lag; // Lagged recovery backlog (previous period)
+std::vector<double> GRecPaid_rg;  // Recovery disbursement per region (flow)
+std::vector<double> TREC_rg;      // Central government backstop transfer per region (flow)
+std::vector<double> Saff_rg;      // Regional mean damage share this period (from shocks_capstock)
+std::vector<double> Saff_rg_lag;  // Lagged regional mean damage share (used for obligation computation)
+std::vector<double> n_aff_rg;     // Count of affected C-firms per region this period
+std::vector<double> n_aff_rg_lag; // Lagged count of affected C-firms (used for per-firm subsidy routing)
+RowVector sub_Rec;                // Per-firm recovery subsidy (size N2, reset each period)
+RowVector affected_indicator;     // 1 if firm's shock >= d_bar_rec this period (size N2)
+RowVector affected_indicator_lag; // Lagged affected indicator (size N2, carry-forwarded in SETVARS)
+double GRecPaid_total;            // National sum of GRecPaid_rg
+double TREC_total;                // National sum of TREC_rg
+double GovPurchases_Rec;          // K-firm revenue from recovery machine orders (for SFC)
 
 double GRANTPOOL;       // National grant pool (gamma_bar * Taxes)
 double REV_rg_total;    // Sum of regional revenues
-double TR_rg_total;     // Sum of regional grants
+double TR_rg_total;     // Sum of regional grants (base + top-up)
+double GT_base_total;   // Sum of regional base grants
+double GT_topup_total;  // Sum of regional top-up grants
+double TS_rg_total;     // Sum of regional tax-share receipts
 double SP_total;        // Sum of regional social protection
 double EA_total;        // Sum of regional expenditure allocation
 double K_pub_total;     // Sum of regional public capital stocks

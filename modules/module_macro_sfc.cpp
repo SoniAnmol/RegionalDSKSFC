@@ -388,6 +388,8 @@ void REGIONAL_UPDATE(void)
 			reg_CapitalStock1[rr] = 0;
 			reg_CapitalStock2[rr] = 0;
 			reg_CapitalStock[rr] = 0;
+			reg_H1[rr] = 0;
+			reg_H2[rr] = 0;
 		}
 
 		// Recalculate regional GDP_n (depends on prices which change in ENTRYEXIT)
@@ -510,6 +512,34 @@ void REGIONAL_UPDATE(void)
 		// Calculate regional average productivity and derived variables
 		std::vector<double> reg_LD_totals(NR, 0.0);
 		double mapped_reg_LD_total = 0;
+
+		// Compute regional normalised Herfindahl indices for K-firms and C-firms.
+		// Use the same formula as the national index: H = (sum(s_i^2) - 1/n) / (1 - 1/n)
+		for (int ii = 1; ii <= N1; ++ii)
+		{
+			int rr = region_firm_assignment_K[ii - 1];
+			if (rr >= 1 && rr <= NR && reg_Q1tot[rr - 1] > 0)
+			{
+				double s = Q1(ii) / reg_Q1tot[rr - 1];
+				reg_H1[rr - 1] += s * s;
+			}
+		}
+		for (int jj = 1; jj <= N2; ++jj)
+		{
+			int rr = region_firm_assignment_C[jj - 1];
+			if (rr >= 1 && rr <= NR && reg_Q2tot[rr - 1] > 0)
+			{
+				double s = Q2(jj) / reg_Q2tot[rr - 1];
+				reg_H2[rr - 1] += s * s;
+			}
+		}
+		for (int rr = 1; rr <= NR; ++rr)
+		{
+			double n1 = reg_N1[rr - 1];
+			double n2 = reg_N2[rr - 1];
+			reg_H1[rr - 1] = (n1 > 1) ? (reg_H1[rr - 1] - 1.0 / n1) / (1.0 - 1.0 / n1) : 0.0;
+			reg_H2[rr - 1] = (n2 > 1) ? (reg_H2[rr - 1] - 1.0 / n2) / (1.0 - 1.0 / n2) : 0.0;
+		}
 
 		for (int rr = 1; rr <= NR; ++rr)
 		{
@@ -954,16 +984,77 @@ void RG_BLOCK_FISCAL(void)
 		// 2f: Total regional revenue
 		REV_rg[rr - 1] = TS_rg[rr - 1] + GT_rg[rr - 1];
 
-		// 2g: Expenditure allocation (remainder after SP)
-		EA_rg[rr - 1] = std::max(0.0, REV_rg[rr - 1] - SP_rg[rr - 1]);
-
-		// 2g-adapt: Adaptation investment carve-out from EA (fiscally constrained)
-		double EA_pub = EA_rg[rr - 1]; // default: all EA goes to public capital
-		if (flag_adaptation == 1 && EA_rg[rr - 1] > 0.0)
+		// -------------------------------------------------------------------
+		// 2g-rec-0: Compute current-period damage indicators from shocks_capstock
+		// (shocks_capstock still holds the shock applied this period by PRODMACH)
+		// -------------------------------------------------------------------
+		if ((flag_adaptation == 2 || flag_adaptation == 3) && flag_capshocks > 0)
 		{
-			double gdp_safe = std::max(reg_GDP_n[rr - 1], 1.0); // guard against zero-GDP region
-			I_adapt_rg[rr - 1] = std::min(iota_adapt_rg[rr - 1] * gdp_safe, EA_rg[rr - 1]);
-			EA_pub = EA_rg[rr - 1] - I_adapt_rg[rr - 1];
+			double sum_shock = 0.0;
+			int n_in_rg = 0;
+			for (int jj = 1; jj <= N2; jj++)
+			{
+				if (region_firm_assignment_C[jj - 1] == rr && exiting_2(jj) == 0)
+				{
+					sum_shock += shocks_capstock(jj);
+					n_in_rg++;
+					if (shocks_capstock(jj) >= d_bar_rec)
+					{
+						affected_indicator(jj) = 1.0;
+						n_aff_rg[rr - 1] += 1.0;
+					}
+				}
+			}
+			Saff_rg[rr - 1] = (n_in_rg > 0) ? sum_shock / n_in_rg : 0.0;
+		}
+
+		// -------------------------------------------------------------------
+		// 2g-rec-1: Recovery obligation (uses LAGGED damage to avoid same-period feedback)
+		// I_Rec_{r,t} = psi_r * Y_{r,t-1} * max(0, Saff_{r,t-1} - s_bar_r)
+		// -------------------------------------------------------------------
+		bool rec_active = (flag_adaptation == 2 || flag_adaptation == 3);
+		if (rec_active && psi_rec_rg[rr - 1] > 0.0)
+		{
+			double gdp_lag = std::max(reg_GDP_r_lag[rr - 1], 1.0);
+			I_Rec_rg[rr - 1] = psi_rec_rg[rr - 1] * gdp_lag * std::max(0.0, Saff_rg_lag[rr - 1] - s_bar_rec_rg[rr - 1]);
+		}
+
+		// -------------------------------------------------------------------
+		// 2g-rec-2: Backlog update and disbursement
+		// B_rec_{r,t} = I_Rec_{r,t} + (1 - delta_imp_r) * B_rec_{r,t-1}
+		// GRecPaid_{r,t} = delta_imp_r * B_rec_{r,t}
+		// -------------------------------------------------------------------
+		if (rec_active)
+		{
+			B_rec_rg[rr - 1] = I_Rec_rg[rr - 1] + (1.0 - delta_imp_rg[rr - 1]) * B_rec_rg_lag[rr - 1];
+			GRecPaid_rg[rr - 1] = delta_imp_rg[rr - 1] * B_rec_rg[rr - 1];
+		}
+
+		// -------------------------------------------------------------------
+		// 2g-rec-3: Central government backstop
+		// TREC_{r,t} = max(0, GRecPaid - max(0, TS_{r,t} - SP_{r,t}))
+		// -------------------------------------------------------------------
+		if (rec_active && GRecPaid_rg[rr - 1] > 0.0)
+		{
+			double own_surplus = std::max(0.0, TS_rg[rr - 1] - SP_rg[rr - 1]);
+			TREC_rg[rr - 1] = std::max(0.0, GRecPaid_rg[rr - 1] - own_surplus);
+		}
+
+		// -------------------------------------------------------------------
+		// 2g-rec-4: Revised residual R (Step 5 of math)
+		// R = REV + TREC - SP - GRecPaid
+		// Adaptation carve-out from R; remainder goes to public capital
+		// -------------------------------------------------------------------
+		double R_rg = std::max(0.0, REV_rg[rr - 1] + TREC_rg[rr - 1] - SP_rg[rr - 1] - GRecPaid_rg[rr - 1]);
+		EA_rg[rr - 1] = R_rg; // EA_rg now = residual for public capital (after recovery)
+
+		// 2g-adapt: Adaptation investment carve-out from residual (fiscally constrained)
+		double EA_pub = R_rg; // default: all residual goes to public capital
+		if ((flag_adaptation == 1 || flag_adaptation == 3) && R_rg > 0.0)
+		{
+			double gdp_safe = std::max(reg_GDP_n[rr - 1], 1.0);
+			I_adapt_rg[rr - 1] = std::min(iota_adapt_rg[rr - 1] * gdp_safe, R_rg);
+			EA_pub = R_rg - I_adapt_rg[rr - 1];
 		}
 		else
 		{
@@ -973,8 +1064,25 @@ void RG_BLOCK_FISCAL(void)
 		// 2g-adapt-stock: Update adaptation stock (depreciation + new investment)
 		K_adapt_rg[rr - 1] = K_adapt_rg_lag[rr - 1] * (1.0 - delta_adapt) + I_adapt_rg[rr - 1];
 
+		// 2g-adapt-channels: Split adaptation investment across NC_adapt channels and update per-channel stocks
+		if (flag_adaptation == 1 || flag_adaptation == 3)
+		{
+			double gdp_lag = std::max(reg_GDP_n[rr - 1], 1.0);
+			for (int cc = 0; cc < NC_adapt; cc++)
+			{
+				// Proportional split of total investment across channels
+				I_adapt_c_rg[cc][rr - 1] = phi_alloc_c_rg[cc][rr - 1] * I_adapt_rg[rr - 1];
+				// Update channel stock with channel-specific depreciation
+				K_adapt_c_rg[cc][rr - 1] = K_adapt_c_rg_lag[cc][rr - 1] * (1.0 - delta_adapt_c_rg[cc][rr - 1]) + I_adapt_c_rg[cc][rr - 1];
+				// Protection threshold from LAGGED stock (temporal consistency: investment this period acts next period)
+				// h = hbar × (1 - exp(-kappa × K_lag / Y))
+				h_thresh_c_rg[cc][rr - 1] = hbar_c_rg[cc][rr - 1] * (1.0 - std::exp(-kappa_c_rg[cc][rr - 1] * K_adapt_c_rg_lag[cc][rr - 1] / gdp_lag));
+			}
+		}
+		// else: h_thresh_c_rg remains 0.0 (reset in SETVARS); no fragility protection
+
 		// 2g-adapt-omega: Shock dampening factor from LAGGED stock (temporal consistency)
-		if (flag_adaptation == 1)
+		if (flag_adaptation == 1 || flag_adaptation == 3)
 		{
 			double gdp_safe = std::max(reg_GDP_n[rr - 1], 1.0);
 			Omega_adapt_rg[rr - 1] = omega_floor_adapt +
@@ -982,19 +1090,50 @@ void RG_BLOCK_FISCAL(void)
 		}
 		else
 		{
-			Omega_adapt_rg[rr - 1] = 1.0; // no dampening when adaptation is off
+			Omega_adapt_rg[rr - 1] = 1.0; // no dampening when protection is off
 		}
 
-		// 2h: Total regional expenditure (balanced budget: REV = EXP)
-		EXP_rg[rr - 1] = SP_rg[rr - 1] + EA_rg[rr - 1];
+		// 2h: Total regional expenditure (balanced budget: REV + TREC = SP + GRecPaid + EA)
+		EXP_rg[rr - 1] = SP_rg[rr - 1] + GRecPaid_rg[rr - 1] + EA_rg[rr - 1];
 
 		// 2i: Public capital accumulation (stock with depreciation; uses EA net of adaptation)
 		K_pub_rg[rr - 1] = K_pub_rg[rr - 1] * (1.0 - delta_pub) + EA_pub;
 	}
 
+	// -------------------------------------------------------------------
+	// Step 2g-rec-5: Per-firm subsidy disbursement to LAGGED affected C-firms
+	// sub_Rec(j) = GRecPaid_{r,t} / |J^aff_{r,t-1}| for j in J^aff_{r,t-1}
+	// K-firm supplier gets machine order revenue; C-firm capital is restored
+	// -------------------------------------------------------------------
+	// Step 2g-rec-5: Per-firm subsidy assignment to LAGGED affected C-firms
+	// sub_Rec(j) = GRecPaid_{r,t} / |J^aff_{r,t-1}| for j in J^aff_{r,t-1}
+	// Capital is restored here. K-firm revenue routing happens in Step 4
+	// alongside EA so that all govt spending flows through one unified channel.
+	// -------------------------------------------------------------------
+	if (flag_adaptation == 2 || flag_adaptation == 3)
+	{
+		for (int rr = 1; rr <= NR; rr++)
+		{
+			if (GRecPaid_rg[rr - 1] > 0.0 && n_aff_rg_lag[rr - 1] > 0.0)
+			{
+				double share = GRecPaid_rg[rr - 1] / n_aff_rg_lag[rr - 1];
+				for (int jj = 1; jj <= N2; jj++)
+				{
+					if (region_firm_assignment_C[jj - 1] == rr && affected_indicator_lag(jj) == 1.0 && exiting_2(jj) == 0)
+					{
+						sub_Rec(jj) = share;
+					}
+				}
+			}
+		}
+	}
+
 	// Step 3: Compute national aggregates
 	REV_rg_total = 0.0;
 	TR_rg_total = 0.0;
+	GT_base_total = 0.0;
+	GT_topup_total = 0.0;
+	TS_rg_total = 0.0;
 	EA_total = 0.0;
 	K_pub_total = 0.0;
 	K_adapt_total = 0.0;
@@ -1007,18 +1146,29 @@ void RG_BLOCK_FISCAL(void)
 	{
 		REV_rg_total += REV_rg[rr];
 		TR_rg_total += GT_rg[rr];
+		GT_base_total += GT_base_rg[rr];
+		GT_topup_total += GT_topup_rg[rr];
+		TS_rg_total += TS_rg[rr];
 		EA_total += EA_rg[rr];
 		K_pub_total += K_pub_rg[rr];
 		K_adapt_total += K_adapt_rg[rr];
 		I_adapt_total += I_adapt_rg[rr];
+		GRecPaid_total += GRecPaid_rg[rr];
+		TREC_total += TREC_rg[rr];
 		double gdp_w = std::max(reg_GDP_n[rr], 1.0);
 		gdp_sum_w += gdp_w;
 		omega_gdp_sum += Omega_adapt_rg[rr] * gdp_w;
 	}
 
 	Omega_adapt_national = (gdp_sum_w > 0.0) ? omega_gdp_sum / gdp_sum_w : 1.0;
+	GovPurchases_Rec = GRecPaid_total;
 
 	// Step 4: Route EA as government purchases to K-firms for public capital accumulation
+	// Also add GRecPaid_total to G so the government budget reflects recovery outlay.
+	// GovPurchases_1 must include BOTH EA_total and GovPurchases_Rec for SFC balance to hold.
+	if (GRecPaid_total > 0.0)
+		G += GRecPaid_total;
+
 	if (EA_total > 0.0)
 	{
 		G += EA_total;
@@ -1043,8 +1193,8 @@ void RG_BLOCK_FISCAL(void)
 					if (region_firm_assignment_K[ii - 1] == rr)
 					{
 						double ea_firm = (total_share > 0.0)
-							? EA_rg[rr - 1] * (f1(1, ii) / total_share)
-							: EA_rg[rr - 1] / n_rg;
+											 ? EA_rg[rr - 1] * (f1(1, ii) / total_share)
+											 : EA_rg[rr - 1] / n_rg;
 						Deposits_1(1, ii) += ea_firm;
 						int bank = static_cast<int>(BankingSupplier_1(ii));
 						Deposits(1, bank) += ea_firm;
@@ -1057,6 +1207,34 @@ void RG_BLOCK_FISCAL(void)
 				// No K-firms in region; EA cannot be disbursed.
 				G -= EA_rg[rr - 1];
 				GovPurchases_1 -= EA_rg[rr - 1];
+			}
+		}
+	}
+	// Route recovery disbursements directly to affected C-firms (C-firm direct grant)
+	if (GRecPaid_total > 0.0 && (flag_adaptation == 2 || flag_adaptation == 3))
+	{
+		double GRecPaid_actual = 0.0;
+		for (int jj = 1; jj <= N2; jj++)
+			GRecPaid_actual += sub_Rec(jj);
+		if (GRecPaid_actual > 0.0)
+		{
+			GovPurchases_2 = GRecPaid_actual;
+			GovPurchases_Rec = GRecPaid_actual;
+			// Correct G for any gap from exiting firms that received no disbursement
+			G -= (GRecPaid_total - GRecPaid_actual);
+			// Route per C-firm: update deposit and bank reserve inflow
+			for (int jj = 1; jj <= N2; jj++)
+			{
+				if (sub_Rec(jj) > 0.0)
+				{
+					Deposits_2(1, jj) += sub_Rec(jj);
+					int bank = static_cast<int>(BankingSupplier_2(jj));
+					if (bank >= 1 && bank <= static_cast<int>(NB))
+					{
+						Deposits(1, bank) += sub_Rec(jj);
+						Inflows(bank) += sub_Rec(jj);
+					}
+				}
 			}
 		}
 	}

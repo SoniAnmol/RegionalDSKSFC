@@ -37,7 +37,7 @@ class ScenarioRunner:
         output_base: str = "./output/experiment/",
         executable: str = "./dsk_SFC",
         n_replications: int = 1,
-        seed_base: int = 0,
+        seed_base: int = 1,
         verbose: bool = True,
         full_output: bool = False,
         workers: int = 1
@@ -56,7 +56,7 @@ class ScenarioRunner:
         n_replications : int
             Number of Monte Carlo replications per scenario
         seed_base : int
-            Base value for seed calculation (seed = scenario_idx * seed_base + replication_idx)
+            Base value for seed calculation (seed = seed_base * replication_idx)
         verbose : bool
             If True, print progress messages
         full_output : bool
@@ -153,7 +153,7 @@ class ScenarioRunner:
         --------
         int : Deterministic seed value
         """
-        return self.seed_base + replication_idx
+        return self.seed_base * replication_idx
 
     def create_output_structure(self, scenario_name: str, replication_idx: int) -> Path:
         """

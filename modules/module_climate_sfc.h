@@ -223,4 +223,10 @@ extern int flag_adaptation;
 extern std::vector<double> Omega_adapt_rg;
 extern double Omega_adapt_national;
 
+// Channel-specific fragility (NC_adapt=6: machprod, labprod, eneff, encapstock, capstock, invent)
+extern int NC_adapt;
+extern std::vector<std::vector<double>> h_thresh_c_rg;    // [NC_adapt][NR] protection threshold
+extern std::vector<std::vector<double>> Omega_c_rg;       // [NC_adapt][NR] effective Omega (diagnostic)
+extern std::vector<std::vector<double>> hbar_c_rg, kappa_c_rg, alpha_c_rg; // fragility curve parameters
+
 #endif

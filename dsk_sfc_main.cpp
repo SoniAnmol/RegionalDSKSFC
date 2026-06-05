@@ -748,14 +748,14 @@ void SETPARAMS(const rapidjson::Document &inputs)
       shockexponent2_regional[i].resize(NR);
     }
 
-    // Try to read regional arrays from climshockparams first (NEW format)
+    // Try to read regional arrays from climshockparams first
     bool use_new_format = false;
     std::string test_key = "a" + std::to_string(1) + "_0";
     if (inputs["climshockparams"][0].HasMember(test_key.c_str()) &&
         inputs["climshockparams"][0][test_key.c_str()].IsArray())
     {
       use_new_format = true;
-      cout << "Reading regional shock parameters from climshockparams arrays (NEW format)" << endl;
+      cout << "Reading regional shock parameters from climshockparams arrays" << endl;
 
       // Read a_0, b_0, and exponents from climshockparams as arrays
       for (int i = 1; i <= nshocks; i++)
@@ -843,6 +843,84 @@ void SETPARAMS(const rapidjson::Document &inputs)
       {
         iota_adapt_rg[rr] = inputs["regions"]["iota_adapt_rg"][rr].GetDouble();
       }
+    }
+
+    // Recovery expenditure parameters (backward-compatible defaults: recovery off)
+    psi_rec_rg.resize(NR, 0.0);
+    if (inputs["regions"].HasMember("psi_rec_rg"))
+    {
+      for (int rr = 0; rr < NR; rr++)
+        psi_rec_rg[rr] = inputs["regions"]["psi_rec_rg"][rr].GetDouble();
+    }
+    s_bar_rec_rg.resize(NR, 0.05);
+    if (inputs["regions"].HasMember("s_bar_rec_rg"))
+    {
+      for (int rr = 0; rr < NR; rr++)
+        s_bar_rec_rg[rr] = inputs["regions"]["s_bar_rec_rg"][rr].GetDouble();
+    }
+    delta_imp_rg.resize(NR, 0.25);
+    if (inputs["regions"].HasMember("delta_imp_rg"))
+    {
+      for (int rr = 0; rr < NR; rr++)
+        delta_imp_rg[rr] = inputs["regions"]["delta_imp_rg"][rr].GetDouble();
+    }
+  }
+  d_bar_rec = inputs["regions"].HasMember("d_bar_rec") ? inputs["regions"]["d_bar_rec"].GetDouble() : 0.0;
+
+  // Channel-specific fragility curve parameters (NC_adapt=6 channels, all backward-compatible with defaults)
+  // Channel 0=machprod, 1=labprod, 2=eneff, 3=encapstock, 4=capstock, 5=invent
+  // Category B default thresholds: hbar=0.70, kappa=1.0, alpha=1.0
+  // Category A default thresholds: hbar=0.90, kappa=1.0, alpha=0.7 (encapstock,capstock), alpha=1.0 (invent)
+  {
+    const std::vector<double> hbar_defaults = {0.70, 0.70, 0.70, 0.90, 0.90, 0.90};
+    const std::vector<double> kappa_defaults = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+    const std::vector<double> alpha_defaults = {1.0, 1.0, 1.0, 0.7, 0.7, 1.0};
+    const std::string hbar_keys[] = {"hbar_machprod_rg", "hbar_labprod_rg", "hbar_eneff_rg",
+                                     "hbar_encapstock_rg", "hbar_capstock_rg", "hbar_invent_rg"};
+    const std::string kappa_keys[] = {"kappa_machprod_rg", "kappa_labprod_rg", "kappa_eneff_rg",
+                                      "kappa_encapstock_rg", "kappa_capstock_rg", "kappa_invent_rg"};
+    const std::string alpha_keys[] = {"alpha_machprod_rg", "alpha_labprod_rg", "alpha_eneff_rg",
+                                      "alpha_encapstock_rg", "alpha_capstock_rg", "alpha_invent_rg"};
+    hbar_c_rg.resize(NC_adapt, std::vector<double>(NR, 0.0));
+    kappa_c_rg.resize(NC_adapt, std::vector<double>(NR, 0.0));
+    alpha_c_rg.resize(NC_adapt, std::vector<double>(NR, 0.0));
+    for (int cc = 0; cc < NC_adapt; cc++)
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        hbar_c_rg[cc][rr] = hbar_defaults[cc];
+        kappa_c_rg[cc][rr] = kappa_defaults[cc];
+        alpha_c_rg[cc][rr] = alpha_defaults[cc];
+      }
+      if (inputs["regions"].HasMember(hbar_keys[cc].c_str()))
+        for (int rr = 0; rr < NR; rr++)
+          hbar_c_rg[cc][rr] = inputs["regions"][hbar_keys[cc].c_str()][rr].GetDouble();
+      if (inputs["regions"].HasMember(kappa_keys[cc].c_str()))
+        for (int rr = 0; rr < NR; rr++)
+          kappa_c_rg[cc][rr] = inputs["regions"][kappa_keys[cc].c_str()][rr].GetDouble();
+      if (inputs["regions"].HasMember(alpha_keys[cc].c_str()))
+        for (int rr = 0; rr < NR; rr++)
+          alpha_c_rg[cc][rr] = inputs["regions"][alpha_keys[cc].c_str()][rr].GetDouble();
+    }
+
+    // Budget allocation shares phi_alloc_c_rg [NC_adapt][NR] (default: equal split = 1/NC_adapt)
+    phi_alloc_c_rg.resize(NC_adapt, std::vector<double>(NR, 1.0 / NC_adapt));
+    if (inputs["regions"].HasMember("phi_alloc_c_rg"))
+    {
+      const auto &arr = inputs["regions"]["phi_alloc_c_rg"];
+      for (int cc = 0; cc < NC_adapt && cc < (int)arr.Size(); cc++)
+        for (int rr = 0; rr < NR && rr < (int)arr[cc].Size(); rr++)
+          phi_alloc_c_rg[cc][rr] = arr[cc][rr].GetDouble();
+    }
+
+    // Per-channel depreciation rate delta_adapt_c_rg [NC_adapt][NR] (default: 0.05)
+    delta_adapt_c_rg.resize(NC_adapt, std::vector<double>(NR, 0.05));
+    if (inputs["regions"].HasMember("delta_adapt_c_rg"))
+    {
+      const auto &arr = inputs["regions"]["delta_adapt_c_rg"];
+      for (int cc = 0; cc < NC_adapt && cc < (int)arr.Size(); cc++)
+        for (int rr = 0; rr < NR && rr < (int)arr[cc].Size(); rr++)
+          delta_adapt_c_rg[cc][rr] = arr[cc][rr].GetDouble();
     }
   }
 
@@ -1319,6 +1397,8 @@ void RESIZE(void)
     reg_Q2.assign(NR, 0.0);
     reg_Q1tot.assign(NR, 0.0);
     reg_Q2tot.assign(NR, 0.0);
+    reg_H1.assign(NR, 0.0);
+    reg_H2.assign(NR, 0.0);
     reg_GDP_r.assign(NR, 0.0);
     reg_GDP_r_lag.assign(NR, 0.0);
     reg_Consumption_r.assign(NR, 0.0);
@@ -1399,8 +1479,34 @@ void RESIZE(void)
     K_adapt_rg_lag.assign(NR, 0.0);
     I_adapt_rg.assign(NR, 0.0);
     Omega_adapt_rg.assign(NR, 1.0); // 1.0 = no dampening (flag_adaptation == 0 default)
+
+    // Channel-specific fragility stocks (NC_adapt x NR)
+    K_adapt_c_rg.assign(NC_adapt, std::vector<double>(NR, 0.0));
+    K_adapt_c_rg_lag.assign(NC_adapt, std::vector<double>(NR, 0.0));
+    I_adapt_c_rg.assign(NC_adapt, std::vector<double>(NR, 0.0));
+    Omega_c_rg.assign(NC_adapt, std::vector<double>(NR, 1.0));    // 1.0 = no dampening
+    h_thresh_c_rg.assign(NC_adapt, std::vector<double>(NR, 0.0)); // 0.0 = no threshold protection
+
+    // Recovery expenditure vectors (NR-sized, zero-initialised)
+    I_Rec_rg.assign(NR, 0.0);
+    B_rec_rg.assign(NR, 0.0);
+    B_rec_rg_lag.assign(NR, 0.0);
+    GRecPaid_rg.assign(NR, 0.0);
+    TREC_rg.assign(NR, 0.0);
+    Saff_rg.assign(NR, 0.0);
+    Saff_rg_lag.assign(NR, 0.0);
+    n_aff_rg.assign(NR, 0.0);
+    n_aff_rg_lag.assign(NR, 0.0);
     // tau_share_rg, omega_rg, wu_rg are set in SETPARAMS from JSON; do not overwrite here
   }
+
+  // Recovery per-firm RowVectors (N2-sized)
+  sub_Rec.ReSize(N2);
+  sub_Rec = 0.0;
+  affected_indicator.ReSize(N2);
+  affected_indicator = 0.0;
+  affected_indicator_lag.ReSize(N2);
+  affected_indicator_lag = 0.0;
 }
 
 void INITIALIZE(int Exseed)
@@ -1416,20 +1522,98 @@ void INITIALIZE(int Exseed)
   {
     auto assign_regions_by_share = [&](std::vector<int> &targets, const RowVector &shares, int total)
     {
+      if (total <= 0 || NR <= 0)
+      {
+        return;
+      }
+
+      if ((int)targets.size() < total)
+      {
+        targets.resize(total, 1);
+      }
+
+      std::vector<double> normalized_shares(NR + 1, 0.0);
+      double share_sum = 0.0;
+      for (int r = 1; r <= NR; ++r)
+      {
+        normalized_shares[r] = max(0.0, shares(r));
+        share_sum += normalized_shares[r];
+      }
+
+      if (share_sum > 0.0)
+      {
+        for (int r = 1; r <= NR; ++r)
+        {
+          normalized_shares[r] /= share_sum;
+        }
+      }
+      else
+      {
+        for (int r = 1; r <= NR; ++r)
+        {
+          normalized_shares[r] = 1.0 / NR;
+        }
+      }
+
+      struct remainder_item
+      {
+        int region;
+        double remainder;
+        double tie_break;
+      };
+
+      std::vector<int> quotas(NR + 1, 0);
+      std::vector<remainder_item> remainder_rank;
+      remainder_rank.reserve(NR);
+
+      int assigned = 0;
+      for (int r = 1; r <= NR; ++r)
+      {
+        double exact = normalized_shares[r] * total;
+        int base_quota = int(floor(exact));
+        quotas[r] = base_quota;
+        assigned += base_quota;
+
+        remainder_item item;
+        item.region = r;
+        item.remainder = exact - base_quota;
+        item.tie_break = ran1(p_seed);
+        remainder_rank.push_back(item);
+      }
+
+      int residual = total - assigned;
+      if (residual > 0)
+      {
+        sort(remainder_rank.begin(), remainder_rank.end(), [](const remainder_item &a, const remainder_item &b)
+             {
+               if (fabs(a.remainder - b.remainder) > 1e-12)
+               {
+                 return a.remainder > b.remainder;
+               }
+               return a.tie_break > b.tie_break; });
+
+        for (int idx = 0; idx < residual; ++idx)
+        {
+          quotas[remainder_rank[idx % NR].region] += 1;
+        }
+      }
+
       int filled = 0;
       for (int r = 1; r <= NR; ++r)
       {
-        int quota = (r == NR) ? total - filled : int(round(shares(r) * total));
-        for (int idx = 0; idx < quota && filled < total; ++idx)
+        for (int idx = 0; idx < quotas[r] && filled < total; ++idx)
         {
           targets[filled] = r;
           ++filled;
         }
       }
-      while (filled < total)
+
+      // Fisher-Yates shuffle so contiguous region blocks do not map to a fixed
+      // RNG stream or firm-index order.
+      for (int idx = total - 1; idx > 0; --idx)
       {
-        targets[filled] = NR;
-        ++filled;
+        int swap_idx = int(ran1(p_seed) * (idx + 1));
+        std::swap(targets[idx], targets[swap_idx]);
       }
     };
 
@@ -1448,6 +1632,8 @@ void INITIALIZE(int Exseed)
     reg_Q2.assign(NR, 0.0);
     reg_Q1tot.assign(NR, 0.0);
     reg_Q2tot.assign(NR, 0.0);
+    reg_H1.assign(NR, 0.0);
+    reg_H2.assign(NR, 0.0);
     reg_GDP_r.assign(NR, 0.0);
     reg_GDP_r_lag.assign(NR, 0.0);
     reg_Consumption_r.assign(NR, 0.0);
@@ -1944,6 +2130,9 @@ void SETVARS(void)
   GRANTPOOL = 0;
   REV_rg_total = 0;
   TR_rg_total = 0;
+  GT_base_total = 0;
+  GT_topup_total = 0;
+  TS_rg_total = 0;
   SP_total = 0;
   EA_total = 0;
   K_pub_total_lag = K_pub_total;
@@ -1954,6 +2143,22 @@ void SETVARS(void)
   Omega_adapt_national = 1.0;
   GovPurchases_1 = 0;
   GovPurchases_2 = 0;
+
+  // Recovery national aggregates reset each period
+  GRecPaid_total = 0.0;
+  TREC_total = 0.0;
+  GovPurchases_Rec = 0.0;
+
+  // Recovery per-firm: carry affected_indicator_lag from last period's indicator, then reset
+  if (NR > 0)
+  {
+    for (int jj = 1; jj <= N2; jj++)
+    {
+      affected_indicator_lag(jj) = affected_indicator(jj);
+      affected_indicator(jj) = 0.0;
+      sub_Rec(jj) = 0.0;
+    }
+  }
 
   Divtot_1 = 0;
   Divtot_2 = 0;
@@ -2049,6 +2254,26 @@ void SETVARS(void)
       K_adapt_rg_lag[rr] = K_adapt_rg[rr];
       I_adapt_rg[rr] = 0.0;
       Omega_adapt_rg[rr] = 1.0; // reset to no-dampening; recomputed in RG_BLOCK_FISCAL
+
+      // Channel-specific adaptation: lag carry-forward and flow resets
+      for (int cc = 0; cc < NC_adapt; cc++)
+      {
+        K_adapt_c_rg_lag[cc][rr] = K_adapt_c_rg[cc][rr];
+        I_adapt_c_rg[cc][rr] = 0.0;
+        Omega_c_rg[cc][rr] = 1.0;    // reset; recomputed in SHOCKS()
+        h_thresh_c_rg[cc][rr] = 0.0; // reset; recomputed in RG_BLOCK_FISCAL
+      }
+
+      // Recovery: lag carry-forward for backlog and damage indicators
+      B_rec_rg_lag[rr] = B_rec_rg[rr];
+      Saff_rg_lag[rr] = Saff_rg[rr];
+      n_aff_rg_lag[rr] = n_aff_rg[rr];
+      // Reset recovery flows
+      I_Rec_rg[rr] = 0.0;
+      GRecPaid_rg[rr] = 0.0;
+      TREC_rg[rr] = 0.0;
+      Saff_rg[rr] = 0.0;
+      n_aff_rg[rr] = 0.0;
     }
   }
 
@@ -3607,6 +3832,9 @@ void ADJUSTEMISSENLAB(void)
           }
         }
       }
+
+      if (tmin == 0)
+        break; // No machine found for firm j; cannot fulfil remaining labour demand
 
       if ((g_c3[tmin - 1][imin - 1][jmin - 1] * dim_mach / A(tmin, imin)) > Ldtemp)
       {
@@ -6832,7 +7060,7 @@ void SFC_CHECK(void)
   // Calculate the sectoral balances
   Balance_h = Wages + Benefits + InterestDeposits_h + Dividends(1) + TransferFuel - Taxes_h - Consumption - FirmTransfers;
   Balance_1 = Sales1.Sum() + InterestDeposits_1.Sum() + FirmTransfers_1 + GovPurchases_1 - Wages_1.Sum() - EnergyPayments_1.Sum() - Dividends_1.Sum() - Taxes_1.Sum() - Taxes_CO2_1.Sum();
-  Balance_2 = Sales2.Sum() + InterestDeposits_2.Sum() + FirmTransfers_2 - Wages_2.Sum() - Investment_2.Sum() - LoanInterest_2.Sum() - EnergyPayments_2.Sum() - Dividends_2.Sum() - Taxes_2.Sum() - Taxes_CO2_2.Sum();
+  Balance_2 = Sales2.Sum() + InterestDeposits_2.Sum() + FirmTransfers_2 - Wages_2.Sum() - Investment_2.Sum() - LoanInterest_2.Sum() - EnergyPayments_2.Sum() - Dividends_2.Sum() - Taxes_2.Sum() - Taxes_CO2_2.Sum() + GovPurchases_2;
   Balance_b = LoanInterest.Sum() + InterestBonds_b.Sum() + InterestReserves_b.Sum() + Bailout_b.Row(1).Sum() + BankTransfer - InterestDeposits.Sum() - Taxes_b.Sum() - InterestAdvances_b.Sum() - Dividends_b.Sum();
   Balance_e = EnergyPayments + InterestDeposits_e + Subsidy_Exp - Wages_en - Dividends_e - Taxes_CO2_e - FuelCost - Taxes_e_shock;
   Balance_cb = InterestBonds_cb + InterestAdvances - InterestReserves - TransferCB;
@@ -6882,8 +7110,8 @@ void SFC_CHECK(void)
           if (region_firm_assignment_K[ii2 - 1] == rr)
             total_share_rr += f1(1, ii2);
         ea_firm_i = (total_share_rr > 0.0)
-          ? EA_rg[rr - 1] * (f1(1, i) / total_share_rr)
-          : EA_rg[rr - 1] / reg_N1[rr - 1];
+                        ? EA_rg[rr - 1] * (f1(1, i) / total_share_rr)
+                        : EA_rg[rr - 1] / reg_N1[rr - 1];
       }
     }
     Balances_1(i) = Sales1(i) + InterestDeposits_1(i) - Wages_1(i) - EnergyPayments_1(i) - Dividends_1(i) - Taxes_1(i) - Taxes_CO2_1(i) + ea_firm_i;
@@ -6901,7 +7129,7 @@ void SFC_CHECK(void)
   for (i = 1; i <= N2; i++)
   {
     NW_2(1, i) = CapitalStock(1, i) + deltaCapitalStock(1, i) + Inventories(1, i) + Deposits_2(1, i) - Loans_2(1, i);
-    NW_2_c(i) = NW_2(2, i) + Pi2(i) + baddebt_2(i) + Injection_2(i) - Dividends_2(i) - Taxes_2(i) - Taxes_CO2_2(i) - Loss_Capital(i) - Loss_Inventories(i);
+    NW_2_c(i) = NW_2(2, i) + Pi2(i) + baddebt_2(i) + Injection_2(i) - Dividends_2(i) - Taxes_2(i) - Taxes_CO2_2(i) - Loss_Capital(i) - Loss_Inventories(i) + sub_Rec(i);
   }
   deviation = fabs((NW_2_c.Sum() - NW_2.Row(1).Sum()) / NW_2_c.Sum());
   if (deviation > regionalaccountingtolerance)
@@ -6924,10 +7152,6 @@ void SFC_CHECK(void)
   NW_cb(1) = GB_cb(1) + Advances(1) - Reserves(1) - Deposits_fuel_cb(1);
   NW_cb_c = NW_cb(2) + Balance_cb + Adjustment_cb;
   deviation = fabs((NW_cb(1) - NW_cb_c) / NW_cb_c);
-  {
-    bool fires = (deviation > tolerance && fabs(NW_cb(1) / GDP_n(1)) > tolerance && fabs(NW_cb_c / GDP_n(1)) > tolerance);
-    (void)fires;
-  }
   if (deviation > tolerance && fabs(NW_cb(1) / GDP_n(1)) > tolerance && fabs(NW_cb_c / GDP_n(1)) > tolerance)
   {
     std::cerr << "\n\n ERROR: Stock and flow measures of net worth for the CENTRAL BANK are not consistent in period " << t << endl;
@@ -7940,7 +8164,37 @@ void SAVE(void)
       target.width(60);
       target << n_exit2; // 75
       target.width(60);
-      target << Deficit << endl; // 76
+      target << Deficit; // 76
+      target.width(60);
+      target << GRecPaid_total; // 77
+      target.width(60);
+      target << REV_rg_total; // 78 Regional Revenue
+      target.width(60);
+      target << (SP_total + GRecPaid_total + EA_total); // 79 Regional Expenditure
+      target.width(60);
+      target << TR_rg_total; // 80: TR_rg_total (Total Transfer CG to Regional Govt)
+      target.width(60);
+      target << TS_rg_total; // 81: TS_rg_total (Total Tax Share Transfer to Regional Govt)
+      target.width(60);
+      target << SP_total; // 82: SP_total (Total Social Protection)
+      target.width(60);
+      target << K_adapt_total; // 83: K_adapt_total (Total Protection stock)
+      target.width(60);
+      target << I_adapt_total; // 84: I_adapt_total (Total Planned Adaptation flow)
+      target.width(60);
+      target << EA_total; // 85: EA_total (Total Economic Affairs)
+      target.width(60);
+      target << GT_base_total; // 86: GT_base_total (Total Base Grant CG to RegGov)
+      target.width(60);
+      target << GT_topup_total; // 87: GT_topup_total (Total Top-up Grant CG to RegGov)
+      target.width(60);
+      target << Q1tot; // 88: Q1tot (Total K-firm output in model)
+      target.width(60);
+      target << Q2tot; // 89: Q2tot (Total C-firm output in model)
+      target.width(60);
+      target << H1; // 90: H1 (Normalised Herfindahl index K-firms)
+      target.width(60);
+      target << H2 << endl; // 91: H2 (Normalised Herfindahl index C-firms)
     };
 
     write_resultsexp_row(inv_res);
@@ -8129,7 +8383,34 @@ void SAVE(void)
         target << I_adapt_rg[region - 1]; // 49
         target.width(60);
         target << Omega_adapt_rg[region - 1]; // 50
-        target << endl;
+        target.width(60);
+        target << GRecPaid_rg[region - 1]; // 51: GRecPaid_rg (Recovery disbursement)
+        target.width(60);
+        target << Saff_rg[region - 1]; // 52: Saff_rg (Mean damage share)
+        target.width(60);
+        target << REV_rg[region - 1]; // 53: Regional Govt. Revenue
+        target.width(60);
+        target << EXP_rg[region - 1]; // 54: Regional Govt. Expenditure
+        target.width(60);
+        target << GT_rg[region - 1]; // 55: GT_rg (Transfer from CG to Region)
+        target.width(60);
+        target << TS_rg[region - 1]; // 56: TS_rg (Tax Share Transfer to Region)
+        target.width(60);
+        target << SP_rg[region - 1]; // 57: SP_rg (Regional Social Protection)
+        target.width(60);
+        target << EA_rg[region - 1]; // 58: EA_rg (Regional Economic Affairs)
+        target.width(60);
+        target << GT_base_rg[region - 1]; // 59: GT_base_rg (Base Grant from CG)
+        target.width(60);
+        target << GT_topup_rg[region - 1]; // 60: GT_topup_rg (Top-up Grant from CG)
+        target.width(60);
+        target << reg_Q1tot[region - 1]; // 61: reg_Q1tot (Regional K-firm output)
+        target.width(60);
+        target << reg_Q2tot[region - 1]; // 62: reg_Q2tot (Regional C-firm output)
+        target.width(60);
+        target << reg_H1[region - 1]; // 63: reg_H1 (Regional normalised Herfindahl index K-firms)
+        target.width(60);
+        target << reg_H2[region - 1] << endl; // 64: reg_H2 (Regional normalised Herfindahl index C-firms)
       };
 
       for (int rr = 1; rr <= NR; ++rr)
@@ -8519,7 +8800,25 @@ void SAVE(void)
         target.width(60);
         target << EXP_rg[region - 1]; // 29: EXP_rg (Regional total expenditure)
         target.width(60);
-        target << K_pub_rg[region - 1] << endl; // 30: K_pub_rg (Regional public capital)
+        target << K_pub_rg[region - 1]; // 30: K_pub_rg (Regional public capital)
+        target.width(60);
+        target << GT_rg[region - 1]; // 31: GT_rg (Transfer from CG to Region)
+        target.width(60);
+        target << TS_rg[region - 1]; // 32: TS_rg (Tax Share Transfer to Region)
+        target.width(60);
+        target << GRecPaid_rg[region - 1]; // 33: GRecPaid_rg (Regional Recovery)
+        target.width(60);
+        target << K_adapt_rg[region - 1]; // 34: K_adapt_rg (Regional Protection stock)
+        target.width(60);
+        target << I_adapt_rg[region - 1]; // 35: I_adapt_rg (Regional Planned Adaptation flow)
+        target.width(60);
+        target << GT_base_rg[region - 1]; // 36: GT_base_rg (Base Grant from CG)
+        target.width(60);
+        target << GT_topup_rg[region - 1]; // 37: GT_topup_rg (Top-up Grant from CG)
+        target.width(60);
+        target << reg_H1[region - 1]; // 40: H1 ( Herfindahl index K-firms)
+        target.width(60);
+        target << reg_H2[region - 1] << endl; // 41: H2 ( Herfindahl index C-firms)
       };
 
       for (int rr = 1; rr <= NR; ++rr)
@@ -8640,7 +8939,15 @@ void SAVE(void)
     inv_ymc.width(60);
     inv_ymc << EA_total; // 52
     inv_ymc.width(60);
-    inv_ymc << K_pub_total << endl; // 53
+    inv_ymc << K_pub_total; // 53
+    inv_ymc.width(60);
+    inv_ymc << GT_base_total; // 54
+    inv_ymc.width(60);
+    inv_ymc << GT_topup_total; // 55
+    inv_ymc.width(60);
+    inv_ymc << H1; // 56
+    inv_ymc.width(60);
+    inv_ymc << H2 << endl; // 57
     inv_ymc.close();
   }
 }

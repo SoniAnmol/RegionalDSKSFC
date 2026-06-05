@@ -177,4 +177,21 @@ double phi_adapt;                  // Effectiveness scaling in Omega = omega_flo
 double omega_floor_adapt;          // Minimum shock multiplier floor (prevents full protection)
 std::vector<double> iota_adapt_rg; // Per-region adaptation investment rate (share of regional GDP)
 
+// Recovery expenditure parameters (active when flag_adaptation == 2 or 3)
+std::vector<double> psi_rec_rg;    // Recovery intensity: fraction of lagged GDP mobilised per unit of excess damage
+std::vector<double> s_bar_rec_rg;  // Minimum regional average damage share to trigger a recovery obligation
+std::vector<double> delta_imp_rg;  // Implementation rate: fraction of backlog disbursed each period
+double d_bar_rec;                  // Firm-level damage threshold for "affected" classification (0 = all damaged firms)
+
+// Channel-specific fragility curve parameters [NC_adapt=6 channels][NR regions]
+// Channel indices: 0=machprod, 1=labprod, 2=eneff, 3=encapstock, 4=capstock, 5=invent
+// hbar: max protection threshold ceiling (Category B default 0.70, Category A default 0.90)
+// kappa: curve steepness (default 1.0 all channels)
+// alpha: exponent shaping residual damage (Category B default 1.0, encapstock/capstock default 0.7, invent default 1.0)
+std::vector<std::vector<double>> hbar_c_rg;        // [NC_adapt][NR] protection threshold ceiling
+std::vector<std::vector<double>> kappa_c_rg;       // [NC_adapt][NR] curve steepness
+std::vector<std::vector<double>> alpha_c_rg;       // [NC_adapt][NR] residual-damage exponent
+std::vector<std::vector<double>> phi_alloc_c_rg;   // [NC_adapt][NR] investment budget share per channel (must sum to 1 per region)
+std::vector<std::vector<double>> delta_adapt_c_rg; // [NC_adapt][NR] per-channel depreciation rate (default 0.05)
+
 #endif

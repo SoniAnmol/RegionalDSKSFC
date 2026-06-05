@@ -32,6 +32,7 @@ extern std::vector<double> reg_Ld1, reg_Ld2, reg_Emiss1, reg_Emiss2;
 extern std::vector<double> reg_Pi1, reg_Pi2, reg_Pitot1, reg_Pitot2, reg_Dividends_1, reg_Dividends_2, reg_NW_1, reg_NW2;
 extern std::vector<double> reg_Deposits1, reg_Deposits2, reg_CapitalStock1, reg_CapitalStock2, reg_CapitalStock, reg_NW_h;
 extern std::vector<double> reg_CreditDemand_all, reg_CreditSupply_all;
+extern std::vector<double> reg_H1, reg_H2;
 extern std::vector<double> reg_Am1, reg_Am2, reg_Am_a, reg_Am_en, reg_GDP_r, reg_Investment_r, reg_ReplacementInvestment_r, reg_Investment_n, reg_EnergyPayments, reg_LS, reg_Cum_emissions, reg_Consumption;
 extern std::vector<double> reg_Emiss1_TOT, reg_Emiss2_TOT, reg_Emiss_en;
 extern double Emiss1_TOT, Emiss2_TOT, Emiss_en, Cum_emissions, LS, LD;
@@ -272,7 +273,7 @@ extern double cached_Emiss_TOT;
 
 // Regional Government Block variables
 extern std::vector<double> TS_rg, GT_base_rg, GT_topup_rg, GT_rg, REV_rg, SP_rg, EA_rg, EXP_rg, K_pub_rg;
-extern double GRANTPOOL, REV_rg_total, TR_rg_total, SP_total, EA_total, K_pub_total, K_pub_total_lag, GovPurchases_1, GovPurchases_2;
+extern double GRANTPOOL, REV_rg_total, TR_rg_total, GT_base_total, GT_topup_total, TS_rg_total, SP_total, EA_total, K_pub_total, K_pub_total_lag, GovPurchases_1, GovPurchases_2;
 extern double gamma_bar, delta_pub;
 extern std::vector<double> tau_share_rg, omega_rg, wu_rg;
 
@@ -284,9 +285,48 @@ extern std::vector<double> iota_adapt_rg;
 extern int flag_adaptation;
 extern std::vector<double> reg_GDP_n;
 
+// Channel-specific fragility variables and parameters (NC_adapt=6 channels)
+extern int NC_adapt;
+extern std::vector<std::vector<double>> K_adapt_c_rg, K_adapt_c_rg_lag, I_adapt_c_rg;
+extern std::vector<std::vector<double>> Omega_c_rg, h_thresh_c_rg;
+extern std::vector<std::vector<double>> hbar_c_rg, kappa_c_rg, alpha_c_rg;
+extern std::vector<std::vector<double>> phi_alloc_c_rg, delta_adapt_c_rg;
+
 extern double aliq, aliqw;
 extern RowVector BankingSupplier_1;
 extern RowVector BankingSupplier_2;
 extern RowVector Taxes_1, Taxes_2;
+
+// Recovery expenditure: additional externs needed by RG_BLOCK_FISCAL
+extern int flag_capshocks;
+extern RowVector shocks_capstock;
+extern RowVector fornit;
+extern RowVector exiting_2;
+extern std::vector<double> reg_GDP_r_lag;
+
+// Recovery parameters
+extern std::vector<double> psi_rec_rg;
+extern std::vector<double> s_bar_rec_rg;
+extern std::vector<double> delta_imp_rg;
+extern double d_bar_rec;
+
+// Recovery state variables
+extern std::vector<double> I_Rec_rg;
+extern std::vector<double> B_rec_rg;
+extern std::vector<double> B_rec_rg_lag;
+extern std::vector<double> GRecPaid_rg;
+extern std::vector<double> TREC_rg;
+extern std::vector<double> Saff_rg;
+extern std::vector<double> Saff_rg_lag;
+extern std::vector<double> n_aff_rg;
+extern std::vector<double> n_aff_rg_lag;
+extern RowVector sub_Rec;
+extern RowVector affected_indicator;
+extern RowVector affected_indicator_lag;
+extern double GRecPaid_total;
+extern double TREC_total;
+extern double GovPurchases_Rec;
+
+// Capital accumulation needed for per-firm capital restoration (all already extern'd above)
 
 #endif
