@@ -1,0 +1,51 @@
+version: 1.0
+scope: regional_sector
+format:
+  file_type: txt
+  header: false
+  delimiter: whitespace
+
+columns:
+  - name: t
+  - name: GDP_r
+  - name: Consumption_r
+  - name: Investment_r
+  - name: EmploymentRate
+  - name: Am
+  - name: Loans_2
+  - name: Inventories
+  - name: Inventories_r
+  - name: GDP_n
+  - name: GreenCapacityShare
+  - name: D_en_TOT
+  - name: Emiss_TOT
+  - name: Cum_emissions
+  - name: reg_Q1tot
+  - name: reg_Q2tot
+  - name: N1r
+  - name: N2r
+  - name: LS
+  - name: Q_ge
+  - name: Q_de
+  - name: Emiss1_TOT
+  - name: Emiss2_TOT
+  - name: Emiss_en
+  - name: Exiting_C-Firms
+  - name: RegGov_Revenue
+  - name: RegGov_SP
+  - name: RegGov_EA
+  - name: RegGov_Expenditure
+  - name: PublicStock
+  - name: RegGov_TR
+  - name: RegGov_TS
+  - name: RegGov_Recovery
+  - name: RegGov_Protection
+  - name: RegGov_PlannedAdapt
+  - name: RegGov_BaseGrant
+  - name: RegGov_TopupGrant
+  - name: H1
+  - name: H2
+  - name: reg_w
+  - name: reg_YD
+  - name: reg_C
+  - name: LS_region_share

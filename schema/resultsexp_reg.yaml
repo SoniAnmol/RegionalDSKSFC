@@ -1,0 +1,75 @@
+version: 1.0
+scope: regional
+format:
+  file_type: txt
+  header: false
+  delimiter: whitespace
+
+columns:
+  - name: t
+  - name: GDP_r
+  - name: Consumption_r
+  - name: Investment_r
+  - name: EmploymentRate
+  - name: Emiss_TOT
+  - name: D_en_TOT
+  - name: LS
+  - name: K_tot
+  - name: A1p_en_dead_over_A1p_en_survive
+  - name: A2_en_dead_over_A2_en_survive
+  - name: Am_en
+  - name: Am_a
+  - name: exit_marketshare2
+  - name: exit_payments2
+  - name: exit_equity2
+  - name: exiting_1
+  - name: CapitalStock
+  - name: NW_h
+  - name: NW_2
+  - name: Loans_2
+  - name: CreditDemand_over_Supply
+  - name: NW_1
+  - name: Am2
+  - name: Am1
+  - name: GDP_n
+  - name: Investment_n_dim_mach_a
+  - name: Consumption
+  - name: ReplacementInvestment_r
+  - name: Emiss1_TOT
+  - name: Emiss2_TOT
+  - name: Emiss_en
+  - name: EnergyPayments
+  - name: GreenCapacityShare
+  - name: Pitot1
+  - name: Pitot2
+  - name: real_wages
+  - name: Dividends_1
+  - name: Dividends_2
+  - name: exit_total
+  - name: Pitot_total
+  - name: Dividends_firms_real
+  - name: Dividends_e
+  - name: Dividends_b
+  - name: NW_firms
+  - name: GDP_r_growth
+  - name: Exiting_C-Firms
+  - name: ProtectiveAdapt_Stock
+  - name: I_protection
+  - name: Omega
+  - name: Recovery
+  - name: Saff_rg
+  - name: RegGov_Revenue
+  - name: RegGov_Expenditure
+  - name: RegGov_TR
+  - name: RegGov_TS
+  - name: RegGov_SP
+  - name: RegGov_EA
+  - name: RegGov_BaseGrant
+  - name: RegGov_TopupGrant
+  - name: Q1tot
+  - name: Q2tot
+  - name: H1
+  - name: H2
+  - name: reg_w
+  - name: reg_YD
+  - name: reg_C
