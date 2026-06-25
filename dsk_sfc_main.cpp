@@ -3570,7 +3570,7 @@ void MOBILITY_COMPUTATION(void)
     }
     diag_migration_expenditure_from_households = ME_t;
 
-    // post-migration regional deposits (liquidity scaling makes this >= 0)
+    // /Users/anmolsoni/Documents/pysim-lab/notebooks /Users/anmolsoni/Documents/pysim-lab/scriptspost-migration regional deposits (liquidity scaling makes this >= 0)
     for (int o = 0; o < NR; ++o)
     {
       double dh_post = reg_Dh_pre_migration[o] - reg_ME_out[o];
