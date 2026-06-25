@@ -140,4 +140,13 @@ int flag_adaptation; // Switches regional adaptation stock module on or off
                      // = 2 recovery only   (B_rec backlog → GRecPaid → affected C-firms)
                      // = 3 protection + recovery
 
+int flag_regional_labor; // Switches the regionalised labour market on or off
+                         // = 0 [BASELINE] off: legacy demand-proportional regional labour supply
+                         // = 1 on: regional labour supply is a state LS_r = LS * LS_region_share[r]
+                         //         driven by exogenous shares sigma_r (with per-region unemployment)
+
+int flag_ls_distribution; // Reserved switch for the regional labour-supply-share distribution mode
+                          // = 0 [BASELINE] use LS_region_share as provided/normalised
+                          // = 1 reserved for future alternative share-distribution schemes
+
 #endif

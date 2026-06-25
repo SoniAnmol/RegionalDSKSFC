@@ -35,6 +35,14 @@ extern std::vector<double> reg_CreditDemand_all, reg_CreditSupply_all;
 extern std::vector<double> reg_H1, reg_H2;
 extern std::vector<double> reg_Am1, reg_Am2, reg_Am_a, reg_Am_en, reg_GDP_r, reg_Investment_r, reg_ReplacementInvestment_r, reg_Investment_n, reg_EnergyPayments, reg_LS, reg_Cum_emissions, reg_Consumption;
 extern std::vector<double> reg_Emiss1_TOT, reg_Emiss2_TOT, reg_Emiss_en;
+// Regional labour market state (flag_regional_labor)
+extern std::vector<double> LS_region_share, LS_region_share_next;
+extern std::vector<double> reg_w, reg_w_past, reg_U_past, reg_Am_past, reg_YD, reg_C;
+extern std::vector<double> Dh_region_share, reg_Dh, reg_Dh_lag, reg_Dh_pre_migration, reg_Dh_post_migration;
+extern std::vector<double> reg_ME_out, reg_UN, reg_U_rate, reg_Benefits;
+extern double diag_reg_C_unallocated;
+extern int flag_regional_labor, flag_ls_distribution;
+extern double chi_w, dwage_max;
 extern double Emiss1_TOT, Emiss2_TOT, Emiss_en, Cum_emissions, LS, LD;
 // Forward declare firm-level matrices
 extern Matrix NW_1, NW_2, Deposits_1, Deposits_2, CapitalStock, deltaCapitalStock, Loans_2, Inventories, EI, N, S2;

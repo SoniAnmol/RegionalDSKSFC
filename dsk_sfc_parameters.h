@@ -178,10 +178,10 @@ double omega_floor_adapt;          // Minimum shock multiplier floor (prevents f
 std::vector<double> iota_adapt_rg; // Per-region adaptation investment rate (share of regional GDP)
 
 // Recovery expenditure parameters (active when flag_adaptation == 2 or 3)
-std::vector<double> psi_rec_rg;    // Recovery intensity: fraction of lagged GDP mobilised per unit of excess damage
-std::vector<double> s_bar_rec_rg;  // Minimum regional average damage share to trigger a recovery obligation
-std::vector<double> delta_imp_rg;  // Implementation rate: fraction of backlog disbursed each period
-double d_bar_rec;                  // Firm-level damage threshold for "affected" classification (0 = all damaged firms)
+std::vector<double> psi_rec_rg;   // Recovery intensity: fraction of lagged GDP mobilised per unit of excess damage
+std::vector<double> s_bar_rec_rg; // Minimum regional average damage share to trigger a recovery obligation
+std::vector<double> delta_imp_rg; // Implementation rate: fraction of backlog disbursed each period
+double d_bar_rec;                 // Firm-level damage threshold for "affected" classification (0 = all damaged firms)
 
 // Channel-specific fragility curve parameters [NC_adapt=6 channels][NR regions]
 // Channel indices: 0=machprod, 1=labprod, 2=eneff, 3=encapstock, 4=capstock, 5=invent
@@ -193,5 +193,23 @@ std::vector<std::vector<double>> kappa_c_rg;       // [NC_adapt][NR] curve steep
 std::vector<std::vector<double>> alpha_c_rg;       // [NC_adapt][NR] residual-damage exponent
 std::vector<std::vector<double>> phi_alloc_c_rg;   // [NC_adapt][NR] investment budget share per channel (must sum to 1 per region)
 std::vector<std::vector<double>> delta_adapt_c_rg; // [NC_adapt][NR] per-channel depreciation rate (default 0.05)
+
+// Mobility parameters
+double mu_F_mig;            // Fixed moving cost (origin-wage units, not utility-equivalent)
+double mu_D_mig;            // Distance-based moving cost (origin-wage units, not utility-equivalent)
+int flag_regional_mobility; // Flag to enable/disable regional mobility (1=on, 0=off)
+
+// Mobility utility parameters
+double beta_w_mig;    // Log-wage coefficient in regional utility (default 1.0)
+double beta_u_mig;    // Unemployment coefficient in regional utility (default -1.0, must be positive in absolute value for utility cost)
+double beta_prot_mig; // Protection capital coefficient (default 0.0)
+double beta_pub_mig;  // Public capital coefficient (default 0.0)
+double u_min_mig;     // Minimum unemployment for clamping (default 0.001)
+double eta_stay_mig;  // Constant stay premium added to the stay alternative only (d==o), default 3.0
+
+// Regional labour market parameters (active when flag_regional_labor == 1)
+double chi_w;     // Regional wage-mixing weight: dw_r = chi_w*dw_nat + (1-chi_w)*dw_reg_r
+                  // chi_w = 1 -> fully national wage growth; chi_w = 0 -> fully regional
+double dwage_max; // Symmetric bound on per-period regional wage growth |dw_r| <= dwage_max
 
 #endif

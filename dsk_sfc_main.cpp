@@ -1,6 +1,14 @@
 #include "dsk_sfc_include.h"
 using namespace std;
 
+// ============================================================================
+// MOBILITY_COMPUTATION(): Regional labor migration with destination choice
+// ============================================================================
+// Computes interregional migration based on regional utilities, moving costs,
+// and liquidity constraints. Updates next-period regional labor supply shares
+// (LS_region_share_next) without retroactively changing current-period outcomes.
+// ============================================================================
+
 int main(int argc, char *argv[])
 {
   CLI::App app{"DSK_SFC, the Dystopian Schumpeter meeting Keynes Stock Flow Consistent model"};
@@ -10,7 +18,6 @@ int main(int argc, char *argv[])
       ->required()
       ->check(CLI::ExistingFile);
 
-  string str_runname;
   app.add_option("-r,--run", str_runname, "A name for the run (without spaces)")
       ->default_val("test");
 
@@ -72,13 +79,21 @@ int main(int argc, char *argv[])
     cout << "Finished parsing input file" << endl;
   }
 
+  std::cerr << "[DEBUG] main(): About to call SETPARAMS" << std::endl;
+  std::cerr.flush();
   SETPARAMS(inputs);
+  std::cerr << "[DEBUG] main(): Returned from SETPARAMS successfully" << std::endl;
+  std::cerr.flush();
   if (verbose)
   {
     cout << "Exiting function SETPARAMS" << endl;
   }
 
+  std::cerr << "[DEBUG] main(): About to call FOLDERS" << std::endl;
+  std::cerr.flush();
   FOLDERS(exec_dir);
+  std::cerr << "[DEBUG] main(): Returned from FOLDERS successfully" << std::endl;
+  std::cerr.flush();
   if (verbose)
   {
     cout << "Finished creating output folders" << endl;
@@ -171,13 +186,21 @@ int main(int argc, char *argv[])
     cout << "Finished creating output file names" << endl;
   }
 
+  std::cerr << "[DEBUG] main(): About to call RESIZE" << std::endl;
+  std::cerr.flush();
   RESIZE();
+  std::cerr << "[DEBUG] main(): Returned from RESIZE successfully" << std::endl;
+  std::cerr.flush();
   if (verbose)
   {
     cout << "Exiting function RESIZE" << endl;
   }
 
+  std::cerr << "[DEBUG] main(): About to call INITIALIZE" << std::endl;
+  std::cerr.flush();
   INITIALIZE(exseed);
+  std::cerr << "[DEBUG] main(): Returned from INITIALIZE successfully; T=" << T << std::endl;
+  std::cerr.flush();
   if (verbose)
   {
     cout << "Exiting function INITIALIZE; Entering simulation loop" << endl;
@@ -189,12 +212,61 @@ int main(int argc, char *argv[])
   alarm(T * 2);
 #endif
 
+  std::cerr << "[DEBUG] main(): About to enter simulation loop; t from 1 to " << T << std::endl;
+  std::cerr.flush();
+
   // enter loop over simulation periods
   for (t = 1; t <= T; t++)
   {
+    std::cerr << "[DEBUG] main(): Entered loop body for t=" << t << std::endl;
+    std::cerr.flush();
     if (verbose)
     {
       cout << "Entering simulation period " << t << endl;
+    }
+
+    // ===== Regional labour-supply-share roll (beginning of period t) =====
+    // Before any regional labour supply is computed this period:
+    //   1) normalise LS_region_share_next;
+    //   2) LS_region_share = LS_region_share_next.
+    // Migration (end of previous period) wrote LS_region_share_next only, so this
+    // is where last period's migration takes effect on current-period shares.
+    if (flag_regional_labor == 1 && NR > 0 &&
+        (int)LS_region_share.size() == NR && (int)LS_region_share_next.size() == NR)
+    {
+      double share_next_sum = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+      {
+        if (LS_region_share_next[rr] < 0.0)
+          LS_region_share_next[rr] = 0.0;
+        share_next_sum += LS_region_share_next[rr];
+      }
+      if (share_next_sum > 1e-12)
+      {
+        for (int rr = 0; rr < NR; rr++)
+          LS_region_share_next[rr] /= share_next_sum;
+      }
+      else
+      {
+        for (int rr = 0; rr < NR; rr++)
+          LS_region_share_next[rr] = 1.0 / NR;
+      }
+      for (int rr = 0; rr < NR; rr++)
+        LS_region_share[rr] = LS_region_share_next[rr];
+    }
+
+    // ===== Regional state lag snapshot (beginning of period t) =====
+    // Snapshot last period's regional wage/unemployment/productivity into the
+    // *_past lags before they are recomputed this period (regional Phillips curve).
+    if (flag_regional_labor == 1 && NR > 0 &&
+        (int)reg_w.size() == NR && (int)reg_U.size() == NR && (int)reg_Am.size() == NR)
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        reg_w_past[rr] = reg_w[rr];
+        reg_U_past[rr] = reg_U[rr];
+        reg_Am_past[rr] = reg_Am[rr];
+      }
     }
 
     SETVARS();
@@ -454,6 +526,17 @@ int main(int argc, char *argv[])
       cout << "Exiting function REGIONAL_CONSISTENCY_CHECK in period " << t << endl;
     }
 
+    // Compute migration and update next-period regional labor supply shares
+    MOBILITY_COMPUTATION();
+    if (verbose)
+    {
+      cout << "Exiting function MOBILITY_COMPUTATION in period " << t << endl;
+    }
+
+    // Phase 5B diagnostics must be written AFTER MOBILITY_COMPUTATION() so the
+    // migration deposit closure is temporally aligned with current-period stocks.
+    WRITE_PHASE5B_DIAGNOSTICS();
+
     SAVE();
     if (verbose)
     {
@@ -503,116 +586,194 @@ int main(int argc, char *argv[])
 void SETPARAMS(const rapidjson::Document &inputs)
 {
   // Read the values of parameters, flags, initial values and one-off shocks from the document "inputs" and set the respective variables to those values
-  N1 = inputs["params"][0]["N1"].GetInt();
-  N1f = N1;
-  N2 = inputs["params"][0]["N2"].GetInt();
-  T = inputs["params"][0]["T"].GetInt();
-  varphi = inputs["params"][0]["varphi"].GetDouble();
-  nu = inputs["params"][0]["nu"].GetDouble();
-  xi = inputs["params"][0]["xi"].GetDouble();
-  o1 = inputs["params"][0]["o1"].GetDouble();
-  o2 = inputs["params"][0]["o2"].GetDouble();
-  uu11 = inputs["params"][0]["uu11"].GetDouble();
-  uu21 = inputs["params"][0]["uu21"].GetDouble();
-  uu12 = inputs["params"][0]["uu12"].GetDouble();
-  uu22 = inputs["params"][0]["uu22"].GetDouble();
-  uu31 = inputs["params"][0]["uu31"].GetDouble();
-  uu41 = inputs["params"][0]["uu41"].GetDouble();
-  uu32 = inputs["params"][0]["uu32"].GetDouble();
-  uu42 = inputs["params"][0]["uu42"].GetDouble();
-  uu51 = inputs["params"][0]["uu51"].GetDouble();
-  uu61 = inputs["params"][0]["uu61"].GetDouble();
-  uu52 = inputs["params"][0]["uu52"].GetDouble();
-  uu62 = inputs["params"][0]["uu62"].GetDouble();
-  uinf = inputs["params"][0]["uinf"].GetDouble();
-  usup = inputs["params"][0]["usup"].GetDouble();
-  b_a11 = inputs["params"][0]["b_a11"].GetDouble();
-  b_b11 = inputs["params"][0]["b_b11"].GetDouble();
-  b_a12 = inputs["params"][0]["b_a12"].GetDouble();
-  b_b12 = inputs["params"][0]["b_b12"].GetDouble();
-  b_a2 = inputs["params"][0]["b_a2"].GetDouble();
-  b_b2 = inputs["params"][0]["b_b2"].GetDouble();
-  b_a3 = inputs["params"][0]["b_a3"].GetDouble();
-  b_b3 = inputs["params"][0]["b_b3"].GetDouble();
-  mi1 = inputs["params"][0]["mi1"].GetDouble();
-  mi2 = inputs["params"][0]["mi2"].GetDouble();
-  Gamma = inputs["params"][0]["Gamma"].GetDouble();
-  chi = inputs["params"][0]["chi"].GetDouble();
-  omega1 = inputs["params"][0]["omega1"].GetDouble();
-  omega2 = inputs["params"][0]["omega2"].GetDouble();
-  psi1 = inputs["params"][0]["psi1"].GetDouble();
-  psi2 = inputs["params"][0]["psi2"].GetDouble();
-  psi3 = inputs["params"][0]["psi3"].GetDouble();
-  deltami2 = inputs["params"][0]["deltami2"].GetDouble();
-  w_min = inputs["params"][0]["w_min"].GetDouble();
-  pmin = inputs["params"][0]["pmin"].GetDouble();
-  theta = inputs["params"][0]["theta"].GetDouble();
-  u = inputs["params"][0]["u"].GetDouble();
-  alfa = inputs["params"][0]["alfa"].GetDouble();
-  b = inputs["params"][0]["b"].GetDouble();
-  dim_mach = inputs["params"][0]["dim_mach"].GetDouble();
-  agemax = inputs["params"][0]["agemax"].GetDouble();
-  a = inputs["params"][0]["a"].GetDouble();
-  credit_multiplier = inputs["params"][0]["credit_multiplier"].GetDouble();
-  beta_basel = inputs["params"][0]["beta_basel"].GetDouble();
-  bankmarkdown = inputs["params"][0]["bankmarkdown"].GetDouble();
-  centralbankmarkdown = inputs["params"][0]["centralbankmarkdown"].GetDouble();
-  d1 = inputs["params"][0]["d1"].GetDouble();
-  d2 = inputs["params"][0]["d2"].GetDouble();
-  db = inputs["params"][0]["db"].GetDouble();
-  repayment_share = inputs["params"][0]["repayment_share"].GetDouble();
-  bonds_share = inputs["params"][0]["bonds_share"].GetDouble();
-  pareto_a = inputs["params"][0]["pareto_a"].GetDouble();
-  pareto_k = inputs["params"][0]["pareto_k"].GetDouble();
-  pareto_p = inputs["params"][0]["pareto_p"].GetDouble();
-  d_cpi_target = inputs["params"][0]["d_cpi_target"].GetDouble();
-  ustar = inputs["params"][0]["ustar"].GetDouble();
-  w1sup = inputs["params"][0]["w1sup"].GetDouble();
-  w1inf = inputs["params"][0]["w1inf"].GetDouble();
-  w2sup = inputs["params"][0]["w2sup"].GetDouble();
-  w2inf = inputs["params"][0]["w2inf"].GetDouble();
-  k_const = inputs["params"][0]["k_const"].GetDouble();
-  aliqw = inputs["params"][0]["aliqw"].GetDouble();
-  taylor1 = inputs["params"][0]["taylor1"].GetDouble();
-  taylor2 = inputs["params"][0]["taylor2"].GetDouble();
-  bondsmarkdown = inputs["params"][0]["bondsmarkdown"].GetDouble();
-  mdw = inputs["params"][0]["mdw"].GetDouble();
-  phi2 = inputs["params"][0]["phi2"].GetDouble();
-  b1sup = inputs["params"][0]["b1sup"].GetDouble();
-  b1inf = inputs["params"][0]["b1inf"].GetDouble();
-  b2sup = inputs["params"][0]["b2sup"].GetDouble();
-  b2inf = inputs["params"][0]["b2inf"].GetDouble();
-  aliq = inputs["params"][0]["aliq"].GetDouble();
-  aliqb = inputs["params"][0]["aliqb"].GetDouble();
-  wu = inputs["params"][0]["wu"].GetDouble();
-  de = inputs["params"][0]["de"].GetDouble();
-  a1 = inputs["params"][0]["a1"].GetDouble();
-  a2 = inputs["params"][0]["a2"].GetDouble();
-  a3 = inputs["params"][0]["a3"].GetDouble();
-  u_low = inputs["params"][0]["u_low"].GetDouble();
-  f2_entry_min = inputs["params"][0]["f2_entry_min"].GetDouble();
-  kappa = inputs["params"][0]["kappa"].GetDouble();
-  taylor = inputs["params"][0]["taylor"].GetDouble();
-  omicron = inputs["params"][0]["omicron"].GetDouble();
-  I_max = inputs["params"][0]["I_max"].GetDouble();
-  persistence = inputs["params"][0]["persistence"].GetDouble();
-  omega3 = inputs["params"][0]["omega3"].GetDouble();
-  d_f = inputs["params"][0]["d_f"].GetDouble();
-  g_ls = inputs["params"][0]["g_ls"].GetDouble();
-  aliqe = inputs["params"][0]["aliqe"].GetDouble();
-  tre = inputs["params"][0]["tre"].GetDouble();
-  passthrough = inputs["params"][0]["passthrough"].GetDouble();
+  std::cerr << "[DEBUG] SETPARAMS: Starting parameter loading" << std::endl;
 
-  share_RD_en = inputs["climparams"][0]["share_RD_en"].GetDouble();
-  share_de_0 = inputs["climparams"][0]["share_de_0"].GetDouble();
-  payback_en = inputs["climparams"][0]["payback_en"].GetInt();
-  life_plant = inputs["climparams"][0]["life_plant"].GetInt();
-  exp_quota = inputs["climparams"][0]["exp_quota"].GetDouble();
-  o1_en = inputs["climparams"][0]["o1_en"].GetDouble();
-  uu1_en = inputs["climparams"][0]["uu1_en"].GetDouble();
-  uu2_en = inputs["climparams"][0]["uu2_en"].GetDouble();
-  exp_quota_param = inputs["params"][0]["exp_quota_param"].GetDouble();
-  ge_subsidy = inputs["params"][0]["ge_subsidy"].GetDouble();
+  // CRITICAL: Verify all top-level JSON arrays exist to prevent RapidJSON asserts later
+  if (!inputs.HasMember("params") || !inputs["params"].IsArray() || inputs["params"].Size() == 0)
+  {
+    std::cerr << "[ERROR] JSON missing 'params' array or it's empty. Cannot proceed." << std::endl;
+    return; // Exit gracefully instead of crashing
+  }
+  if (!inputs.HasMember("climparams"))
+  {
+    std::cerr << "[WARN] JSON missing 'climparams' - will use defaults" << std::endl;
+  }
+  if (!inputs.HasMember("flags"))
+  {
+    std::cerr << "[WARN] JSON missing 'flags' - will use defaults" << std::endl;
+  }
+
+  std::cerr << "[DEBUG] SETPARAMS: Found params array with " << inputs["params"].Size() << " elements" << std::endl;
+
+  // Helper lambda for safe parameter reading
+  auto getIntParam = [&inputs](const char *key, int default_val) -> int
+  {
+    std::cerr << "[DEBUG] getIntParam: checking for key '" << key << "'" << std::endl;
+    if (inputs["params"][0].HasMember(key))
+    {
+      std::cerr << "[DEBUG] getIntParam: key found, trying GetInt()" << std::endl;
+      return inputs["params"][0][key].GetInt();
+    }
+    std::cerr << "[DEBUG] getIntParam: key NOT found for '" << key << "'; using default " << default_val << std::endl;
+    return default_val;
+  };
+
+  auto getDoubleParam = [&inputs](const char *key, double default_val) -> double
+  {
+    std::cerr << "[DEBUG] getDoubleParam: checking for key '" << key << "'" << std::endl;
+    if (inputs["params"][0].HasMember(key))
+    {
+      std::cerr << "[DEBUG] getDoubleParam: key found, trying GetDouble()" << std::endl;
+      return inputs["params"][0][key].GetDouble();
+    }
+    std::cerr << "[DEBUG] getDoubleParam: key NOT found for '" << key << "'; using default " << default_val << std::endl;
+    return default_val;
+  };
+
+  // Now read ALL parameters with defensive access
+  N1 = getIntParam("N1", 21);
+  N1f = N1;
+  N2 = getIntParam("N2", 210);
+  T = getIntParam("T", 600);
+  varphi = getDoubleParam("varphi", 0.1);
+  nu = getDoubleParam("nu", 0.04);
+  xi = getDoubleParam("xi", 0.5);
+  o1 = getDoubleParam("o1", 0.3);
+  o2 = getDoubleParam("o2", 0.3);
+  uu11 = getDoubleParam("uu11", -0.015);
+  uu21 = getDoubleParam("uu21", 0.015);
+  uu12 = getDoubleParam("uu12", -0.015);
+  uu22 = getDoubleParam("uu22", 0.03);
+  uu31 = getDoubleParam("uu31", -0.01);
+  uu41 = getDoubleParam("uu41", 0.035);
+  uu32 = getDoubleParam("uu32", -0.01);
+  uu42 = getDoubleParam("uu42", 0.05);
+  uu51 = getDoubleParam("uu51", -0.01);
+  uu61 = getDoubleParam("uu61", 0.02);
+  uu52 = getDoubleParam("uu52", -0.005);
+  uu62 = getDoubleParam("uu62", 0.0025);
+  uinf = getDoubleParam("uinf", -0.15);
+  usup = getDoubleParam("usup", 0.15);
+  b_a11 = getDoubleParam("b_a11", 1.5);
+  b_b11 = getDoubleParam("b_b11", 3.0);
+  b_a12 = getDoubleParam("b_a12", 1.5);
+  b_b12 = getDoubleParam("b_b12", 3.0);
+  b_a2 = getDoubleParam("b_a2", 1.5);
+  b_b2 = getDoubleParam("b_b2", 3.0);
+  b_a3 = getDoubleParam("b_a3", 1.5);
+  b_b3 = getDoubleParam("b_b3", 3.0);
+  mi1 = getDoubleParam("mi1", 0.1);
+  mi2 = getDoubleParam("mi2", 0.2);
+  Gamma = getDoubleParam("Gamma", 0.32);
+  chi = getDoubleParam("chi", -1.39);
+  omega1 = getDoubleParam("omega1", 20.0);
+  omega2 = getDoubleParam("omega2", 1.0);
+  psi1 = getDoubleParam("psi1", 0.4);
+  psi2 = getDoubleParam("psi2", 1.0);
+  psi3 = getDoubleParam("psi3", 0.26);
+  deltami2 = getDoubleParam("deltami2", 0.01);
+  w_min = getDoubleParam("w_min", 1.0);
+  pmin = getDoubleParam("pmin", 0.01);
+  theta = getDoubleParam("theta", 1.0);
+  u = getDoubleParam("u", 0.8);
+  alfa = getDoubleParam("alfa", 0.16);
+  b = getDoubleParam("b", 160.0);
+  dim_mach = getDoubleParam("dim_mach", 40.0);
+  agemax = getDoubleParam("agemax", 50.0);
+  a = getDoubleParam("a", 0.4);
+  credit_multiplier = getDoubleParam("credit_multiplier", 1.5);
+  beta_basel = getDoubleParam("beta_basel", 0.08);
+  bankmarkdown = getDoubleParam("bankmarkdown", 0.02);
+  centralbankmarkdown = getDoubleParam("centralbankmarkdown", 0.02);
+  d1 = getDoubleParam("d1", 0.01);
+  d2 = getDoubleParam("d2", 0.01);
+  db = getDoubleParam("db", 0.01);
+  repayment_share = getDoubleParam("repayment_share", 0.8);
+  bonds_share = getDoubleParam("bonds_share", 0.2);
+  pareto_a = getDoubleParam("pareto_a", 1.5);
+  pareto_k = getDoubleParam("pareto_k", 50000.0);
+  pareto_p = getDoubleParam("pareto_p", 0.1);
+  d_cpi_target = getDoubleParam("d_cpi_target", 0.02);
+  ustar = getDoubleParam("ustar", 0.05);
+  w1sup = getDoubleParam("w1sup", 0.5);
+  w1inf = getDoubleParam("w1inf", -0.5);
+  w2sup = getDoubleParam("w2sup", 0.5);
+  w2inf = getDoubleParam("w2inf", -0.5);
+  k_const = getDoubleParam("k_const", 0.1);
+  aliqw = getDoubleParam("aliqw", 0.1);
+  taylor1 = getDoubleParam("taylor1", 1.5);
+  taylor2 = getDoubleParam("taylor2", 0.5);
+  bondsmarkdown = getDoubleParam("bondsmarkdown", 0.02);
+  mdw = getDoubleParam("mdw", 0.1);
+  phi2 = getDoubleParam("phi2", 0.1);
+  b1sup = getDoubleParam("b1sup", 0.5);
+  b1inf = getDoubleParam("b1inf", -0.5);
+  b2sup = getDoubleParam("b2sup", 0.5);
+  b2inf = getDoubleParam("b2inf", -0.5);
+  aliq = getDoubleParam("aliq", 0.1);
+  aliqb = getDoubleParam("aliqb", 0.1);
+  wu = getDoubleParam("wu", 0.1);
+  de = getDoubleParam("de", 0.05);
+  a1 = getDoubleParam("a1", 1.0);
+  a2 = getDoubleParam("a2", 1.0);
+  a3 = getDoubleParam("a3", 1.0);
+  u_low = getDoubleParam("u_low", 0.02);
+  f2_entry_min = getDoubleParam("f2_entry_min", 1000.0);
+  kappa = getDoubleParam("kappa", 0.5);
+  taylor = getDoubleParam("taylor", 1.5);
+  omicron = getDoubleParam("omicron", 0.1);
+  I_max = getDoubleParam("I_max", 100.0);
+  persistence = getDoubleParam("persistence", 0.8);
+  omega3 = getDoubleParam("omega3", 1.0);
+  d_f = getDoubleParam("d_f", 0.05);
+  g_ls = getDoubleParam("g_ls", 0.1);
+  aliqe = getDoubleParam("aliqe", 0.1);
+  tre = getDoubleParam("tre", 0.1);
+  passthrough = getDoubleParam("passthrough", 1.0);
+
+  // Helper lambdas for climparams and flags
+  auto getClimInt = [&inputs](const char *key, int default_val) -> int
+  {
+    if (inputs.HasMember("climparams") && inputs["climparams"].IsArray() && inputs["climparams"].Size() > 0 &&
+        inputs["climparams"][0].HasMember(key))
+    {
+      return inputs["climparams"][0][key].GetInt();
+    }
+    std::cerr << "[WARN] Missing climparams int '" << key << "'; using default " << default_val << std::endl;
+    return default_val;
+  };
+
+  auto getClimDouble = [&inputs](const char *key, double default_val) -> double
+  {
+    if (inputs.HasMember("climparams") && inputs["climparams"].IsArray() && inputs["climparams"].Size() > 0 &&
+        inputs["climparams"][0].HasMember(key))
+    {
+      return inputs["climparams"][0][key].GetDouble();
+    }
+    std::cerr << "[WARN] Missing climparams double '" << key << "'; using default " << default_val << std::endl;
+    return default_val;
+  };
+
+  auto getFlagInt = [&inputs](const char *key, int default_val) -> int
+  {
+    if (inputs.HasMember("flags") && inputs["flags"].IsArray() && inputs["flags"].Size() > 0 &&
+        inputs["flags"][0].HasMember(key))
+    {
+      return inputs["flags"][0][key].GetInt();
+    }
+    return default_val;
+  };
+
+  share_RD_en = getClimDouble("share_RD_en", 0.0);
+  share_de_0 = getClimDouble("share_de_0", 0.0);
+  payback_en = getClimInt("payback_en", 5);
+  life_plant = getClimInt("life_plant", 40);
+  exp_quota = getClimDouble("exp_quota", 0.0);
+  o1_en = getClimDouble("o1_en", 0.3);
+  uu1_en = getClimDouble("uu1_en", -0.015);
+  uu2_en = getClimDouble("uu2_en", 0.015);
+  exp_quota_param = getDoubleParam("exp_quota_param", 0.1);
+  ge_subsidy = getDoubleParam("ge_subsidy", 0.1);
 
   // Regional Government Block parameters
   gamma_bar = inputs["params"][0].HasMember("gamma_bar") ? inputs["params"][0]["gamma_bar"].GetDouble() : 0.0;
@@ -624,28 +785,28 @@ void SETPARAMS(const rapidjson::Document &inputs)
   phi_adapt = inputs["params"][0].HasMember("phi_adapt") ? inputs["params"][0]["phi_adapt"].GetDouble() : 1.0;
   omega_floor_adapt = inputs["params"][0].HasMember("omega_floor_adapt") ? inputs["params"][0]["omega_floor_adapt"].GetDouble() : 0.05;
 
-  t_start_climbox = inputs["climparams"][0]["t_start_climbox"].GetInt();
-  T_pre = inputs["climparams"][0]["T_pre"].GetDouble();
-  intercept_temp = inputs["climparams"][0]["intercept_temp"].GetDouble();
-  slope_temp = inputs["climparams"][0]["slope_temp"].GetDouble();
-  tc1 = inputs["climparams"][0]["tc1"].GetDouble();
-  tc2 = inputs["climparams"][0]["tc2"].GetDouble();
-  ndep = inputs["climparams"][0]["ndep"].GetInt();
+  t_start_climbox = getClimInt("t_start_climbox", 0);
+  T_pre = getClimDouble("T_pre", 0.0);
+  intercept_temp = getClimDouble("intercept_temp", 0.0);
+  slope_temp = getClimDouble("slope_temp", 0.0);
+  tc1 = getClimDouble("tc1", 0.0);
+  tc2 = getClimDouble("tc2", 0.0);
+  ndep = getClimInt("ndep", 5);
   laydep.ReSize(ndep);
-  laydep(1) = inputs["climparams"][0]["laydep1"].GetDouble();
-  laydep(2) = inputs["climparams"][0]["laydep2"].GetDouble();
-  laydep(3) = inputs["climparams"][0]["laydep3"].GetDouble();
-  laydep(4) = inputs["climparams"][0]["laydep4"].GetDouble();
-  laydep(5) = inputs["climparams"][0]["laydep5"].GetDouble();
-  fertil = inputs["climparams"][0]["fertil"].GetDouble();
-  heatstress = inputs["climparams"][0]["heatstress"].GetDouble();
-  humtime = inputs["climparams"][0]["humtime"].GetDouble();
-  biotime = inputs["climparams"][0]["biotime"].GetDouble();
-  humfrac = inputs["climparams"][0]["humfrac"].GetDouble();
-  eddydif = inputs["climparams"][0]["eddydif"].GetDouble();
-  ConrefT = inputs["climparams"][0]["ConrefT"].GetDouble();
-  rev0 = inputs["climparams"][0]["rev0"].GetDouble();
-  revC = inputs["climparams"][0]["revC"].GetDouble();
+  laydep(1) = getClimDouble("laydep1", 0.0);
+  laydep(2) = getClimDouble("laydep2", 0.0);
+  laydep(3) = getClimDouble("laydep3", 0.0);
+  laydep(4) = getClimDouble("laydep4", 0.0);
+  laydep(5) = getClimDouble("laydep5", 0.0);
+  fertil = getClimDouble("fertil", 0.0);
+  heatstress = getClimDouble("heatstress", 0.0);
+  humtime = getClimDouble("humtime", 0.0);
+  biotime = getClimDouble("biotime", 0.0);
+  humfrac = getClimDouble("humfrac", 0.0);
+  eddydif = getClimDouble("eddydif", 0.0);
+  ConrefT = getClimDouble("ConrefT", 0.0);
+  rev0 = getClimDouble("rev0", 0.0);
+  revC = getClimDouble("revC", 0.0);
   niterclim = inputs["climparams"][0]["niterclim"].GetInt();
   forCO2 = inputs["climparams"][0]["forCO2"].GetDouble();
   otherforcefac = inputs["climparams"][0]["otherforcefac"].GetDouble();
@@ -680,53 +841,94 @@ void SETPARAMS(const rapidjson::Document &inputs)
     }
   }
 
-  nshocks = inputs["climshockparams"][0]["nshocks"].GetInt();
+  // Safely read nshocks from climshockparams
+  nshocks = 9; // Default to 9 shocks
+  if (inputs.HasMember("climshockparams") && inputs["climshockparams"].IsArray() &&
+      inputs["climshockparams"].Size() > 0 && inputs["climshockparams"][0].IsObject() &&
+      inputs["climshockparams"][0].HasMember("nshocks"))
+  {
+    nshocks = inputs["climshockparams"][0]["nshocks"].GetInt();
+  }
+  else
+  {
+    std::cerr << "[WARN] climshockparams or nshocks not found; defaulting to 9 shocks" << std::endl;
+  }
 
   // Scalar shock parameters - used when NR == 0
   // When NR > 0, these are ignored and regional arrays are used instead
   if (NR == 0)
   {
     a_0.ReSize(nshocks);
-    a_0(1) = inputs["climshockparams"][0]["a1_0"].GetDouble();
-    a_0(2) = inputs["climshockparams"][0]["a2_0"].GetDouble();
-    a_0(3) = inputs["climshockparams"][0]["a3_0"].GetDouble();
-    a_0(4) = inputs["climshockparams"][0]["a4_0"].GetDouble();
-    a_0(5) = inputs["climshockparams"][0]["a5_0"].GetDouble();
-    a_0(6) = inputs["climshockparams"][0]["a6_0"].GetDouble();
-    a_0(7) = inputs["climshockparams"][0]["a7_0"].GetDouble();
-    a_0(8) = inputs["climshockparams"][0]["a8_0"].GetDouble();
-    a_0(9) = inputs["climshockparams"][0]["a9_0"].GetDouble();
+    // Safely read a_0 parameters with fallback defaults
+    double a_defaults[] = {0.0, 0.003, 1.0, 0.75, 0.75, 1.0, 1.8, 1.0, 1.0, 0.75};
+    for (int i = 1; i <= nshocks && i < 10; i++)
+    {
+      std::string key = "a" + std::to_string(i) + "_0";
+      if (inputs.HasMember("climshockparams") && inputs["climshockparams"].IsArray() &&
+          inputs["climshockparams"].Size() > 0 && inputs["climshockparams"][0].IsObject() &&
+          inputs["climshockparams"][0].HasMember(key.c_str()))
+      {
+        a_0(i) = inputs["climshockparams"][0][key.c_str()].GetDouble();
+      }
+      else
+      {
+        a_0(i) = a_defaults[i];
+      }
+    }
+
     b_0.ReSize(nshocks);
-    b_0(1) = inputs["climshockparams"][0]["b1_0"].GetDouble();
-    b_0(2) = inputs["climshockparams"][0]["b2_0"].GetDouble();
-    b_0(3) = inputs["climshockparams"][0]["b3_0"].GetDouble();
-    b_0(4) = inputs["climshockparams"][0]["b4_0"].GetDouble();
-    b_0(5) = inputs["climshockparams"][0]["b5_0"].GetDouble();
-    b_0(6) = inputs["climshockparams"][0]["b6_0"].GetDouble();
-    b_0(7) = inputs["climshockparams"][0]["b7_0"].GetDouble();
-    b_0(8) = inputs["climshockparams"][0]["b8_0"].GetDouble();
-    b_0(9) = inputs["climshockparams"][0]["b9_0"].GetDouble();
+    // Safely read b_0 parameters with fallback defaults
+    double b_defaults[] = {0.0, 1350, 100, 150, 150, 100, 70, 100, 100, 150};
+    for (int i = 1; i <= nshocks && i < 10; i++)
+    {
+      std::string key = "b" + std::to_string(i) + "_0";
+      if (inputs.HasMember("climshockparams") && inputs["climshockparams"].IsArray() &&
+          inputs["climshockparams"].Size() > 0 && inputs["climshockparams"][0].IsObject() &&
+          inputs["climshockparams"][0].HasMember(key.c_str()))
+      {
+        b_0(i) = inputs["climshockparams"][0][key.c_str()].GetDouble();
+      }
+      else
+      {
+        b_0(i) = b_defaults[i];
+      }
+    }
 
     shockexponent1.ReSize(nshocks);
-    shockexponent1(1) = inputs["climshockparams"][0]["shockexponent1_1"].GetDouble();
-    shockexponent1(2) = inputs["climshockparams"][0]["shockexponent2_1"].GetDouble();
-    shockexponent1(3) = inputs["climshockparams"][0]["shockexponent3_1"].GetDouble();
-    shockexponent1(4) = inputs["climshockparams"][0]["shockexponent4_1"].GetDouble();
-    shockexponent1(5) = inputs["climshockparams"][0]["shockexponent5_1"].GetDouble();
-    shockexponent1(6) = inputs["climshockparams"][0]["shockexponent6_1"].GetDouble();
-    shockexponent1(7) = inputs["climshockparams"][0]["shockexponent7_1"].GetDouble();
-    shockexponent1(8) = inputs["climshockparams"][0]["shockexponent8_1"].GetDouble();
-    shockexponent1(9) = inputs["climshockparams"][0]["shockexponent9_1"].GetDouble();
+    // Safely read shockexponent1 parameters with fallback defaults
+    double exp1_defaults[] = {0.0, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25};
+    for (int i = 1; i <= nshocks && i < 10; i++)
+    {
+      std::string key = "shockexponent" + std::to_string(i) + "_1";
+      if (inputs.HasMember("climshockparams") && inputs["climshockparams"].IsArray() &&
+          inputs["climshockparams"].Size() > 0 && inputs["climshockparams"][0].IsObject() &&
+          inputs["climshockparams"][0].HasMember(key.c_str()))
+      {
+        shockexponent1(i) = inputs["climshockparams"][0][key.c_str()].GetDouble();
+      }
+      else
+      {
+        shockexponent1(i) = exp1_defaults[i];
+      }
+    }
+
     shockexponent2.ReSize(nshocks);
-    shockexponent2(1) = inputs["climshockparams"][0]["shockexponent1_2"].GetDouble();
-    shockexponent2(2) = inputs["climshockparams"][0]["shockexponent2_2"].GetDouble();
-    shockexponent2(3) = inputs["climshockparams"][0]["shockexponent3_2"].GetDouble();
-    shockexponent2(4) = inputs["climshockparams"][0]["shockexponent4_2"].GetDouble();
-    shockexponent2(5) = inputs["climshockparams"][0]["shockexponent5_2"].GetDouble();
-    shockexponent2(6) = inputs["climshockparams"][0]["shockexponent6_2"].GetDouble();
-    shockexponent2(7) = inputs["climshockparams"][0]["shockexponent7_2"].GetDouble();
-    shockexponent2(8) = inputs["climshockparams"][0]["shockexponent8_2"].GetDouble();
-    shockexponent2(9) = inputs["climshockparams"][0]["shockexponent9_2"].GetDouble();
+    // Safely read shockexponent2 parameters with fallback defaults
+    double exp2_defaults[] = {0.0, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5};
+    for (int i = 1; i <= nshocks && i < 10; i++)
+    {
+      std::string key = "shockexponent" + std::to_string(i) + "_2";
+      if (inputs.HasMember("climshockparams") && inputs["climshockparams"].IsArray() &&
+          inputs["climshockparams"].Size() > 0 && inputs["climshockparams"][0].IsObject() &&
+          inputs["climshockparams"][0].HasMember(key.c_str()))
+      {
+        shockexponent2(i) = inputs["climshockparams"][0][key.c_str()].GetDouble();
+      }
+      else
+      {
+        shockexponent2(i) = exp2_defaults[i];
+      }
+    }
   }
 
   // Regional shock parameters - NEW array format from climshockparams when NR > 0
@@ -751,11 +953,21 @@ void SETPARAMS(const rapidjson::Document &inputs)
     // Try to read regional arrays from climshockparams first
     bool use_new_format = false;
     std::string test_key = "a" + std::to_string(1) + "_0";
-    if (inputs["climshockparams"][0].HasMember(test_key.c_str()) &&
+
+    std::cerr << "[DEBUG] Starting shock parameter loading; NR=" << NR << ", nshocks=" << nshocks << std::endl;
+
+    // Check if climshockparams[0] exists and has the test key
+    if (inputs.HasMember("climshockparams") &&
+        inputs["climshockparams"].IsArray() &&
+        inputs["climshockparams"].Size() > 0 &&
+        inputs["climshockparams"][0].IsObject() &&
+        inputs["climshockparams"][0].HasMember(test_key.c_str()) &&
         inputs["climshockparams"][0][test_key.c_str()].IsArray())
     {
       use_new_format = true;
       cout << "Reading regional shock parameters from climshockparams arrays" << endl;
+
+      std::cerr << "[DEBUG] Using new format; processing " << nshocks << " shocks" << std::endl;
 
       // Read a_0, b_0, and exponents from climshockparams as arrays
       for (int i = 1; i <= nshocks; i++)
@@ -765,18 +977,37 @@ void SETPARAMS(const rapidjson::Document &inputs)
         std::string exp1_key = "shockexponent" + std::to_string(i) + "_1";
         std::string exp2_key = "shockexponent" + std::to_string(i) + "_2";
 
-        for (int rr = 0; rr < NR; rr++)
+        // Safely check each array before accessing elements
+        if (inputs["climshockparams"][0].HasMember(a_key.c_str()) && inputs["climshockparams"][0][a_key.c_str()].IsArray() &&
+            inputs["climshockparams"][0].HasMember(b_key.c_str()) && inputs["climshockparams"][0][b_key.c_str()].IsArray() &&
+            inputs["climshockparams"][0].HasMember(exp1_key.c_str()) && inputs["climshockparams"][0][exp1_key.c_str()].IsArray() &&
+            inputs["climshockparams"][0].HasMember(exp2_key.c_str()) && inputs["climshockparams"][0][exp2_key.c_str()].IsArray())
         {
-          a_0_regional[i - 1][rr] = inputs["climshockparams"][0][a_key.c_str()][rr].GetDouble();
-          b_0_regional[i - 1][rr] = inputs["climshockparams"][0][b_key.c_str()][rr].GetDouble();
-          shockexponent1_regional[i - 1][rr] = inputs["climshockparams"][0][exp1_key.c_str()][rr].GetDouble();
-          shockexponent2_regional[i - 1][rr] = inputs["climshockparams"][0][exp2_key.c_str()][rr].GetDouble();
+          for (int rr = 0; rr < NR; rr++)
+          {
+            // Check array bounds before accessing
+            if ((int)inputs["climshockparams"][0][a_key.c_str()].Size() > rr)
+              a_0_regional[i - 1][rr] = inputs["climshockparams"][0][a_key.c_str()][rr].GetDouble();
+            if ((int)inputs["climshockparams"][0][b_key.c_str()].Size() > rr)
+              b_0_regional[i - 1][rr] = inputs["climshockparams"][0][b_key.c_str()][rr].GetDouble();
+            if ((int)inputs["climshockparams"][0][exp1_key.c_str()].Size() > rr)
+              shockexponent1_regional[i - 1][rr] = inputs["climshockparams"][0][exp1_key.c_str()][rr].GetDouble();
+            if ((int)inputs["climshockparams"][0][exp2_key.c_str()].Size() > rr)
+              shockexponent2_regional[i - 1][rr] = inputs["climshockparams"][0][exp2_key.c_str()][rr].GetDouble();
+          }
+        }
+        else
+        {
+          // Warn but don't abort - use defaults
+          std::cerr << "[WARN] Shock " << i << " arrays incomplete in climshockparams; using defaults" << std::endl;
         }
       }
+      std::cerr << "[DEBUG] New format processing complete" << std::endl;
     }
     else
     {
       // Fallback to LEGACY format from regions block
+      std::cerr << "[DEBUG] Using legacy format from regions block" << std::endl;
       cout << "Reading regional shock parameters from regions block (LEGACY format)" << endl;
 
       // Read single arrays per region from regions block and apply to all shocks
@@ -784,13 +1015,28 @@ void SETPARAMS(const rapidjson::Document &inputs)
       {
         for (int rr = 0; rr < NR; rr++)
         {
-          a_0_regional[i][rr] = inputs["regions"]["a_0_regional"][rr].GetDouble();
-          b_0_regional[i][rr] = inputs["regions"]["b_0_regional"][rr].GetDouble();
-          shockexponent1_regional[i][rr] = inputs["regions"]["shockexponent1_regional"][rr].GetDouble();
-          shockexponent2_regional[i][rr] = inputs["regions"]["shockexponent2_regional"][rr].GetDouble();
+          // Defensive checks on all array accesses
+          if (inputs.HasMember("regions") && inputs["regions"].IsObject())
+          {
+            if (inputs["regions"].HasMember("a_0_regional") && inputs["regions"]["a_0_regional"].IsArray() &&
+                (int)inputs["regions"]["a_0_regional"].Size() > rr)
+              a_0_regional[i][rr] = inputs["regions"]["a_0_regional"][rr].GetDouble();
+            if (inputs["regions"].HasMember("b_0_regional") && inputs["regions"]["b_0_regional"].IsArray() &&
+                (int)inputs["regions"]["b_0_regional"].Size() > rr)
+              b_0_regional[i][rr] = inputs["regions"]["b_0_regional"][rr].GetDouble();
+            if (inputs["regions"].HasMember("shockexponent1_regional") && inputs["regions"]["shockexponent1_regional"].IsArray() &&
+                (int)inputs["regions"]["shockexponent1_regional"].Size() > rr)
+              shockexponent1_regional[i][rr] = inputs["regions"]["shockexponent1_regional"][rr].GetDouble();
+            if (inputs["regions"].HasMember("shockexponent2_regional") && inputs["regions"]["shockexponent2_regional"].IsArray() &&
+                (int)inputs["regions"]["shockexponent2_regional"].Size() > rr)
+              shockexponent2_regional[i][rr] = inputs["regions"]["shockexponent2_regional"][rr].GetDouble();
+          }
         }
       }
+      std::cerr << "[DEBUG] Legacy format processing complete" << std::endl;
     }
+    std::cerr << "[DEBUG] Shock parameter loading finished successfully" << std::endl;
+    std::cerr.flush();
 
     // Also populate legacy flat vectors for backward compatibility with existing code
     a_0_reg.ReSize(nshocks * NR);
@@ -814,55 +1060,252 @@ void SETPARAMS(const rapidjson::Document &inputs)
     tau_share_rg.resize(NR, 1.0 / NR);
     omega_rg.resize(NR, 1.0 / NR);
     wu_rg.resize(NR, wu);
-    if (inputs["regions"].HasMember("tau_share_rg"))
+    if (inputs["regions"].HasMember("tau_share_rg") && inputs["regions"]["tau_share_rg"].IsArray())
     {
       for (int rr = 0; rr < NR; rr++)
       {
-        tau_share_rg[rr] = inputs["regions"]["tau_share_rg"][rr].GetDouble();
+        if ((int)inputs["regions"]["tau_share_rg"].Size() > rr)
+          tau_share_rg[rr] = inputs["regions"]["tau_share_rg"][rr].GetDouble();
       }
     }
-    if (inputs["regions"].HasMember("omega_rg"))
+    if (inputs["regions"].HasMember("omega_rg") && inputs["regions"]["omega_rg"].IsArray())
     {
       for (int rr = 0; rr < NR; rr++)
       {
-        omega_rg[rr] = inputs["regions"]["omega_rg"][rr].GetDouble();
+        if ((int)inputs["regions"]["omega_rg"].Size() > rr)
+          omega_rg[rr] = inputs["regions"]["omega_rg"][rr].GetDouble();
       }
     }
-    if (inputs["regions"].HasMember("wu_rg"))
+    if (inputs["regions"].HasMember("wu_rg") && inputs["regions"]["wu_rg"].IsArray())
     {
       for (int rr = 0; rr < NR; rr++)
       {
-        wu_rg[rr] = inputs["regions"]["wu_rg"][rr].GetDouble();
+        if ((int)inputs["regions"]["wu_rg"].Size() > rr)
+          wu_rg[rr] = inputs["regions"]["wu_rg"][rr].GetDouble();
       }
     }
+
+    // Regional labour-supply shares sigma_r (state variable LS_region_share).
+    // Validation contract:
+    //   missing                     -> uniform 1/NR
+    //   present but length != NR     -> hard error
+    //   contains negatives           -> clamp to zero and warn
+    //   sum <= eps after clamping    -> hard error
+    //   otherwise                    -> normalise to sum 1
+    LS_region_share.assign(NR, 1.0 / NR);
+    LS_region_share_next.assign(NR, 1.0 / NR);
+    if (inputs["regions"].HasMember("LS_region_share"))
+    {
+      if (!inputs["regions"]["LS_region_share"].IsArray())
+      {
+        std::cerr << "[ERROR] regions.LS_region_share must be an array of length NR=" << NR << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      const int ls_len = (int)inputs["regions"]["LS_region_share"].Size();
+      if (ls_len != NR)
+      {
+        std::cerr << "[ERROR] regions.LS_region_share length (" << ls_len
+                  << ") != NR (" << NR << ")" << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      std::vector<double> sigma_in(NR, 0.0);
+      bool had_negative = false;
+      for (int rr = 0; rr < NR; rr++)
+      {
+        double v = inputs["regions"]["LS_region_share"][rr].GetDouble();
+        if (v < 0.0)
+        {
+          had_negative = true;
+          v = 0.0; // clamp negatives to zero
+        }
+        sigma_in[rr] = v;
+      }
+      if (had_negative)
+      {
+        std::cerr << "[WARN] regions.LS_region_share contained negative entries; clamped to zero." << std::endl;
+      }
+      double sigma_sum = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+      {
+        sigma_sum += sigma_in[rr];
+      }
+      const double sigma_eps = 1e-12;
+      if (sigma_sum <= sigma_eps)
+      {
+        std::cerr << "[ERROR] regions.LS_region_share sums to <= 0 after clamping; cannot normalise." << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      for (int rr = 0; rr < NR; rr++)
+      {
+        LS_region_share[rr] = sigma_in[rr] / sigma_sum; // normalise to sum 1
+        LS_region_share_next[rr] = LS_region_share[rr]; // initialise next-period share equal
+      }
+    }
+    if (verbose)
+    {
+      double chk = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+        chk += LS_region_share[rr];
+      std::cerr << "[DEBUG] LS_region_share normalised, sum=" << chk << std::endl;
+    }
+
+    // Regional household deposit shares (regions.Dh_region_share).
+    // Validation contract mirrors LS_region_share:
+    //   missing                     -> default to LS_region_share
+    //   present but length != NR     -> hard error
+    //   contains negatives           -> clamp to zero and warn
+    //   sum <= eps after clamping    -> hard error
+    //   otherwise                    -> normalise to sum 1
+    Dh_region_share.assign(NR, 0.0);
+    for (int rr = 0; rr < NR; rr++)
+    {
+      Dh_region_share[rr] = LS_region_share[rr]; // default = labour-supply shares
+    }
+    if (inputs["regions"].HasMember("Dh_region_share"))
+    {
+      if (!inputs["regions"]["Dh_region_share"].IsArray())
+      {
+        std::cerr << "[ERROR] regions.Dh_region_share must be an array of length NR=" << NR << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      const int dh_len = (int)inputs["regions"]["Dh_region_share"].Size();
+      if (dh_len != NR)
+      {
+        std::cerr << "[ERROR] regions.Dh_region_share length (" << dh_len
+                  << ") != NR (" << NR << ")" << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      std::vector<double> dh_in(NR, 0.0);
+      bool dh_had_negative = false;
+      for (int rr = 0; rr < NR; rr++)
+      {
+        double v = inputs["regions"]["Dh_region_share"][rr].GetDouble();
+        if (v < 0.0)
+        {
+          dh_had_negative = true;
+          v = 0.0; // clamp negatives to zero
+        }
+        dh_in[rr] = v;
+      }
+      if (dh_had_negative)
+      {
+        std::cerr << "[WARN] regions.Dh_region_share contained negative entries; clamped to zero." << std::endl;
+      }
+      double dh_sum = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+      {
+        dh_sum += dh_in[rr];
+      }
+      const double dh_eps = 1e-12;
+      if (dh_sum <= dh_eps)
+      {
+        std::cerr << "[ERROR] regions.Dh_region_share sums to <= 0 after clamping; cannot normalise." << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      for (int rr = 0; rr < NR; rr++)
+      {
+        Dh_region_share[rr] = dh_in[rr] / dh_sum; // normalise to sum 1
+      }
+    }
+
+    // Bilateral distance matrix for migration (regions.distance).
+    //   raw bilateral distances; diagonal forced to 0;
+    //   normalised by the mean off-diagonal distance.
+    //   if missing -> zero diagonal, unit off-diagonal.
+    region_distance.assign(NR, std::vector<double>(NR, 1.0));
+    for (int o = 0; o < NR; o++)
+    {
+      region_distance[o][o] = 0.0;
+    }
+    if (inputs["regions"].HasMember("distance") && inputs["regions"]["distance"].IsArray() &&
+        (int)inputs["regions"]["distance"].Size() == NR)
+    {
+      std::vector<std::vector<double>> dist_raw(NR, std::vector<double>(NR, 0.0));
+      bool dist_ok = true;
+      for (int o = 0; o < NR && dist_ok; o++)
+      {
+        if (!inputs["regions"]["distance"][o].IsArray() ||
+            (int)inputs["regions"]["distance"][o].Size() != NR)
+        {
+          dist_ok = false;
+          break;
+        }
+        for (int d = 0; d < NR; d++)
+        {
+          dist_raw[o][d] = inputs["regions"]["distance"][o][d].GetDouble();
+        }
+      }
+      if (!dist_ok)
+      {
+        std::cerr << "[WARN] regions.distance is not a square NRxNR matrix; using unit off-diagonal distances." << std::endl;
+      }
+      else
+      {
+        // Force zero diagonal, then compute mean off-diagonal for normalisation.
+        double off_sum = 0.0;
+        int off_cnt = 0;
+        for (int o = 0; o < NR; o++)
+        {
+          for (int d = 0; d < NR; d++)
+          {
+            if (o == d)
+              continue;
+            off_sum += dist_raw[o][d];
+            off_cnt++;
+          }
+        }
+        double off_mean = (off_cnt > 0) ? off_sum / off_cnt : 0.0;
+        for (int o = 0; o < NR; o++)
+        {
+          for (int d = 0; d < NR; d++)
+          {
+            if (o == d)
+              region_distance[o][d] = 0.0;
+            else
+              region_distance[o][d] = (off_mean > 0.0) ? dist_raw[o][d] / off_mean : 1.0;
+          }
+        }
+      }
+    }
+
     // Per-region adaptation investment rate (iota_adapt_rg, share of regional GDP)
     iota_adapt_rg.resize(NR, 0.0);
-    if (inputs["regions"].HasMember("iota_adapt_rg"))
+    if (inputs["regions"].HasMember("iota_adapt_rg") && inputs["regions"]["iota_adapt_rg"].IsArray())
     {
       for (int rr = 0; rr < NR; rr++)
       {
-        iota_adapt_rg[rr] = inputs["regions"]["iota_adapt_rg"][rr].GetDouble();
+        if ((int)inputs["regions"]["iota_adapt_rg"].Size() > rr)
+          iota_adapt_rg[rr] = inputs["regions"]["iota_adapt_rg"][rr].GetDouble();
       }
     }
 
     // Recovery expenditure parameters (backward-compatible defaults: recovery off)
     psi_rec_rg.resize(NR, 0.0);
-    if (inputs["regions"].HasMember("psi_rec_rg"))
+    if (inputs["regions"].HasMember("psi_rec_rg") && inputs["regions"]["psi_rec_rg"].IsArray())
     {
       for (int rr = 0; rr < NR; rr++)
-        psi_rec_rg[rr] = inputs["regions"]["psi_rec_rg"][rr].GetDouble();
+      {
+        if ((int)inputs["regions"]["psi_rec_rg"].Size() > rr)
+          psi_rec_rg[rr] = inputs["regions"]["psi_rec_rg"][rr].GetDouble();
+      }
     }
     s_bar_rec_rg.resize(NR, 0.05);
-    if (inputs["regions"].HasMember("s_bar_rec_rg"))
+    if (inputs["regions"].HasMember("s_bar_rec_rg") && inputs["regions"]["s_bar_rec_rg"].IsArray())
     {
       for (int rr = 0; rr < NR; rr++)
-        s_bar_rec_rg[rr] = inputs["regions"]["s_bar_rec_rg"][rr].GetDouble();
+      {
+        if ((int)inputs["regions"]["s_bar_rec_rg"].Size() > rr)
+          s_bar_rec_rg[rr] = inputs["regions"]["s_bar_rec_rg"][rr].GetDouble();
+      }
     }
     delta_imp_rg.resize(NR, 0.25);
-    if (inputs["regions"].HasMember("delta_imp_rg"))
+    if (inputs["regions"].HasMember("delta_imp_rg") && inputs["regions"]["delta_imp_rg"].IsArray())
     {
       for (int rr = 0; rr < NR; rr++)
-        delta_imp_rg[rr] = inputs["regions"]["delta_imp_rg"][rr].GetDouble();
+      {
+        if ((int)inputs["regions"]["delta_imp_rg"].Size() > rr)
+          delta_imp_rg[rr] = inputs["regions"]["delta_imp_rg"][rr].GetDouble();
+      }
     }
   }
   d_bar_rec = inputs["regions"].HasMember("d_bar_rec") ? inputs["regions"]["d_bar_rec"].GetDouble() : 0.0;
@@ -892,35 +1335,40 @@ void SETPARAMS(const rapidjson::Document &inputs)
         kappa_c_rg[cc][rr] = kappa_defaults[cc];
         alpha_c_rg[cc][rr] = alpha_defaults[cc];
       }
-      if (inputs["regions"].HasMember(hbar_keys[cc].c_str()))
+      if (inputs["regions"].HasMember(hbar_keys[cc].c_str()) && inputs["regions"][hbar_keys[cc].c_str()].IsArray())
         for (int rr = 0; rr < NR; rr++)
-          hbar_c_rg[cc][rr] = inputs["regions"][hbar_keys[cc].c_str()][rr].GetDouble();
-      if (inputs["regions"].HasMember(kappa_keys[cc].c_str()))
+          if ((int)inputs["regions"][hbar_keys[cc].c_str()].Size() > rr)
+            hbar_c_rg[cc][rr] = inputs["regions"][hbar_keys[cc].c_str()][rr].GetDouble();
+      if (inputs["regions"].HasMember(kappa_keys[cc].c_str()) && inputs["regions"][kappa_keys[cc].c_str()].IsArray())
         for (int rr = 0; rr < NR; rr++)
-          kappa_c_rg[cc][rr] = inputs["regions"][kappa_keys[cc].c_str()][rr].GetDouble();
-      if (inputs["regions"].HasMember(alpha_keys[cc].c_str()))
+          if ((int)inputs["regions"][kappa_keys[cc].c_str()].Size() > rr)
+            kappa_c_rg[cc][rr] = inputs["regions"][kappa_keys[cc].c_str()][rr].GetDouble();
+      if (inputs["regions"].HasMember(alpha_keys[cc].c_str()) && inputs["regions"][alpha_keys[cc].c_str()].IsArray())
         for (int rr = 0; rr < NR; rr++)
-          alpha_c_rg[cc][rr] = inputs["regions"][alpha_keys[cc].c_str()][rr].GetDouble();
+          if ((int)inputs["regions"][alpha_keys[cc].c_str()].Size() > rr)
+            alpha_c_rg[cc][rr] = inputs["regions"][alpha_keys[cc].c_str()][rr].GetDouble();
     }
 
     // Budget allocation shares phi_alloc_c_rg [NC_adapt][NR] (default: equal split = 1/NC_adapt)
     phi_alloc_c_rg.resize(NC_adapt, std::vector<double>(NR, 1.0 / NC_adapt));
-    if (inputs["regions"].HasMember("phi_alloc_c_rg"))
+    if (inputs["regions"].HasMember("phi_alloc_c_rg") && inputs["regions"]["phi_alloc_c_rg"].IsArray())
     {
       const auto &arr = inputs["regions"]["phi_alloc_c_rg"];
       for (int cc = 0; cc < NC_adapt && cc < (int)arr.Size(); cc++)
-        for (int rr = 0; rr < NR && rr < (int)arr[cc].Size(); rr++)
-          phi_alloc_c_rg[cc][rr] = arr[cc][rr].GetDouble();
+        if (arr[cc].IsArray())
+          for (int rr = 0; rr < NR && rr < (int)arr[cc].Size(); rr++)
+            phi_alloc_c_rg[cc][rr] = arr[cc][rr].GetDouble();
     }
 
     // Per-channel depreciation rate delta_adapt_c_rg [NC_adapt][NR] (default: 0.05)
     delta_adapt_c_rg.resize(NC_adapt, std::vector<double>(NR, 0.05));
-    if (inputs["regions"].HasMember("delta_adapt_c_rg"))
+    if (inputs["regions"].HasMember("delta_adapt_c_rg") && inputs["regions"]["delta_adapt_c_rg"].IsArray())
     {
       const auto &arr = inputs["regions"]["delta_adapt_c_rg"];
       for (int cc = 0; cc < NC_adapt && cc < (int)arr.Size(); cc++)
-        for (int rr = 0; rr < NR && rr < (int)arr[cc].Size(); rr++)
-          delta_adapt_c_rg[cc][rr] = arr[cc][rr].GetDouble();
+        if (arr[cc].IsArray())
+          for (int rr = 0; rr < NR && rr < (int)arr[cc].Size(); rr++)
+            delta_adapt_c_rg[cc][rr] = arr[cc][rr].GetDouble();
     }
   }
 
@@ -1025,6 +1473,56 @@ void SETPARAMS(const rapidjson::Document &inputs)
   flag_scrap_age = inputs["flags"][0]["flag_scrap_age"].GetInt();
   flag_uniformshocks = inputs["flags"][0]["flag_uniformshocks"].GetInt();
   flag_desc = inputs["flags"][0]["flag_desc"].GetInt();
+
+  // Mobility parameters
+  // Fixed moving cost and distance-based moving cost (utility equivalent)
+  mu_F_mig = getDoubleParam("mu_F_mig", 0.05);
+  mu_D_mig = getDoubleParam("mu_D_mig", 0.01);
+
+  // Regional mobility flag (1=on, 0=off)
+  // Use defensive lambda for reading from flags array
+  auto getFlagIntMobility = [&inputs](const char *key, int default_val) -> int
+  {
+    if (inputs.HasMember("flags") && inputs["flags"].IsArray() && inputs["flags"].Size() > 0 &&
+        inputs["flags"][0].IsObject() && inputs["flags"][0].HasMember(key))
+    {
+      return inputs["flags"][0][key].GetInt();
+    }
+    return default_val;
+  };
+  flag_regional_mobility = getFlagIntMobility("flag_regional_mobility", 0);
+
+  // Regional labour market flags (1=on, 0=off)
+  flag_regional_labor = getFlagIntMobility("flag_regional_labor", 0);
+  flag_ls_distribution = getFlagIntMobility("flag_ls_distribution", 0);
+
+  // Regional wage-setting parameters (active when flag_regional_labor == 1)
+  chi_w = getDoubleParam("chi_w", 1.0);         // 1.0 -> fully national wage growth (baseline-preserving default)
+  dwage_max = getDoubleParam("dwage_max", 0.5); // symmetric bound on per-period regional wage growth
+
+  // Mobility utility parameters
+  beta_w_mig = getDoubleParam("beta_w_mig", 1.0);       // Log-wage coefficient
+  beta_u_mig = getDoubleParam("beta_u_mig", 1.0);       // Unemployment cost (absolute value)
+  beta_prot_mig = getDoubleParam("beta_prot_mig", 0.0); // Protection capital coefficient
+  beta_pub_mig = getDoubleParam("beta_pub_mig", 0.0);   // Public capital coefficient
+  u_min_mig = getDoubleParam("u_min_mig", 0.001);       // Minimum unemployment for clamping
+  eta_stay_mig = getDoubleParam("eta_stay_mig", 3.0);   // Constant stay premium on d==o alternative only
+  if (eta_stay_mig < 0.0)
+  {
+    ofstream Errors(errorfilename, ios::app);
+    std::cerr << "[WARN] eta_stay_mig negative (" << eta_stay_mig << "); clamping to 0.0" << std::endl;
+    Errors << "[WARN] eta_stay_mig negative (" << eta_stay_mig << "); clamping to 0.0" << std::endl;
+    Errors.close();
+    eta_stay_mig = 0.0;
+  }
+
+  if (verbose)
+  {
+    std::cerr << "[DEBUG] Mobility parameters loaded: mu_F_mig=" << mu_F_mig
+              << ", mu_D_mig=" << mu_D_mig << ", flag_regional_mobility=" << flag_regional_mobility
+              << ", beta_w_mig=" << beta_w_mig << ", beta_u_mig=" << beta_u_mig
+              << ", eta_stay_mig=" << eta_stay_mig << std::endl;
+  }
 
   shocks_cfirms.ReSize(N2);
   shocks_kfirms.ReSize(N1);
@@ -1465,6 +1963,28 @@ void RESIZE(void)
     reg_CapitalStock.assign(NR, 0.0);
     reg_NW_h.assign(NR, 0.0);
 
+    // Regional labour-market state (flag_regional_labor)
+    reg_w.assign(NR, w0);
+    reg_w_past.assign(NR, w0);
+    reg_U_past.assign(NR, 0.0);
+    reg_Am_past.assign(NR, 0.0);
+    reg_YD.assign(NR, 0.0);
+    reg_C.assign(NR, 0.0);
+    reg_Dh.assign(NR, 0.0);
+    reg_Dh_lag.assign(NR, 0.0);
+    reg_Dh_pre_migration.assign(NR, 0.0);
+    reg_Dh_post_migration.assign(NR, 0.0);
+    reg_ME_out.assign(NR, 0.0);
+    reg_UN.assign(NR, 0.0);
+    reg_U_rate.assign(NR, 0.0);
+    reg_Benefits.assign(NR, 0.0);
+    diag_reg_Dh_lag_used.assign(NR, 0.0);
+    if (flag_regional_labor == 1 && (int)LS_region_share.size() == NR && LS > 0)
+    {
+      for (int rr = 0; rr < NR; rr++)
+        reg_LS[rr] = LS * LS_region_share[rr];
+    }
+
     // Regional Government Block
     TS_rg.assign(NR, 0.0);
     GT_base_rg.assign(NR, 0.0);
@@ -1584,9 +2104,19 @@ void INITIALIZE(int Exseed)
       int residual = total - assigned;
       if (residual > 0)
       {
+        // Tolerance for comparing fractional remainders, measured in FIRM units.
+        // Two regions whose remainders differ by less than one-thousandth of a
+        // firm are treated as tied: such differences are numerical / JSON input
+        // rounding noise (e.g. shares written as 0.333333 vs 0.333334), not a
+        // meaningful allocation preference. Tied regions fall through to the
+        // random ran1 tie_break so the residual firm is assigned randomly rather
+        // than deterministically to the region carrying the rounding crumb.
+        // Genuinely heterogeneous shares produce remainder gaps far larger than
+        // this tolerance and are therefore unaffected.
+        constexpr double REMAINDER_TIE_TOL = 1e-3;
         sort(remainder_rank.begin(), remainder_rank.end(), [](const remainder_item &a, const remainder_item &b)
              {
-               if (fabs(a.remainder - b.remainder) > 1e-12)
+               if (fabs(a.remainder - b.remainder) > REMAINDER_TIE_TOL)
                {
                  return a.remainder > b.remainder;
                }
@@ -1702,6 +2232,28 @@ void INITIALIZE(int Exseed)
     reg_CapitalStock2.assign(NR, 0.0);
     reg_CapitalStock.assign(NR, 0.0);
     reg_NW_h.assign(NR, 0.0);
+
+    // Regional labour-market state (flag_regional_labor)
+    reg_w.assign(NR, w0);
+    reg_w_past.assign(NR, w0);
+    reg_U_past.assign(NR, 0.0);
+    reg_Am_past.assign(NR, 0.0);
+    reg_YD.assign(NR, 0.0);
+    reg_C.assign(NR, 0.0);
+    reg_Dh.assign(NR, 0.0);
+    reg_Dh_lag.assign(NR, 0.0);
+    reg_Dh_pre_migration.assign(NR, 0.0);
+    reg_Dh_post_migration.assign(NR, 0.0);
+    reg_ME_out.assign(NR, 0.0);
+    reg_UN.assign(NR, 0.0);
+    reg_U_rate.assign(NR, 0.0);
+    reg_Benefits.assign(NR, 0.0);
+    diag_reg_Dh_lag_used.assign(NR, 0.0);
+    if (flag_regional_labor == 1 && (int)LS_region_share.size() == NR && LS > 0)
+    {
+      for (int rr = 0; rr < NR; rr++)
+        reg_LS[rr] = LS * LS_region_share[rr];
+    }
   }
 
   INTFILE();
@@ -1817,6 +2369,18 @@ void INITIALIZE(int Exseed)
   NW_gov = -GB;
   NW_cb = GB_cb - Reserves;
   NW_e = Deposits_e;
+
+  // Initialise true regional household deposits from Dh_region_share (Phase 5B).
+  // Done here because Deposits_h is first set above (Deposits_h = D_h0).
+  if (flag_regional_labor == 1 && NR > 0 &&
+      (int)Dh_region_share.size() == NR && (int)reg_Dh.size() == NR)
+  {
+    for (int rr = 0; rr < NR; rr++)
+    {
+      reg_Dh[rr] = Dh_region_share[rr] * Deposits_h(1);
+      reg_Dh_lag[rr] = reg_Dh[rr];
+    }
+  }
   r = pow((1 + r_base), 0.25) - 1;
   if (d_cpi_target < 0.02)
   {
@@ -2008,6 +2572,36 @@ void INITIALIZE(int Exseed)
   RD.Row(2) = nu * S1;
   t = 0;
   TECHANGEND();
+
+  // Initialize mobility diagnostics vectors
+  if (NR > 0)
+  {
+    diag_V_region.assign(NR, 0.0);
+    diag_MC_mig.assign(NR, std::vector<double>(NR, 0.0));
+    diag_CU_mig.assign(NR, std::vector<double>(NR, 0.0));
+    diag_pi_mig.assign(NR, std::vector<double>(NR, 0.0));
+    diag_pi_mig_row_sum.assign(NR, 0.0);
+    diag_pi_stay.assign(NR, 0.0);
+    diag_M_int_mig.assign(NR, std::vector<double>(NR, 0.0));
+    diag_M_int_out.assign(NR, 0.0);
+    diag_M_mig.assign(NR, std::vector<double>(NR, 0.0));
+    diag_M_out_region.assign(NR, 0.0);
+    diag_M_in_region.assign(NR, 0.0);
+    diag_M_mig_row_sum.assign(NR, 0.0);
+    diag_lambda_liq_region.assign(NR, 1.0);
+    diag_Dh_U_region.assign(NR, 0.0);
+    diag_ME_int_region.assign(NR, 0.0);
+    diag_LS_region_share.assign(NR, 1.0 / NR);
+    diag_LS_region_share_next.assign(NR, 1.0 / NR);
+
+    diag_total_intended_migration = 0.0;
+    diag_total_actual_migration = 0.0;
+    diag_migration_expenditure_total = 0.0;
+    diag_sum_M_out = 0.0;
+    diag_sum_M_in = 0.0;
+    diag_sum_LS_region_share = 1.0;
+    diag_sum_LS_region_share_next = 1.0;
+  }
 }
 
 void SETVARS(void)
@@ -2514,6 +3108,603 @@ void MACH(void)
 
   Errors.close();
 }
+
+void MOBILITY_COMPUTATION(void)
+{
+  if (NR <= 0 || flag_regional_mobility == 0)
+  {
+    // Mobility disabled: no migration
+    for (int r = 0; r < NR; ++r)
+    {
+      diag_total_intended_migration = 0.0;
+      diag_total_actual_migration = 0.0;
+      diag_migration_expenditure_total = 0.0;
+      diag_sum_M_out = 0.0;
+      diag_sum_M_in = 0.0;
+      diag_LS_region_share[r] = (LS > 0) ? reg_LS[r] / LS : 1.0 / NR;
+      diag_LS_region_share_next[r] = diag_LS_region_share[r];
+    }
+    diag_sum_LS_region_share = 0.0;
+    diag_sum_LS_region_share_next = 0.0;
+    for (int r = 0; r < NR; ++r)
+    {
+      diag_sum_LS_region_share += diag_LS_region_share[r];
+      diag_sum_LS_region_share_next += diag_LS_region_share_next[r];
+    }
+
+    // Phase 5B: no migration expenditure; regional deposits carry over unchanged.
+    diag_migration_expenditure_from_households = 0.0;
+    diag_migration_service_revenue_C_total = 0.0;
+    diag_migration_closure_residual = 0.0;
+    diag_regional_deposit_consistency_error = 0.0;
+    diag_sum_reg_Dh_post = 0.0;
+    diag_national_Deposits_h = Deposits_h(1);
+    diag_household_bank_mirror_residual = 0.0;
+    diag_aggregate_bank_deposit_residual = 0.0;
+    if (flag_regional_labor == 1 && (int)reg_Dh.size() == NR)
+    {
+      for (int r = 0; r < NR; ++r)
+      {
+        reg_ME_out[r] = 0.0;
+        reg_Dh_post_migration[r] = reg_Dh_pre_migration[r];
+        reg_Dh[r] = reg_Dh_post_migration[r];
+        reg_Dh_lag[r] = reg_Dh[r];
+        diag_sum_reg_Dh_post += reg_Dh_post_migration[r];
+      }
+    }
+    return;
+  }
+
+  // ========== ZERO OUT DIAGNOSTIC VECTORS AT PERIOD START ==========
+  for (int o = 0; o < NR; ++o)
+  {
+    diag_V_region[o] = 0.0;
+    diag_M_int_out[o] = 0.0;
+    diag_M_out_region[o] = 0.0;
+    diag_M_mig_row_sum[o] = 0.0;
+    diag_pi_mig_row_sum[o] = 0.0;
+    diag_pi_stay[o] = 0.0;
+    diag_lambda_liq_region[o] = 1.0;
+    diag_Dh_U_region[o] = 0.0;
+    diag_ME_int_region[o] = 0.0;
+    for (int d = 0; d < NR; ++d)
+    {
+      diag_MC_mig[o][d] = 0.0;
+      diag_CU_mig[o][d] = 0.0;
+      diag_pi_mig[o][d] = 0.0;
+      diag_M_int_mig[o][d] = 0.0;
+      diag_M_mig[o][d] = 0.0;
+    }
+  }
+  for (int d = 0; d < NR; ++d)
+  {
+    diag_M_in_region[d] = 0.0;
+  }
+
+  diag_total_intended_migration = 0.0;
+  diag_total_actual_migration = 0.0;
+  diag_migration_expenditure_total = 0.0;
+  diag_sum_M_out = 0.0;
+  diag_sum_M_in = 0.0;
+
+  // ========== Step 1: Compute unemployed pool per region ==========
+  std::vector<double> UN_region(NR, 0.0); // Unemployed search pool
+  for (int o = 0; o < NR; ++o)
+  {
+    double L_region_o = reg_Ld1[o] + reg_Ld2[o]; // Employment = labor demand
+    UN_region[o] = max(0.0, reg_LS[o] - L_region_o);
+  }
+
+  // ========== Step 2: Compute regional utility V_region[r] ==========
+  // V_r = beta_w * ln(omega_r) - beta_u * ln(max(u_r, u_min)) + beta_prot * K_prot_r + beta_pub * K_pub_r
+  // omega_r = real wage = nominal_wage / CPI
+  // For now, use national wage; protection and public capital normalized to zero if unavailable
+  const double omega_nat = (cpi(1) > 0) ? w(1) / cpi(1) : w(1); // Real national wage
+  for (int r = 0; r < NR; ++r)
+  {
+    // Regional real wage when regional labour market is active, else national proxy
+    double wage_r = (flag_regional_labor == 1 && (int)reg_w.size() == NR) ? reg_w[r] : w(1);
+    double omega_r = (cpi(1) > 0) ? wage_r / cpi(1) : wage_r;
+    double u_r = reg_U[r];
+
+    // Log-wage utility (beta_w_mig > 0)
+    double v_wage = (omega_r > 0) ? beta_w_mig * log(omega_r) : 0.0;
+
+    // Unemployment disutility (beta_u_mig > 0 means lower unemployment is better)
+    double u_clamp = max(u_r, u_min_mig);
+    double v_unemp = -beta_u_mig * log(u_clamp); // Negative because higher unemployment = worse
+
+    // Protection and public capital (set to 0.0 for now as they're not decomposed by region)
+    double v_prot = 0.0;
+    double v_pub = 0.0;
+
+    diag_V_region[r] = v_wage + v_unemp + v_prot + v_pub;
+  }
+
+  // ========== Step 3: Compute monetary moving costs MC_mig[o][d] ==========
+  // MC_{o,d} = w_{o,t-1} * [mu_F * I(o != d) + mu_D * D_od]
+  // MC_{o,o} = 0
+  // Distance D_od from regions.distance (normalised NxN, zero diagonal); default
+  // off-diagonal = 1 when no distance matrix is supplied.
+  const double w_lag = w(2); // Previous period wage
+  std::vector<std::vector<double>> dist_od(NR, std::vector<double>(NR, 1.0));
+  for (int r = 0; r < NR; ++r)
+  {
+    dist_od[r][r] = 0.0; // Distance to self is zero
+  }
+  if ((int)region_distance.size() == NR)
+  {
+    for (int o = 0; o < NR; ++o)
+    {
+      if ((int)region_distance[o].size() != NR)
+        continue;
+      for (int d = 0; d < NR; ++d)
+        dist_od[o][d] = (o == d) ? 0.0 : region_distance[o][d];
+    }
+  }
+
+  for (int o = 0; o < NR; ++o)
+  {
+    for (int d = 0; d < NR; ++d)
+    {
+      if (o == d)
+      {
+        diag_MC_mig[o][d] = 0.0;
+      }
+      else
+      {
+        double fixed_component = mu_F_mig * (w_lag >= 0 ? w_lag : 0.0);
+        double distance_component = mu_D_mig * dist_od[o][d] * (w_lag >= 0 ? w_lag : 0.0);
+        diag_MC_mig[o][d] = fixed_component + distance_component;
+      }
+    }
+  }
+
+  // ========== Step 4: Convert to utility-equivalent costs CU_mig[o][d] ==========
+  // CU_{o,d} = beta_w * ln(1 + MC_{o,d} / w_{o,t-1})
+  for (int o = 0; o < NR; ++o)
+  {
+    for (int d = 0; d < NR; ++d)
+    {
+      if (w_lag > 0 && diag_MC_mig[o][d] > 0)
+      {
+        double ratio = diag_MC_mig[o][d] / w_lag;
+        diag_CU_mig[o][d] = beta_w_mig * log(1.0 + ratio);
+      }
+      else
+      {
+        diag_CU_mig[o][d] = 0.0;
+      }
+    }
+  }
+
+  // ========== Step 5: Compute destination-choice probabilities ==========
+  // pi_{o,d} = exp(V_d - CU_{o,d}) / sum_n exp(V_n - CU_{o,n})
+  // Use log-sum-exp for numerical stability
+  std::vector<std::vector<double>> exp_args(NR, std::vector<double>(NR, 0.0));
+  std::vector<double> max_exp_arg(NR, -1e308); // Max for log-sum-exp
+
+  // Compute exponent arguments V_d - CU_{o,d} + stay_bonus (stay_bonus = eta_stay_mig if d==o, else 0)
+  for (int o = 0; o < NR; ++o)
+  {
+    for (int d = 0; d < NR; ++d)
+    {
+      double stay_bonus = (d == o) ? eta_stay_mig : 0.0;
+      exp_args[o][d] = diag_V_region[d] - diag_CU_mig[o][d] + stay_bonus;
+      if (std::isfinite(exp_args[o][d]))
+      {
+        max_exp_arg[o] = max(max_exp_arg[o], exp_args[o][d]);
+      }
+    }
+  }
+
+  // Compute probabilities with log-sum-exp stabilization
+  for (int o = 0; o < NR; ++o)
+  {
+    if (!std::isfinite(max_exp_arg[o]))
+    {
+      // Invalid utilities: stay at origin
+      diag_pi_mig[o][o] = 1.0;
+      for (int d = 0; d < NR; ++d)
+      {
+        if (d != o)
+        {
+          diag_pi_mig[o][d] = 0.0;
+        }
+      }
+      diag_pi_mig_row_sum[o] = 1.0;
+      diag_pi_stay[o] = 1.0;
+    }
+    else
+    {
+      // Compute sum of exp(arg - max)
+      double sum_exp = 0.0;
+      for (int d = 0; d < NR; ++d)
+      {
+        double exp_shifted = exp(exp_args[o][d] - max_exp_arg[o]);
+        sum_exp += exp_shifted;
+      }
+
+      // Normalize probabilities
+      if (sum_exp > 0)
+      {
+        for (int d = 0; d < NR; ++d)
+        {
+          double exp_shifted = exp(exp_args[o][d] - max_exp_arg[o]);
+          diag_pi_mig[o][d] = exp_shifted / sum_exp;
+        }
+      }
+      else
+      {
+        // Fallback: stay at origin
+        diag_pi_mig[o][o] = 1.0;
+        for (int d = 0; d < NR; ++d)
+        {
+          if (d != o)
+          {
+            diag_pi_mig[o][d] = 0.0;
+          }
+        }
+      }
+
+      diag_pi_mig_row_sum[o] = 0.0;
+      for (int d = 0; d < NR; ++d)
+      {
+        diag_pi_mig_row_sum[o] += diag_pi_mig[o][d];
+      }
+      diag_pi_stay[o] = diag_pi_mig[o][o];
+    }
+  }
+
+  // ========== Step 6: Compute intended migration M_int_mig[o][d] ==========
+  // M^int_{o,d} = UN_o * pi_{o,d}  for d != o
+  double total_intent = 0.0;
+  for (int o = 0; o < NR; ++o)
+  {
+    diag_M_int_out[o] = 0.0;
+    for (int d = 0; d < NR; ++d)
+    {
+      if (d != o)
+      {
+        diag_M_int_mig[o][d] = UN_region[o] * diag_pi_mig[o][d];
+        total_intent += diag_M_int_mig[o][d];
+        diag_M_int_out[o] += diag_M_int_mig[o][d];
+      }
+    }
+  }
+  diag_total_intended_migration = total_intent;
+
+  // ========== Step 7: Compute intended migration expenditure ==========
+  // ME^int_o = sum_{d != o} MC_{o,d} * M^int_{o,d}
+  for (int o = 0; o < NR; ++o)
+  {
+    diag_ME_int_region[o] = 0.0;
+    for (int d = 0; d < NR; ++d)
+    {
+      if (d != o)
+      {
+        diag_ME_int_region[o] += diag_MC_mig[o][d] * diag_M_int_mig[o][d];
+      }
+    }
+  }
+
+  // ========== Step 8: Compute liquidity scaling lambda_liq_region[o] ==========
+  // D^{h,U}_o = u_o * Dh_pre_migration_o (unemployment-weighted regional household deposits)
+  // lambda^liq_o = min(1, D^{h,U}_o / ME^int_o) if ME^int_o > 0 else 1
+  // Phase 5B: liquidity is based on TRUE regional household deposits before migration
+  // (reg_Dh_pre_migration), not national/GDP-allocated deposits.
+  for (int o = 0; o < NR; ++o)
+  {
+    double Dh_o = ((int)reg_Dh_pre_migration.size() == NR) ? reg_Dh_pre_migration[o] : reg_NW_h[o];
+    double u_rate_o = ((int)reg_U_rate.size() == NR) ? reg_U_rate[o] : reg_U[o];
+    double Dh_U_o = max(0.0, u_rate_o * Dh_o); // Unemployment-weighted, clamped >= 0
+    diag_Dh_U_region[o] = Dh_U_o;
+
+    if (diag_ME_int_region[o] > 1e-10)
+    {
+      diag_lambda_liq_region[o] = min(1.0, Dh_U_o / diag_ME_int_region[o]);
+    }
+    else
+    {
+      diag_lambda_liq_region[o] = 1.0; // No migration cost, no constraint
+    }
+
+    // Clamp lambda to [0, 1] as a safety guard
+    diag_lambda_liq_region[o] = max(0.0, min(1.0, diag_lambda_liq_region[o]));
+  }
+
+  // ========== Step 9: Compute actual migration M_mig[o][d] ==========
+  // M_{o,d} = lambda^liq_o * M^int_{o,d}
+  double total_actual = 0.0;
+  for (int o = 0; o < NR; ++o)
+  {
+    diag_M_out_region[o] = 0.0;
+    for (int d = 0; d < NR; ++d)
+    {
+      if (d != o)
+      {
+        diag_M_mig[o][d] = diag_lambda_liq_region[o] * diag_M_int_mig[o][d];
+        total_actual += diag_M_mig[o][d];
+        diag_M_out_region[o] += diag_M_mig[o][d];
+      }
+      else
+      {
+        diag_M_mig[o][d] = 0.0; // Stayers handled separately
+      }
+    }
+  }
+  diag_total_actual_migration = total_actual;
+
+  // ========== Step 10: Compute residual stayers M_mig[o][o] ==========
+  // M_{o,o} = UN_o - sum_{d != o} M_{o,d}
+  for (int o = 0; o < NR; ++o)
+  {
+    double outflow = diag_M_out_region[o];
+    double stayers = UN_region[o] - outflow;
+    diag_M_mig[o][o] = max(0.0, stayers); // Clamp to zero
+    diag_M_mig_row_sum[o] = diag_M_mig[o][o];
+    for (int d = 0; d < NR; ++d)
+    {
+      if (d != o)
+      {
+        diag_M_mig_row_sum[o] += diag_M_mig[o][d];
+      }
+    }
+  }
+
+  // ========== Step 11: Compute inflows ==========
+  // M^in_d = sum_{o != d} M_{o,d}
+  for (int d = 0; d < NR; ++d)
+  {
+    diag_M_in_region[d] = 0.0;
+    for (int o = 0; o < NR; ++o)
+    {
+      if (o != d)
+      {
+        diag_M_in_region[d] += diag_M_mig[o][d];
+      }
+    }
+  }
+
+  diag_sum_M_out = 0.0;
+  diag_sum_M_in = 0.0;
+  for (int r = 0; r < NR; ++r)
+  {
+    diag_sum_M_out += diag_M_out_region[r];
+    diag_sum_M_in += diag_M_in_region[r];
+  }
+
+  // ========== Step 12: Update next-period regional labor supply shares ==========
+  // LS_tilde_{r,t+1} = LS_{r,t} - M^out_r + M^in_r
+  // s^LS_{r,t+1} = LS_tilde_{r,t+1} / sum_q LS_tilde_{q,t+1}
+  std::vector<double> LS_next(NR, 0.0);
+  double total_LS_next = 0.0;
+  for (int r = 0; r < NR; ++r)
+  {
+    LS_next[r] = reg_LS[r] - diag_M_out_region[r] + diag_M_in_region[r];
+    LS_next[r] = max(0.0, LS_next[r]); // Clamp to zero
+    total_LS_next += LS_next[r];
+  }
+
+  // Compute shares
+  diag_sum_LS_region_share = 0.0;
+  diag_sum_LS_region_share_next = 0.0;
+  for (int r = 0; r < NR; ++r)
+  {
+    diag_LS_region_share[r] = (LS > 0) ? reg_LS[r] / LS : 1.0 / NR;
+    if (total_LS_next > 0)
+    {
+      diag_LS_region_share_next[r] = LS_next[r] / total_LS_next;
+    }
+    else
+    {
+      diag_LS_region_share_next[r] = 1.0 / NR; // Fallback
+    }
+    diag_sum_LS_region_share += diag_LS_region_share[r];
+    diag_sum_LS_region_share_next += diag_LS_region_share_next[r];
+  }
+
+  // ===== Phase 5A: write authoritative next-period labour-supply shares =====
+  // Migration writes LS_region_share_next ONLY; the roll into LS_region_share
+  // happens at the start of next period, so current-period outcomes are
+  // unaffected. National labour conservation: sum_r LS_region_share_next = 1.
+  // (Deposit deduction / SFC payment closure is Phase 5B, postponed.)
+  if (flag_regional_labor == 1 && (int)LS_region_share_next.size() == NR)
+  {
+    for (int r = 0; r < NR; ++r)
+    {
+      LS_region_share_next[r] = (total_LS_next > 0) ? LS_next[r] / total_LS_next : 1.0 / NR;
+    }
+  }
+
+  // ========== Step 13: Diagnostic migration expenditure ==========
+  // ME_t = sum_o sum_{d != o} MC_{o,d} * M_{o,d}
+  diag_migration_expenditure_total = 0.0;
+  for (int o = 0; o < NR; ++o)
+  {
+    for (int d = 0; d < NR; ++d)
+    {
+      if (d != o)
+      {
+        diag_migration_expenditure_total += diag_MC_mig[o][d] * diag_M_mig[o][d];
+      }
+    }
+  }
+
+  // ========== Phase 5B: Migration expenditure SFC closure ==========
+  // Monetary moving costs leave origin-region households and arrive at C-firms as
+  // a separate migration-service revenue flow (allocated by national lagged C-firm
+  // market shares). This runs AFTER SFC_CHECK and AFTER actual migration is known,
+  // and mutates only current-period (1)-index stocks (Deposits_h, NW_h, Deposits_2,
+  // NW_2) plus the regional household deposit state (reg_Dh). It does NOT touch
+  // ordinary Consumption, Q2, or inventories.
+  diag_migration_expenditure_from_households = 0.0;
+  diag_migration_service_revenue_C_total = 0.0;
+  diag_migration_closure_residual = 0.0;
+  diag_regional_deposit_consistency_error = 0.0;
+  diag_sum_reg_Dh_post = 0.0;
+  diag_national_Deposits_h = Deposits_h(1);
+  diag_household_bank_mirror_residual = 0.0;
+  diag_aggregate_bank_deposit_residual = 0.0;
+
+  if (flag_regional_labor == 1 && NR > 0 &&
+      (int)reg_Dh_pre_migration.size() == NR && (int)reg_Dh_post_migration.size() == NR &&
+      (int)reg_ME_out.size() == NR)
+  {
+    // per-origin migration expenditure (actual migration only)
+    double ME_t = 0.0;
+    for (int o = 0; o < NR; ++o)
+    {
+      if ((int)diag_reg_Dh_lag_used.size() == NR)
+        diag_reg_Dh_lag_used[o] = reg_Dh_lag[o]; // snapshot lag 
+      double me_out_o = 0.0;
+      for (int d = 0; d < NR; ++d)
+      {
+        if (d != o)
+          me_out_o += diag_MC_mig[o][d] * diag_M_mig[o][d];
+      }
+      if (me_out_o < 0.0)
+        me_out_o = 0.0;
+      reg_ME_out[o] = me_out_o;
+      ME_t += me_out_o;
+    }
+    diag_migration_expenditure_from_households = ME_t;
+
+    // post-migration regional deposits (liquidity scaling makes this >= 0)
+    for (int o = 0; o < NR; ++o)
+    {
+      double dh_post = reg_Dh_pre_migration[o] - reg_ME_out[o];
+      double tol_o = 1e-6 * (std::fabs(reg_Dh_pre_migration[o]) + 1.0);
+      if (dh_post < 0.0)
+      {
+        if (dh_post < -tol_o)
+        {
+          std::cerr << "[ERROR] reg_Dh_post_migration materially negative in region " << o
+                    << " (period " << t << "): " << dh_post << std::endl;
+        }
+        dh_post = 0.0; // clamp tiny numerical negatives
+      }
+      reg_Dh_post_migration[o] = dh_post;
+    }
+
+    // deduct total migration expenditure from national household deposits
+    Deposits_h(1) -= ME_t;
+    NW_h(1) = Deposits_h(1);
+    double Deposits_h_after_migration = Deposits_h(1);
+
+    // Mirror the household deduction onto the bank books. Household
+    // deposits held at bank b (Deposits_hb) and the bank's total deposit
+    // liability (Deposits) must fall by the same amount, otherwise the
+    // bank-layer mirror identities break (CHECKSUMS/DEPOSITCHECK/ADJUSTSTOCKS).
+    // Allocate the payment across banks in proportion to existing household
+    // deposit holdings, which also preserves DepositShare_h.
+    double hh_bank_total = Deposits_hb.Row(1).Sum();
+    double hh_mirror_change = 0.0;
+    for (int b = 1; b <= NB; ++b)
+    {
+      double hh_bank_payment_b = (hh_bank_total > 1e-12)
+                                     ? (ME_t * Deposits_hb(1, b) / hh_bank_total)
+                                     : (NB > 0 ? ME_t / NB : 0.0);
+      Deposits_hb(1, b) -= hh_bank_payment_b;
+      Deposits(1, b) -= hh_bank_payment_b;
+      if (Deposits_hb(1, b) < 0.0)
+      {
+        double tol_b = 1e-6 * (std::fabs(hh_bank_payment_b) + 1.0);
+        if (Deposits_hb(1, b) < -tol_b)
+        {
+          std::cerr << "[ERROR] Deposits_hb materially negative at bank " << b
+                    << " (period " << t << "): " << Deposits_hb(1, b) << std::endl;
+        }
+        Deposits_hb(1, b) = 0.0; // clamp tiny numerical negatives
+      }
+      hh_mirror_change -= hh_bank_payment_b;
+    }
+
+    //reconcile regional household deposits to the national SFC stock
+    double sum_reg_Dh_post = 0.0;
+    for (int o = 0; o < NR; ++o)
+      sum_reg_Dh_post += reg_Dh_post_migration[o];
+    diag_regional_deposit_consistency_error = sum_reg_Dh_post - Deposits_h_after_migration;
+
+    const double dh_eps = 1e-12;
+    if (sum_reg_Dh_post > dh_eps)
+    {
+      double scale = Deposits_h_after_migration / sum_reg_Dh_post;
+      for (int o = 0; o < NR; ++o)
+        reg_Dh_post_migration[o] *= scale;
+    }
+    else
+    {
+      for (int o = 0; o < NR; ++o)
+      {
+        double sh = ((int)LS_region_share.size() == NR) ? LS_region_share[o] : 1.0 / NR;
+        reg_Dh_post_migration[o] = sh * Deposits_h_after_migration;
+      }
+    }
+
+    // allocate ME_t to C-firms by national lagged C-firm market shares
+    //   share_C_j = S2(2,j) / sum_k S2(2,k)   (S2(2,*) is lagged nominal sales)
+    double sales_denom = 0.0;
+    for (int j = 1; j <= N2; ++j)
+      sales_denom += S2(2, j);
+
+    double svc_total = 0.0;
+    double firm_mirror_change = 0.0;
+    for (int j = 1; j <= N2; ++j)
+    {
+      double share_C_j = (sales_denom > 1e-12) ? (S2(2, j) / sales_denom)
+                                               : (N2 > 0 ? 1.0 / N2 : 0.0);
+      double rev_j = share_C_j * ME_t;
+      if (rev_j < 0.0)
+        rev_j = 0.0;
+      // Credit C-firm deposits and net worth (migration-service revenue, separate
+      // from ordinary C-good sales). Pi2 is a reporting accumulator (reset next period).
+      Deposits_2(1, j) += rev_j;
+      NW_2(1, j) += rev_j;
+      Pi2(j) += rev_j;
+      svc_total += rev_j;
+      // Mirror the firm receipt onto its bank's deposit book so the per-bank
+      // firm-deposit identity (Deposits = Deposits_hb + Deposits_eb + firm deposits)
+      // is preserved. Firm j banks at the unique bank b with BankMatch_2(j,b)==1.
+      for (int b = 1; b <= NB; ++b)
+      {
+        if (BankMatch_2(j, b) == 1)
+        {
+          Deposits(1, b) += rev_j;
+          firm_mirror_change += rev_j;
+          break;
+        }
+      }
+    }
+    diag_migration_service_revenue_C_total = svc_total;
+    diag_migration_closure_residual = diag_migration_expenditure_from_households - svc_total;
+
+    // Bank-mirror consistency diagnostics (should be ~0 after the closure).
+    diag_household_bank_mirror_residual = Deposits_h(1) - Deposits_hb.Row(1).Sum();
+    diag_aggregate_bank_deposit_residual =
+        (Deposits_1.Row(1).Sum() + Deposits_2.Row(1).Sum() +
+         Deposits_hb.Row(1).Sum() + Deposits_eb.Row(1).Sum()) -
+        Deposits.Row(1).Sum();
+    (void)hh_mirror_change;
+    (void)firm_mirror_change;
+
+    // end-of-period roll of regional household deposit state
+    sum_reg_Dh_post = 0.0;
+    for (int o = 0; o < NR; ++o)
+    {
+      reg_Dh[o] = reg_Dh_post_migration[o];
+      reg_Dh_lag[o] = reg_Dh[o];
+      sum_reg_Dh_post += reg_Dh_post_migration[o];
+    }
+    diag_sum_reg_Dh_post = sum_reg_Dh_post;
+    diag_national_Deposits_h = Deposits_h(1);
+  }
+
+  // Note: LS_region_share_next will be rolled into LS_region_share at the
+  // beginning of next period, before regional labor supply is computed.
+  // This ensures no retroactive changes to current-period outcomes.
+}
+
 
 void BROCHURE(void)
 {
@@ -7564,8 +8755,162 @@ void REGIONAL_CONSISTENCY_CHECK(void)
     }
   }
 
+  // ========== OUTPUT MOBILITY DIAGNOSTICS ==========
+  if (NR > 0 && flag_regional_mobility == 1)
+  {
+    string mobility_diagnostics_file = "output/mobility_diagnostics_" + str_runname + "_1.csv";
+
+    // Header written only on first period
+    if (t == 1)
+    {
+      ofstream mob_out(mobility_diagnostics_file, ios::trunc);
+      mob_out << "t,total_intended_migration,total_actual_migration,migration_expenditure_total,"
+              << "sum_M_out,sum_M_in,max_abs_pi_row_sum_error,max_abs_M_row_sum_error,"
+              << "sum_LS_region_share,sum_LS_region_share_next,min_pi_stay,max_pi_stay,mean_pi_stay,"
+              << "min_lambda_liq,max_lambda_liq,mean_lambda_liq,"
+              << "eta_stay_mig,mean_move_probability,gross_migration_rate";
+
+      // Add origin-destination diagnostics headers if NR is small
+      if (NR <= 10)
+      {
+        for (int o = 0; o < NR; ++o)
+        {
+          for (int d = 0; d < NR; ++d)
+          {
+            mob_out << ",pi_mig[" << o << "][" << d << "]";
+          }
+        }
+        for (int o = 0; o < NR; ++o)
+        {
+          for (int d = 0; d < NR; ++d)
+          {
+            mob_out << ",M_int_mig[" << o << "][" << d << "]";
+          }
+        }
+        for (int o = 0; o < NR; ++o)
+        {
+          for (int d = 0; d < NR; ++d)
+          {
+            mob_out << ",M_mig[" << o << "][" << d << "]";
+          }
+        }
+        for (int o = 0; o < NR; ++o)
+        {
+          for (int d = 0; d < NR; ++d)
+          {
+            mob_out << ",MC_mig[" << o << "][" << d << "]";
+          }
+        }
+        for (int o = 0; o < NR; ++o)
+        {
+          for (int d = 0; d < NR; ++d)
+          {
+            mob_out << ",CU_mig[" << o << "][" << d << "]";
+          }
+        }
+      }
+      mob_out << "\n";
+      mob_out.close();
+    }
+
+    // Write data row
+    ofstream mob_out(mobility_diagnostics_file, ios::app);
+    mob_out.setf(ios::fixed);
+    mob_out.precision(8);
+
+    mob_out << t << ","
+            << diag_total_intended_migration << ","
+            << diag_total_actual_migration << ","
+            << diag_migration_expenditure_total << ","
+            << diag_sum_M_out << ","
+            << diag_sum_M_in << ",";
+
+    // Compute row sum errors for pi_mig and M_mig
+    double max_pi_error = 0.0;
+    double max_M_error = 0.0;
+    for (int o = 0; o < NR; ++o)
+    {
+      double pi_row_sum_error = fabs(diag_pi_mig_row_sum[o] - 1.0);
+      double M_row_sum_error = fabs(diag_M_mig_row_sum[o] -
+                                    (max(0.0, reg_LS[o] - (reg_Ld1[o] + reg_Ld2[o]))));
+      max_pi_error = max(max_pi_error, pi_row_sum_error);
+      max_M_error = max(max_M_error, M_row_sum_error);
+    }
+    mob_out << max_pi_error << ","
+            << max_M_error << ","
+            << diag_sum_LS_region_share << ","
+            << diag_sum_LS_region_share_next << ",";
+
+    // Compute min/max/mean of pi_stay and lambda_liq
+    double min_pi_stay = 1.0, max_pi_stay = 0.0, sum_pi_stay = 0.0;
+    double min_lambda = 1.0, max_lambda = 0.0, sum_lambda = 0.0;
+    for (int r = 0; r < NR; ++r)
+    {
+      min_pi_stay = min(min_pi_stay, diag_pi_stay[r]);
+      max_pi_stay = max(max_pi_stay, diag_pi_stay[r]);
+      sum_pi_stay += diag_pi_stay[r];
+      min_lambda = min(min_lambda, diag_lambda_liq_region[r]);
+      max_lambda = max(max_lambda, diag_lambda_liq_region[r]);
+      sum_lambda += diag_lambda_liq_region[r];
+    }
+    double mean_pi_stay = (NR > 0) ? sum_pi_stay / NR : 0.0;
+    double mean_lambda = (NR > 0) ? sum_lambda / NR : 0.0;
+
+    mob_out << min_pi_stay << ","
+            << max_pi_stay << ","
+            << mean_pi_stay << ","
+            << min_lambda << ","
+            << max_lambda << ","
+            << mean_lambda << ","
+            << eta_stay_mig << ","
+            << (1.0 - mean_pi_stay) << ","
+            << ((LS > 0) ? diag_total_actual_migration / LS : 0.0);
+
+    if (NR <= 10)
+    {
+      for (int o = 0; o < NR; ++o)
+      {
+        for (int d = 0; d < NR; ++d)
+        {
+          mob_out << "," << diag_pi_mig[o][d];
+        }
+      }
+      for (int o = 0; o < NR; ++o)
+      {
+        for (int d = 0; d < NR; ++d)
+        {
+          mob_out << "," << diag_M_int_mig[o][d];
+        }
+      }
+      for (int o = 0; o < NR; ++o)
+      {
+        for (int d = 0; d < NR; ++d)
+        {
+          mob_out << "," << diag_M_mig[o][d];
+        }
+      }
+      for (int o = 0; o < NR; ++o)
+      {
+        for (int d = 0; d < NR; ++d)
+        {
+          mob_out << "," << diag_MC_mig[o][d];
+        }
+      }
+      for (int o = 0; o < NR; ++o)
+      {
+        for (int d = 0; d < NR; ++d)
+        {
+          mob_out << "," << diag_CU_mig[o][d];
+        }
+      }
+    }
+    mob_out << "\n";
+    mob_out.close();
+  }
+
   Errors.close();
 }
+
 
 void OVERBOOST(void)
 {
@@ -8410,7 +9755,13 @@ void SAVE(void)
         target.width(60);
         target << reg_H1[region - 1]; // 63: reg_H1 (Regional normalised Herfindahl index K-firms)
         target.width(60);
-        target << reg_H2[region - 1] << endl; // 64: reg_H2 (Regional normalised Herfindahl index C-firms)
+        target << reg_H2[region - 1]; // 64: reg_H2 (Regional normalised Herfindahl index C-firms)
+        target.width(60);
+        target << reg_w[region - 1]; // 65: reg_w (Regional wage rate; income/benefit/migration use)
+        target.width(60);
+        target << reg_YD[region - 1]; // 66: reg_YD (Regional disposable income, decomposition)
+        target.width(60);
+        target << reg_C[region - 1] << endl; // 67: reg_C (Regional consumption, decomposition)
       };
 
       for (int rr = 1; rr <= NR; ++rr)
@@ -8818,7 +10169,15 @@ void SAVE(void)
         target.width(60);
         target << reg_H1[region - 1]; // 40: H1 ( Herfindahl index K-firms)
         target.width(60);
-        target << reg_H2[region - 1] << endl; // 41: H2 ( Herfindahl index C-firms)
+        target << reg_H2[region - 1]; // 41: H2 ( Herfindahl index C-firms)
+        target.width(60);
+        target << reg_w[region - 1]; // 42: reg_w (Regional wage rate; income/benefit/migration use)
+        target.width(60);
+        target << reg_YD[region - 1]; // 43: reg_YD (Regional disposable income, decomposition)
+        target.width(60);
+        target << reg_C[region - 1]; // 44: reg_C (Regional consumption, decomposition)
+        target.width(60);
+        target << ((LS > 0) ? reg_LS[region - 1] / LS : 0.0) << endl; // 45: LS_region_share (sigma_r)
       };
 
       for (int rr = 1; rr <= NR; ++rr)

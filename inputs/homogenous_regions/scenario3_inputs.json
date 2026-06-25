@@ -105,7 +105,15 @@
       "delta_pub": 0.025,
       "phi_adapt": 4.0,
       "delta_adapt": 0.03,
-      "omega_floor_adapt": 0.25
+      "omega_floor_adapt": 0.25,
+      "beta_w_mig": 1.0,
+      "beta_u_mig": 0.15,
+      "beta_prot_mig": 0.0,
+      "beta_pub_mig": 0.0,
+      "mu_F_mig": 0.5,
+      "mu_D_mig": 0.10,
+      "eta_stay_mig": 3.0,
+      "chi_w": 0.5
     }
   ],
   "climparams": [
@@ -460,7 +468,10 @@
       "flag_scrap_age": 1,
       "flag_uniformshocks": 1,
       "flag_desc": 0,
-      "flag_adaptation": 2
+      "flag_adaptation": 2,
+      "flag_regional_mobility": 1,
+      "flag_regional_labor": 1,
+      "flag_ls_distribution": 0
     }
   ],
   "inits": [
@@ -542,44 +553,44 @@
     "K_firm_shares": [
       0.333333,
       0.333333,
-      0.333334
+      0.333333
     ],
     "C_firm_shares": [
       0.333333,
       0.333333,
-      0.333334
+      0.333333
     ],
     "energy": {
       "dirty_capacity_shares": [
         0.333333,
         0.333333,
-        0.333334
+        0.333333
       ],
       "green_capacity_shares": [
         0.333333,
         0.333333,
-        0.333334
+        0.333333
       ]
     },
     "de_growth_probability": [
       0.333333,
       0.333333,
-      0.333334
+      0.333333
     ],
     "ge_growth_probability": [
       0.333333,
       0.333333,
-      0.333334
+      0.333333
     ],
     "tau_share_rg": [
       0.333333,
       0.333333,
-      0.333334
+      0.333333
     ],
     "omega_rg": [
       0.333333,
       0.333333,
-      0.333334
+      0.333333
     ],
     "wu_rg": [
       0.05,
@@ -601,7 +612,29 @@
       1.0,
       1.0
     ],
-    "d_bar_rec": 0.0
+    "d_bar_rec": 0.0,
+    "distance": [
+      [
+        0.0,
+        1.0,
+        1.0
+      ],
+      [
+        1.0,
+        0.0,
+        1.0
+      ],
+      [
+        1.0,
+        1.0,
+        0.0
+      ]
+    ],
+    "LS_region_share": [
+      0.333333,
+      0.333333,
+      0.333333
+    ]
   },
   "shocks_kfirms": [
     0,

@@ -33,6 +33,7 @@ void ENTRYEXIT(void);                  // Firms exit and are replaced
 void TECHANGEND(void);                 // Endogenous technological change
 void SFC_CHECK(void);                  // Checks for stock-flow consistency
 void REGIONAL_CONSISTENCY_CHECK(void); // Checks that regional aggregates sum to national totals
+void WRITE_PHASE5B_DIAGNOSTICS(void);  // Phase 5B migration deposit closure diagnostics (post-MOBILITY)
 void SAVE(void);                       // Current period values are written to output files
 void UPDATE(void);                     // Lagged variables are updated
 void OVERBOOST(void);                  // Speeds up simulation by shortening iterations through technology arrays
