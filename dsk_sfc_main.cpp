@@ -1,14 +1,6 @@
 #include "dsk_sfc_include.h"
 using namespace std;
 
-// ============================================================================
-// MOBILITY_COMPUTATION(): Regional labor migration with destination choice
-// ============================================================================
-// Computes interregional migration based on regional utilities, moving costs,
-// and liquidity constraints. Updates next-period regional labor supply shares
-// (LS_region_share_next) without retroactively changing current-period outcomes.
-// ============================================================================
-
 int main(int argc, char *argv[])
 {
   CLI::App app{"DSK_SFC, the Dystopian Schumpeter meeting Keynes Stock Flow Consistent model"};
@@ -532,10 +524,6 @@ int main(int argc, char *argv[])
     {
       cout << "Exiting function MOBILITY_COMPUTATION in period " << t << endl;
     }
-
-    // Phase 5B diagnostics must be written AFTER MOBILITY_COMPUTATION() so the
-    // migration deposit closure is temporally aligned with current-period stocks.
-    WRITE_PHASE5B_DIAGNOSTICS();
 
     SAVE();
     if (verbose)
@@ -3556,7 +3544,7 @@ void MOBILITY_COMPUTATION(void)
     for (int o = 0; o < NR; ++o)
     {
       if ((int)diag_reg_Dh_lag_used.size() == NR)
-        diag_reg_Dh_lag_used[o] = reg_Dh_lag[o]; // snapshot lag 
+        diag_reg_Dh_lag_used[o] = reg_Dh_lag[o]; // snapshot lag
       double me_out_o = 0.0;
       for (int d = 0; d < NR; ++d)
       {
@@ -3570,7 +3558,7 @@ void MOBILITY_COMPUTATION(void)
     }
     diag_migration_expenditure_from_households = ME_t;
 
-    // /Users/anmolsoni/Documents/pysim-lab/notebooks /Users/anmolsoni/Documents/pysim-lab/scriptspost-migration regional deposits (liquidity scaling makes this >= 0)
+    // post-migration regional deposits (liquidity scaling makes this >= 0)
     for (int o = 0; o < NR; ++o)
     {
       double dh_post = reg_Dh_pre_migration[o] - reg_ME_out[o];
@@ -3620,7 +3608,7 @@ void MOBILITY_COMPUTATION(void)
       hh_mirror_change -= hh_bank_payment_b;
     }
 
-    //reconcile regional household deposits to the national SFC stock
+    // reconcile regional household deposits to the national SFC stock
     double sum_reg_Dh_post = 0.0;
     for (int o = 0; o < NR; ++o)
       sum_reg_Dh_post += reg_Dh_post_migration[o];
@@ -3704,7 +3692,6 @@ void MOBILITY_COMPUTATION(void)
   // beginning of next period, before regional labor supply is computed.
   // This ensures no retroactive changes to current-period outcomes.
 }
-
 
 void BROCHURE(void)
 {
@@ -4437,7 +4424,7 @@ void PRODMACH(void)
     }
   }
 
-  if ((flag_outputshocks == 1))
+  if (flag_outputshocks == 1)
   {
     for (i = 1; i <= N1; i++)
     {
@@ -4461,7 +4448,7 @@ void PRODMACH(void)
     }
   }
 
-  if ((flag_outputshocks == 2))
+  if (flag_outputshocks == 2)
   {
     loss = Q1.Sum() * shocks_output1(1);
     while (loss > 0)
@@ -4496,7 +4483,7 @@ void PRODMACH(void)
     }
   }
 
-  if ((flag_outputshocks == 3))
+  if (flag_outputshocks == 3)
   {
     loss = Q1.Sum() * shocks_output1(1);
     while (loss > 0)
@@ -8911,7 +8898,6 @@ void REGIONAL_CONSISTENCY_CHECK(void)
   Errors.close();
 }
 
-
 void OVERBOOST(void)
 {
   // Reset t0 to shorten time taken to iterate over technology arrays
@@ -10392,12 +10378,8 @@ void FOLDERS(char *path)
   }
   outstr += "output";
   std::string errstr = outstr + "/errors";
-  char out_dir[outstr.length()];
-  char err_dir[errstr.length()];
-  strcpy(out_dir, outstr.c_str());
-  strcpy(err_dir, errstr.c_str());
-  const int out_fol = make_directory(out_dir);
-  const int err_fol = make_directory(err_dir);
+  const int out_fol = make_directory(outstr.c_str());
+  const int err_fol = make_directory(errstr.c_str());
 }
 
 void GENFILEOUTPUT1(char *path, const char *s1, char runname[], char const *seednumber)

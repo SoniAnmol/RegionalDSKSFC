@@ -16,6 +16,7 @@ double bpareto(double, double, double);            // Generates draws from paret
 void SETVARS(void);                    // Resets all variables for which this is necessary at the beginning of each period
 void DEPOSITINTEREST(void);            // Banks pay deposit interest to firms, households and energy sector
 void MACH(void);                       // New machines & technologies are delivered; prices are calculated
+void MOBILITY_COMPUTATION(void);       // Inter-regional labour migration
 void BROCHURE(void);                   // K-firms send brochures to new potential customers
 void INVEST(void);                     // C-firms calculate expected demand, desired expansion investment & inventories
 void SCRAPPING(void);                  // Old machines to be scrapped & corresponding substitution investment are determined
@@ -33,7 +34,6 @@ void ENTRYEXIT(void);                  // Firms exit and are replaced
 void TECHANGEND(void);                 // Endogenous technological change
 void SFC_CHECK(void);                  // Checks for stock-flow consistency
 void REGIONAL_CONSISTENCY_CHECK(void); // Checks that regional aggregates sum to national totals
-void WRITE_PHASE5B_DIAGNOSTICS(void);  // Phase 5B migration deposit closure diagnostics (post-MOBILITY)
 void SAVE(void);                       // Current period values are written to output files
 void UPDATE(void);                     // Lagged variables are updated
 void OVERBOOST(void);                  // Speeds up simulation by shortening iterations through technology arrays
