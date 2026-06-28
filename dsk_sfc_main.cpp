@@ -1196,66 +1196,6 @@ void SETPARAMS(const rapidjson::Document &inputs)
       }
     }
 
-    // Bilateral distance matrix for migration (regions.distance).
-    //   raw bilateral distances; diagonal forced to 0;
-    //   normalised by the mean off-diagonal distance.
-    //   if missing -> zero diagonal, unit off-diagonal.
-    region_distance.assign(NR, std::vector<double>(NR, 1.0));
-    for (int o = 0; o < NR; o++)
-    {
-      region_distance[o][o] = 0.0;
-    }
-    if (inputs["regions"].HasMember("distance") && inputs["regions"]["distance"].IsArray() &&
-        (int)inputs["regions"]["distance"].Size() == NR)
-    {
-      std::vector<std::vector<double>> dist_raw(NR, std::vector<double>(NR, 0.0));
-      bool dist_ok = true;
-      for (int o = 0; o < NR && dist_ok; o++)
-      {
-        if (!inputs["regions"]["distance"][o].IsArray() ||
-            (int)inputs["regions"]["distance"][o].Size() != NR)
-        {
-          dist_ok = false;
-          break;
-        }
-        for (int d = 0; d < NR; d++)
-        {
-          dist_raw[o][d] = inputs["regions"]["distance"][o][d].GetDouble();
-        }
-      }
-      if (!dist_ok)
-      {
-        std::cerr << "[WARN] regions.distance is not a square NRxNR matrix; using unit off-diagonal distances." << std::endl;
-      }
-      else
-      {
-        // Force zero diagonal, then compute mean off-diagonal for normalisation.
-        double off_sum = 0.0;
-        int off_cnt = 0;
-        for (int o = 0; o < NR; o++)
-        {
-          for (int d = 0; d < NR; d++)
-          {
-            if (o == d)
-              continue;
-            off_sum += dist_raw[o][d];
-            off_cnt++;
-          }
-        }
-        double off_mean = (off_cnt > 0) ? off_sum / off_cnt : 0.0;
-        for (int o = 0; o < NR; o++)
-        {
-          for (int d = 0; d < NR; d++)
-          {
-            if (o == d)
-              region_distance[o][d] = 0.0;
-            else
-              region_distance[o][d] = (off_mean > 0.0) ? dist_raw[o][d] / off_mean : 1.0;
-          }
-        }
-      }
-    }
-
     // Per-region adaptation investment rate (iota_adapt_rg, share of regional GDP)
     iota_adapt_rg.resize(NR, 0.0);
     if (inputs["regions"].HasMember("iota_adapt_rg") && inputs["regions"]["iota_adapt_rg"].IsArray())
@@ -1464,8 +1404,7 @@ void SETPARAMS(const rapidjson::Document &inputs)
 
   // Mobility parameters
   // Fixed moving cost and distance-based moving cost (utility equivalent)
-  mu_F_mig = getDoubleParam("mu_F_mig", 0.05);
-  mu_D_mig = getDoubleParam("mu_D_mig", 0.01);
+  mu_F_mig = getDoubleParam("mu_F_mig", 4);
 
   // Regional mobility flag (1=on, 0=off)
   // Use defensive lambda for reading from flags array
@@ -1494,22 +1433,21 @@ void SETPARAMS(const rapidjson::Document &inputs)
   beta_prot_mig = getDoubleParam("beta_prot_mig", 0.0); // Protection capital coefficient
   beta_pub_mig = getDoubleParam("beta_pub_mig", 0.0);   // Public capital coefficient
   u_min_mig = getDoubleParam("u_min_mig", 0.001);       // Minimum unemployment for clamping
-  eta_stay_mig = getDoubleParam("eta_stay_mig", 3.0);   // Constant stay premium on d==o alternative only
-  if (eta_stay_mig < 0.0)
+  p_move_mig = getDoubleParam("p_move_mig", 0.004);     // Propensity to move to another region with better wages & lower unemployment
+  if (p_move_mig < 0.0)
   {
     ofstream Errors(errorfilename, ios::app);
-    std::cerr << "[WARN] eta_stay_mig negative (" << eta_stay_mig << "); clamping to 0.0" << std::endl;
-    Errors << "[WARN] eta_stay_mig negative (" << eta_stay_mig << "); clamping to 0.0" << std::endl;
+    std::cerr << "[WARN] p_move_mig negative (" << p_move_mig << "); clamping to 0.0" << std::endl;
+    Errors << "[WARN] p_move_mig negative (" << p_move_mig << "); clamping to 0.0" << std::endl;
     Errors.close();
-    eta_stay_mig = 0.0;
+    p_move_mig = 0.0;
   }
 
   if (verbose)
   {
     std::cerr << "[DEBUG] Mobility parameters loaded: mu_F_mig=" << mu_F_mig
-              << ", mu_D_mig=" << mu_D_mig << ", flag_regional_mobility=" << flag_regional_mobility
               << ", beta_w_mig=" << beta_w_mig << ", beta_u_mig=" << beta_u_mig
-              << ", eta_stay_mig=" << eta_stay_mig << std::endl;
+              << ", p_move_mig=" << p_move_mig << std::endl;
   }
 
   shocks_cfirms.ReSize(N2);
@@ -3175,7 +3113,7 @@ void MOBILITY_COMPUTATION(void)
   diag_sum_M_out = 0.0;
   diag_sum_M_in = 0.0;
 
-  // ========== Step 1: Compute unemployed pool per region ==========
+  // ========== Compute unemployed pool per region ==========
   std::vector<double> UN_region(NR, 0.0); // Unemployed search pool
   for (int o = 0; o < NR; ++o)
   {
@@ -3183,7 +3121,7 @@ void MOBILITY_COMPUTATION(void)
     UN_region[o] = max(0.0, reg_LS[o] - L_region_o);
   }
 
-  // ========== Step 2: Compute regional utility V_region[r] ==========
+  // ========== Compute regional utility V_region[r] ==========
   // V_r = beta_w * ln(omega_r) - beta_u * ln(max(u_r, u_min)) + beta_prot * K_prot_r + beta_pub * K_pub_r
   // omega_r = real wage = nominal_wage / CPI
   // For now, use national wage; protection and public capital normalized to zero if unavailable
@@ -3209,30 +3147,18 @@ void MOBILITY_COMPUTATION(void)
     diag_V_region[r] = v_wage + v_unemp + v_prot + v_pub;
   }
 
-  // ========== Step 3: Compute monetary moving costs MC_mig[o][d] ==========
-  // MC_{o,d} = w_{o,t-1} * [mu_F * I(o != d) + mu_D * D_od]
-  // MC_{o,o} = 0
-  // Distance D_od from regions.distance (normalised NxN, zero diagonal); default
-  // off-diagonal = 1 when no distance matrix is supplied.
-  const double w_lag = w(2); // Previous period wage
-  std::vector<std::vector<double>> dist_od(NR, std::vector<double>(NR, 1.0));
-  for (int r = 0; r < NR; ++r)
-  {
-    dist_od[r][r] = 0.0; // Distance to self is zero
-  }
-  if ((int)region_distance.size() == NR)
-  {
-    for (int o = 0; o < NR; ++o)
-    {
-      if ((int)region_distance[o].size() != NR)
-        continue;
-      for (int d = 0; d < NR; ++d)
-        dist_od[o][d] = (o == d) ? 0.0 : region_distance[o][d];
-    }
-  }
-
+  // ========== Compute monetary moving costs MC_mig[o][d] ==========
   for (int o = 0; o < NR; ++o)
   {
+    double w_o_lag = (flag_regional_labor == 1 && (int)reg_w.size() == NR) ? reg_w[o] : w(2);
+
+    double u_o_lag = ((int)reg_U_rate.size() == NR) ? reg_U_rate[o] : reg_U[o];
+
+    w_o_lag = std::max(0.0, w_o_lag);
+    u_o_lag = std::max(0.0, std::min(1.0, u_o_lag));
+
+    double annual_expected_wage_o = 4.0 * w_o_lag * (1.0 - u_o_lag);
+
     for (int d = 0; d < NR; ++d)
     {
       if (o == d)
@@ -3241,110 +3167,131 @@ void MOBILITY_COMPUTATION(void)
       }
       else
       {
-        double fixed_component = mu_F_mig * (w_lag >= 0 ? w_lag : 0.0);
-        double distance_component = mu_D_mig * dist_od[o][d] * (w_lag >= 0 ? w_lag : 0.0);
-        diag_MC_mig[o][d] = fixed_component + distance_component;
+        diag_MC_mig[o][d] = mu_F_mig * annual_expected_wage_o;
       }
     }
   }
 
-  // ========== Step 4: Convert to utility-equivalent costs CU_mig[o][d] ==========
-  // CU_{o,d} = beta_w * ln(1 + MC_{o,d} / w_{o,t-1})
+  // ========== Compute destination-choice probabilities ==========
+  // Final design:
+  // p_move_mig = probability that an unemployed worker leaves origin region o
+  // conditional destination choice among d != o using softmax over V_d
+  //
+  // pi_{o,o} = 1 - p_move_mig
+  // pi_{o,d} = p_move_mig * exp(V_d) / sum_{n != o} exp(V_n), d != o
+  //
+  // p_move_mig is read from input parameters and should satisfy 0 <= p_move_mig <= 1.
+
+  const double p_move_clamped =
+      std::isfinite(p_move_mig)
+          ? std::max(0.0, std::min(1.0, p_move_mig))
+          : 0.0;
+
   for (int o = 0; o < NR; ++o)
   {
+    // Reset row
     for (int d = 0; d < NR; ++d)
     {
-      if (w_lag > 0 && diag_MC_mig[o][d] > 0)
-      {
-        double ratio = diag_MC_mig[o][d] / w_lag;
-        diag_CU_mig[o][d] = beta_w_mig * log(1.0 + ratio);
-      }
-      else
-      {
-        diag_CU_mig[o][d] = 0.0;
-      }
+      diag_pi_mig[o][d] = 0.0;
     }
-  }
 
-  // ========== Step 5: Compute destination-choice probabilities ==========
-  // pi_{o,d} = exp(V_d - CU_{o,d}) / sum_n exp(V_n - CU_{o,n})
-  // Use log-sum-exp for numerical stability
-  std::vector<std::vector<double>> exp_args(NR, std::vector<double>(NR, 0.0));
-  std::vector<double> max_exp_arg(NR, -1e308); // Max for log-sum-exp
+    diag_pi_mig_row_sum[o] = 0.0;
+    diag_pi_stay[o] = 1.0;
 
-  // Compute exponent arguments V_d - CU_{o,d} + stay_bonus (stay_bonus = eta_stay_mig if d==o, else 0)
-  for (int o = 0; o < NR; ++o)
-  {
-    for (int d = 0; d < NR; ++d)
+    // If migration propensity is zero, everyone stays
+    if (p_move_clamped <= 0.0)
     {
-      double stay_bonus = (d == o) ? eta_stay_mig : 0.0;
-      exp_args[o][d] = diag_V_region[d] - diag_CU_mig[o][d] + stay_bonus;
-      if (std::isfinite(exp_args[o][d]))
-      {
-        max_exp_arg[o] = max(max_exp_arg[o], exp_args[o][d]);
-      }
-    }
-  }
-
-  // Compute probabilities with log-sum-exp stabilization
-  for (int o = 0; o < NR; ++o)
-  {
-    if (!std::isfinite(max_exp_arg[o]))
-    {
-      // Invalid utilities: stay at origin
       diag_pi_mig[o][o] = 1.0;
-      for (int d = 0; d < NR; ++d)
-      {
-        if (d != o)
-        {
-          diag_pi_mig[o][d] = 0.0;
-        }
-      }
       diag_pi_mig_row_sum[o] = 1.0;
       diag_pi_stay[o] = 1.0;
+      continue;
+    }
+
+    // Log-sum-exp over valid destinations d != o
+    double max_exp_arg = -1e308;
+
+    for (int d = 0; d < NR; ++d)
+    {
+      if (d == o)
+      {
+        continue;
+      }
+
+      const double V_d = diag_V_region[d];
+
+      if (std::isfinite(V_d))
+      {
+        max_exp_arg = std::max(max_exp_arg, V_d);
+      }
+    }
+
+    // If there is no valid destination, force staying
+    if (!std::isfinite(max_exp_arg))
+    {
+      diag_pi_mig[o][o] = 1.0;
+      diag_pi_mig_row_sum[o] = 1.0;
+      diag_pi_stay[o] = 1.0;
+      continue;
+    }
+
+    double sum_exp = 0.0;
+
+    for (int d = 0; d < NR; ++d)
+    {
+      if (d == o)
+      {
+        continue;
+      }
+
+      const double V_d = diag_V_region[d];
+
+      if (std::isfinite(V_d))
+      {
+        sum_exp += std::exp(V_d - max_exp_arg);
+      }
+    }
+
+    // Normalize conditional destination probabilities
+    if (sum_exp > 0.0 && std::isfinite(sum_exp))
+    {
+      // Staying probability
+      diag_pi_mig[o][o] = 1.0 - p_move_clamped;
+
+      // Moving probabilities conditional on leaving origin o
+      for (int d = 0; d < NR; ++d)
+      {
+        if (d == o)
+        {
+          continue;
+        }
+
+        const double V_d = diag_V_region[d];
+
+        if (std::isfinite(V_d))
+        {
+          const double q_od = std::exp(V_d - max_exp_arg) / sum_exp;
+          diag_pi_mig[o][d] = p_move_clamped * q_od;
+        }
+      }
     }
     else
     {
-      // Compute sum of exp(arg - max)
-      double sum_exp = 0.0;
-      for (int d = 0; d < NR; ++d)
-      {
-        double exp_shifted = exp(exp_args[o][d] - max_exp_arg[o]);
-        sum_exp += exp_shifted;
-      }
-
-      // Normalize probabilities
-      if (sum_exp > 0)
-      {
-        for (int d = 0; d < NR; ++d)
-        {
-          double exp_shifted = exp(exp_args[o][d] - max_exp_arg[o]);
-          diag_pi_mig[o][d] = exp_shifted / sum_exp;
-        }
-      }
-      else
-      {
-        // Fallback: stay at origin
-        diag_pi_mig[o][o] = 1.0;
-        for (int d = 0; d < NR; ++d)
-        {
-          if (d != o)
-          {
-            diag_pi_mig[o][d] = 0.0;
-          }
-        }
-      }
-
-      diag_pi_mig_row_sum[o] = 0.0;
-      for (int d = 0; d < NR; ++d)
-      {
-        diag_pi_mig_row_sum[o] += diag_pi_mig[o][d];
-      }
-      diag_pi_stay[o] = diag_pi_mig[o][o];
+      // Fallback: stay at origin
+      diag_pi_mig[o][o] = 1.0;
     }
+
+    // Diagnostics
+    diag_pi_mig_row_sum[o] = 0.0;
+
+    for (int d = 0; d < NR; ++d)
+    {
+      diag_pi_mig_row_sum[o] += diag_pi_mig[o][d];
+    }
+
+    diag_pi_stay[o] = diag_pi_mig[o][o];
   }
 
-  // ========== Step 6: Compute intended migration M_int_mig[o][d] ==========
+  // ========== Compute intended migration M_int_mig[o][d] ==========
   // M^int_{o,d} = UN_o * pi_{o,d}  for d != o
   double total_intent = 0.0;
   for (int o = 0; o < NR; ++o)
@@ -8755,7 +8702,7 @@ void REGIONAL_CONSISTENCY_CHECK(void)
               << "sum_M_out,sum_M_in,max_abs_pi_row_sum_error,max_abs_M_row_sum_error,"
               << "sum_LS_region_share,sum_LS_region_share_next,min_pi_stay,max_pi_stay,mean_pi_stay,"
               << "min_lambda_liq,max_lambda_liq,mean_lambda_liq,"
-              << "eta_stay_mig,mean_move_probability,gross_migration_rate";
+              << "p_move_mig,mean_move_probability,gross_migration_rate";
 
       // Add origin-destination diagnostics headers if NR is small
       if (NR <= 10)
@@ -8849,7 +8796,7 @@ void REGIONAL_CONSISTENCY_CHECK(void)
             << min_lambda << ","
             << max_lambda << ","
             << mean_lambda << ","
-            << eta_stay_mig << ","
+            << p_move_mig << ","
             << (1.0 - mean_pi_stay) << ","
             << ((LS > 0) ? diag_total_actual_migration / LS : 0.0);
 
@@ -9657,8 +9604,8 @@ void SAVE(void)
         target.width(60);
         target << ((reg_CreditSupply_all[region - 1] > 0) ? (reg_CreditDemand_all[region - 1] / reg_CreditSupply_all[region - 1]) : 0); // 22
         target.width(60);
-        target << reg_NW_1[region - 1]; // 23
-        // target << ((reg_GDP_n[region - 1] > 0) ? (reg_NW_1[region - 1] / (reg_GDP_n[region - 1] * 4)) : 0); // 23
+        // target << reg_NW_1[region - 1]; // 23
+        target << ((reg_GDP_n[region - 1] > 0) ? (reg_NW_1[region - 1] / (reg_GDP_n[region - 1] * 4)) : 0); // 23
         target.width(60);
         target << reg_Am2[region - 1]; // 24
         target.width(60);
@@ -10162,6 +10109,8 @@ void SAVE(void)
         target << reg_YD[region - 1]; // 43: reg_YD (Regional disposable income, decomposition)
         target.width(60);
         target << reg_C[region - 1]; // 44: reg_C (Regional consumption, decomposition)
+        target.width(60);
+        target << reg_w[region - 1]; // 65: reg_w (Regional wage rate; income/benefit/migration use)
         target.width(60);
         target << ((LS > 0) ? reg_LS[region - 1] / LS : 0.0) << endl; // 45: LS_region_share (sigma_r)
       };

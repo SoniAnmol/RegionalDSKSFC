@@ -196,7 +196,6 @@ std::vector<std::vector<double>> delta_adapt_c_rg; // [NC_adapt][NR] per-channel
 
 // Mobility parameters
 double mu_F_mig;            // Fixed moving cost (origin-wage units, not utility-equivalent)
-double mu_D_mig;            // Distance-based moving cost (origin-wage units, not utility-equivalent)
 int flag_regional_mobility; // Flag to enable/disable regional mobility (1=on, 0=off)
 
 // Mobility utility parameters
@@ -205,7 +204,7 @@ double beta_u_mig;    // Unemployment coefficient in regional utility (default -
 double beta_prot_mig; // Protection capital coefficient (default 0.0)
 double beta_pub_mig;  // Public capital coefficient (default 0.0)
 double u_min_mig;     // Minimum unemployment for clamping (default 0.001)
-double eta_stay_mig;  // Constant stay premium added to the stay alternative only (d==o), default 3.0
+double p_move_mig;    // Propensity to move to another region with better wages and lower unemployment
 
 // Regional labour market parameters (active when flag_regional_labor == 1)
 double chi_w;     // Regional wage-mixing weight: dw_r = chi_w*dw_nat + (1-chi_w)*dw_reg_r

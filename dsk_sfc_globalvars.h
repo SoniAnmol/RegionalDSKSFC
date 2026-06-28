@@ -553,47 +553,46 @@ std::vector<double> region_dirty_capacity_lag;        // Lagged regional dirty c
 std::vector<double> region_green_capacity_lag;        // Lagged regional green capacity stocks
 
 // Regional Accounting Variables
-std::vector<double> reg_N1;                       // Regional number of K-firms
-std::vector<double> reg_N2;                       // Regional number of C-firms
-std::vector<double> reg_Q1;                       // Regional production of K-firms
-std::vector<double> reg_Q2;                       // Regional production of C-firms
-std::vector<double> reg_Q1tot;                    // Regional copy of national Q1tot
-std::vector<double> reg_Q2tot;                    // Regional copy of national Q2tot
-std::vector<double> reg_H1;                       // Regional normalised Herfindahl index K-firms
-std::vector<double> reg_H2;                       // Regional normalised Herfindahl index C-firms
-std::vector<double> reg_GDP_r;                    // Regional real GDP
-std::vector<double> reg_GDP_r_lag;                // Regional lagged real GDP (previous period)
-std::vector<double> reg_Consumption_r;            // Regional total real consumption
-std::vector<double> reg_Consumption;              // Regional total nominal consumption
-std::vector<double> reg_Investment_r;             // Regional total real investment
-std::vector<double> reg_ReplacementInvestment_r;  // Regional total real replacement investment
-std::vector<double> reg_Investment_n;             // Regional total nominal investment
-std::vector<double> reg_EnergyPayments;           // Regional energy payments from firms to energy sector
-std::vector<double> reg_Wages;                    // Regional wage payments by firms
-std::vector<double> reg_K_gelag;                  // Regional lagged green energy capacity
-std::vector<double> reg_K_delag;                  // Regional lagged dirty energy capacity
-std::vector<double> reg_U;                        // Regional unemployment rate
-std::vector<double> reg_Am;                       // Regional mean productivity (weighted avg of K and C-firm productivity)
-std::vector<double> reg_Am1;                      // Regional mean productivity of K-firms
-std::vector<double> reg_Am2;                      // Regional mean productivity of C-firms
-std::vector<double> reg_Am_a;                     // Regional mean productivity (alternative definition - weighted by labor demand)
-std::vector<double> reg_Am_en;                    // Regional mean energy efficiency across K and C-firms
-std::vector<double> reg_Loans_2;                  // Regional loans of C-firms
-std::vector<double> reg_CreditDemand_all;         // Regional total credit demand (C-firms)
-std::vector<double> reg_CreditSupply_all;         // Regional allocated credit supply (proportional to demand)
-std::vector<double> reg_Inventories;              // Regional nominal value of C-firms' inventories
-std::vector<double> reg_N;                        // Regional real inventories
-std::vector<double> reg_GDP_n;                    // Regional nominal GDP
-std::vector<double> reg_LS;                       // Regional labor supply
-std::vector<double> LS_region_share;              // STATE: regional labour-supply share sigma_r (rolled from _next each period)
-std::vector<double> LS_region_share_next;         // STATE: next-period regional labour-supply share (written by migration)
-std::vector<std::vector<double>> region_distance; // Normalised bilateral distance matrix (diag 0, off-diag scaled by mean)
-std::vector<double> reg_w;                        // Regional wage rate (income/benefit/migration-utility use; firms still pay national wage)
-std::vector<double> reg_w_past;                   // Lagged regional wage rate
-std::vector<double> reg_U_past;                   // Lagged regional unemployment rate (for regional Phillips curve)
-std::vector<double> reg_Am_past;                  // Lagged regional mean productivity (for regional Phillips curve)
-std::vector<double> reg_YD;                       // Regional household disposable income
-std::vector<double> reg_C;                        // Regional household consumption (accounting decomposition of national C)
+std::vector<double> reg_N1;                      // Regional number of K-firms
+std::vector<double> reg_N2;                      // Regional number of C-firms
+std::vector<double> reg_Q1;                      // Regional production of K-firms
+std::vector<double> reg_Q2;                      // Regional production of C-firms
+std::vector<double> reg_Q1tot;                   // Regional copy of national Q1tot
+std::vector<double> reg_Q2tot;                   // Regional copy of national Q2tot
+std::vector<double> reg_H1;                      // Regional normalised Herfindahl index K-firms
+std::vector<double> reg_H2;                      // Regional normalised Herfindahl index C-firms
+std::vector<double> reg_GDP_r;                   // Regional real GDP
+std::vector<double> reg_GDP_r_lag;               // Regional lagged real GDP (previous period)
+std::vector<double> reg_Consumption_r;           // Regional total real consumption
+std::vector<double> reg_Consumption;             // Regional total nominal consumption
+std::vector<double> reg_Investment_r;            // Regional total real investment
+std::vector<double> reg_ReplacementInvestment_r; // Regional total real replacement investment
+std::vector<double> reg_Investment_n;            // Regional total nominal investment
+std::vector<double> reg_EnergyPayments;          // Regional energy payments from firms to energy sector
+std::vector<double> reg_Wages;                   // Regional wage payments by firms
+std::vector<double> reg_K_gelag;                 // Regional lagged green energy capacity
+std::vector<double> reg_K_delag;                 // Regional lagged dirty energy capacity
+std::vector<double> reg_U;                       // Regional unemployment rate
+std::vector<double> reg_Am;                      // Regional mean productivity (weighted avg of K and C-firm productivity)
+std::vector<double> reg_Am1;                     // Regional mean productivity of K-firms
+std::vector<double> reg_Am2;                     // Regional mean productivity of C-firms
+std::vector<double> reg_Am_a;                    // Regional mean productivity (alternative definition - weighted by labor demand)
+std::vector<double> reg_Am_en;                   // Regional mean energy efficiency across K and C-firms
+std::vector<double> reg_Loans_2;                 // Regional loans of C-firms
+std::vector<double> reg_CreditDemand_all;        // Regional total credit demand (C-firms)
+std::vector<double> reg_CreditSupply_all;        // Regional allocated credit supply (proportional to demand)
+std::vector<double> reg_Inventories;             // Regional nominal value of C-firms' inventories
+std::vector<double> reg_N;                       // Regional real inventories
+std::vector<double> reg_GDP_n;                   // Regional nominal GDP
+std::vector<double> reg_LS;                      // Regional labor supply
+std::vector<double> LS_region_share;             // STATE: regional labour-supply share sigma_r (rolled from _next each period)
+std::vector<double> LS_region_share_next;        // STATE: next-period regional labour-supply share (written by migration)
+std::vector<double> reg_w;                       // Regional wage rate (income/benefit/migration-utility use; firms still pay national wage)
+std::vector<double> reg_w_past;                  // Lagged regional wage rate
+std::vector<double> reg_U_past;                  // Lagged regional unemployment rate (for regional Phillips curve)
+std::vector<double> reg_Am_past;                 // Lagged regional mean productivity (for regional Phillips curve)
+std::vector<double> reg_YD;                      // Regional household disposable income
+std::vector<double> reg_C;                       // Regional household consumption (accounting decomposition of national C)
 // Regional household deposits (true state) and migration liquidity (Phase 5B)
 std::vector<double> Dh_region_share;       // Initial regional household deposit shares (defaults to LS_region_share)
 std::vector<double> reg_Dh;                // STATE: regional household deposits (current)

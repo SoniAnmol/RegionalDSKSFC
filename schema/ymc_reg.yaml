@@ -48,4 +48,5 @@ columns:
   - name: reg_w
   - name: reg_YD
   - name: reg_C
+  - name: reg_w
   - name: LS_region_share

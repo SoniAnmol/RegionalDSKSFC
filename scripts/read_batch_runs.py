@@ -246,23 +246,23 @@ def read_simple_yaml_column_names(yaml_path):
     return column_names
 
 
-def read_resultsexp_column_names(yaml_path="/Users/anmolsoni/Documents/RegionalDSKSFC/output/schema/resultsexp.yaml"):
+def read_resultsexp_column_names(yaml_path="/Users/anmolsoni/Documents/RegionalDSKSFC/schema/resultsexp.yaml"):
     return read_simple_yaml_column_names(yaml_path)
 
 
-def read_ymc_column_names(yaml_path="/Users/anmolsoni/Documents/RegionalDSKSFC/output/schema/ymc.yaml"):
+def read_ymc_column_names(yaml_path="/Users/anmolsoni/Documents/RegionalDSKSFC/schema/ymc.yaml"):
     return read_simple_yaml_column_names(yaml_path)
 
 
-def read_ymc_reg_column_names(yaml_path="/Users/anmolsoni/Documents/RegionalDSKSFC/output/schema/ymc_reg.yaml"):
+def read_ymc_reg_column_names(yaml_path="/Users/anmolsoni/Documents/RegionalDSKSFC/schema/ymc_reg.yaml"):
     return read_simple_yaml_column_names(yaml_path)
 
 
-def read_resultsexp_reg_column_names(yaml_path="/Users/anmolsoni/Documents/RegionalDSKSFC/output/schema/resultsexp_reg.yaml"):
+def read_resultsexp_reg_column_names(yaml_path="/Users/anmolsoni/Documents/RegionalDSKSFC/schema/resultsexp_reg.yaml"):
     return read_simple_yaml_column_names(yaml_path)
 
 
-def read_shockpars_column_names(yaml_path="/Users/anmolsoni/Documents/RegionalDSKSFC/output/schema/shockpars.yaml", NR=None):
+def read_shockpars_column_names(yaml_path="/Users/anmolsoni/Documents/RegionalDSKSFC/schema/shockpars.yaml", NR=None):
     """Generate shockpars columns from schema; NR is number of regions."""
     if yaml_path is None:
         return []

@@ -106,13 +106,12 @@
       "phi_adapt": 4.0,
       "delta_adapt": 0.03,
       "omega_floor_adapt": 0.25,
-      "beta_w_mig": 1.0,
+      "beta_w_mig": 0.4,
       "beta_u_mig": 0.15,
       "beta_prot_mig": 0.0,
       "beta_pub_mig": 0.0,
-      "mu_F_mig": 0.5,
-      "mu_D_mig": 0.10,
-      "eta_stay_mig": 3.0,
+      "mu_F_mig": 4,
+      "p_move_mig": 0.0053,
       "chi_w": 0.5
     }
   ],
@@ -477,7 +476,7 @@
   "inits": [
     {
       "A0": 1,
-      "LS0": 250000,
+      "LS0": 250002,
       "W10": 500,
       "W20": 320,
       "L0": 470,
@@ -613,23 +612,6 @@
       1.0
     ],
     "d_bar_rec": 0.0,
-    "distance": [
-      [
-        0.0,
-        1.0,
-        1.0
-      ],
-      [
-        1.0,
-        0.0,
-        1.0
-      ],
-      [
-        1.0,
-        1.0,
-        0.0
-      ]
-    ],
     "LS_region_share": [
       0.333333,
       0.333333,
