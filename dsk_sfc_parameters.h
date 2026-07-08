@@ -205,6 +205,9 @@ double beta_prot_mig; // Protection capital coefficient (default 0.0)
 double beta_pub_mig;  // Public capital coefficient (default 0.0)
 double u_min_mig;     // Minimum unemployment for clamping (default 0.001)
 double p_move_mig;    // Propensity to move to another region with better wages and lower unemployment
+double tau_mig;       // mean of the attraction threshold distribution to move to another region with better wages and lower unemployment
+double K_tau_mig;
+double N_tau_quantiles_mig;
 
 // Regional labour market parameters (active when flag_regional_labor == 1)
 double chi_w;     // Regional wage-mixing weight: dw_r = chi_w*dw_nat + (1-chi_w)*dw_reg_r

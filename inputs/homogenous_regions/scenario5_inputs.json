@@ -112,6 +112,7 @@
       "beta_pub_mig": 0.0,
       "mu_F_mig": 4,
       "p_move_mig": 0.0053,
+      "tau_mig": 2,
       "chi_w": 0.5
     }
   ],

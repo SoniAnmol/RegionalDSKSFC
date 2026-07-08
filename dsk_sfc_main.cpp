@@ -1433,7 +1433,10 @@ void SETPARAMS(const rapidjson::Document &inputs)
   beta_prot_mig = getDoubleParam("beta_prot_mig", 0.0); // Protection capital coefficient
   beta_pub_mig = getDoubleParam("beta_pub_mig", 0.0);   // Public capital coefficient
   u_min_mig = getDoubleParam("u_min_mig", 0.001);       // Minimum unemployment for clamping
-  p_move_mig = getDoubleParam("p_move_mig", 0.004);     // Propensity to move to another region with better wages & lower unemployment
+  tau_mig = getDoubleParam("tau_mig", 2);
+  K_tau_mig = getDoubleParam("K_tau_mig", 2);
+  N_tau_quantiles_mig = getDoubleParam("N_tau_quantiles_mig", 50);
+  p_move_mig = getDoubleParam("p_move_mig", 0.004); // Propensity to move to another region with better wages & lower unemployment
   if (p_move_mig < 0.0)
   {
     ofstream Errors(errorfilename, ios::app);
@@ -3172,24 +3175,328 @@ void MOBILITY_COMPUTATION(void)
     }
   }
 
+  // // ========== Compute destination-choice probabilities ==========
+  // // Final design:
+  // // p_move_mig = probability that an unemployed worker leaves origin region o
+  // // conditional destination choice among d != o using softmax over V_d
+  // //
+  // // pi_{o,o} = 1 - p_move_mig
+  // // pi_{o,d} = p_move_mig * exp(V_d) / sum_{n != o} exp(V_n), d != o
+  // //
+  // // p_move_mig is read from input parameters and should satisfy 0 <= p_move_mig <= 1.
+
+  // const double p_move_clamped =
+  //     std::isfinite(p_move_mig)
+  //         ? std::max(0.0, std::min(1.0, p_move_mig))
+  //         : 0.0;
+
+  // for (int o = 0; o < NR; ++o)
+  // {
+  //   // Reset row
+  //   for (int d = 0; d < NR; ++d)
+  //   {
+  //     diag_pi_mig[o][d] = 0.0;
+  //   }
+
+  //   diag_pi_mig_row_sum[o] = 0.0;
+  //   diag_pi_stay[o] = 1.0;
+
+  //   // If migration propensity is zero, everyone stays
+  //   if (p_move_clamped <= 0.0)
+  //   {
+  //     diag_pi_mig[o][o] = 1.0;
+  //     diag_pi_mig_row_sum[o] = 1.0;
+  //     diag_pi_stay[o] = 1.0;
+  //     continue;
+  //   }
+
+  //   // Log-sum-exp over valid destinations d != o
+  //   double max_exp_arg = -1e308;
+
+  //   for (int d = 0; d < NR; ++d)
+  //   {
+  //     if (d == o)
+  //     {
+  //       continue;
+  //     }
+
+  //     const double V_d = diag_V_region[d];
+
+  //     if (std::isfinite(V_d))
+  //     {
+  //       max_exp_arg = std::max(max_exp_arg, V_d);
+  //     }
+  //   }
+
+  //   // If there is no valid destination, force staying
+  //   if (!std::isfinite(max_exp_arg))
+  //   {
+  //     diag_pi_mig[o][o] = 1.0;
+  //     diag_pi_mig_row_sum[o] = 1.0;
+  //     diag_pi_stay[o] = 1.0;
+  //     continue;
+  //   }
+
+  //   double sum_exp = 0.0;
+
+  //   for (int d = 0; d < NR; ++d)
+  //   {
+  //     if (d == o)
+  //     {
+  //       continue;
+  //     }
+
+  //     const double V_d = diag_V_region[d];
+
+  //     if (std::isfinite(V_d))
+  //     {
+  //       sum_exp += std::exp(V_d - max_exp_arg);
+  //     }
+  //   }
+
+  //   // Normalize conditional destination probabilities
+  //   if (sum_exp > 0.0 && std::isfinite(sum_exp))
+  //   {
+  //     // Staying probability
+  //     diag_pi_mig[o][o] = 1.0 - p_move_clamped;
+
+  //     // Moving probabilities conditional on leaving origin o
+  //     for (int d = 0; d < NR; ++d)
+  //     {
+  //       if (d == o)
+  //       {
+  //         continue;
+  //       }
+
+  //       const double V_d = diag_V_region[d];
+
+  //       if (std::isfinite(V_d))
+  //       {
+  //         const double q_od = std::exp(V_d - max_exp_arg) / sum_exp;
+  //         diag_pi_mig[o][d] = p_move_clamped * q_od;
+  //       }
+  //     }
+  //   }
+  //   else
+  //   {
+  //     // Fallback: stay at origin
+  //     diag_pi_mig[o][o] = 1.0;
+  //   }
+
+  //   // Diagnostics
+  //   diag_pi_mig_row_sum[o] = 0.0;
+
+  //   for (int d = 0; d < NR; ++d)
+  //   {
+  //     diag_pi_mig_row_sum[o] += diag_pi_mig[o][d];
+  //   }
+
+  //   diag_pi_stay[o] = diag_pi_mig[o][o];
+  // }
+
   // ========== Compute destination-choice probabilities ==========
   // Final design:
-  // p_move_mig = probability that an unemployed worker leaves origin region o
-  // conditional destination choice among d != o using softmax over V_d
+  // Heterogeneous migration thresholds are represented by deterministic quantiles
+  // of a Gamma distribution.
   //
-  // pi_{o,o} = 1 - p_move_mig
-  // pi_{o,d} = p_move_mig * exp(V_d) / sum_{n != o} exp(V_n), d != o
+  // tau_j^{mig} = F_Gamma^{-1}(q_j; k_tau_mig, tau_mig / k_tau_mig)
+  // q_j = (j + 0.5) / J, j = 0,...,J-1
   //
-  // p_move_mig is read from input parameters and should satisfy 0 <= p_move_mig <= 1.
+  // With k_tau_mig = 2:
+  // tau_j^{mig} ~ Gamma(2, tau_mig / 2)
+  // E[tau_j^{mig}] = tau_mig
+  //
+  // A destination d is feasible for threshold type j only if:
+  // V_d - V_o > tau_j^{mig}
+  //
+  // Staying in the origin region is always feasible.
+  // Aggregate probabilities are averaged across threshold quantiles.
+  //
+  // This implementation is deterministic: no RNG and no seed dependence.
 
-  const double p_move_clamped =
-      std::isfinite(p_move_mig)
-          ? std::max(0.0, std::min(1.0, p_move_mig))
+  // ========== Threshold-distribution parameters ==========
+  // tau_mig   = mean migration threshold, read from input
+  // k_tau_mig = Gamma shape parameter, read from input
+  //
+  // tau_j^{mig} = F_Gamma^{-1}(q_j; k_tau_mig, tau_mig / k_tau_mig)
+  // E[tau_j^{mig}] = tau_mig
+
+  const int N_tau_quantiles_mig = 50;
+
+  const double k_tau_shape =
+      (std::isfinite(K_tau_mig) && K_tau_mig > 0.0)
+          ? K_tau_mig
+          : 2.0;
+
+  const double tau_mean_mig =
+      (std::isfinite(tau_mig) && tau_mig >= 0.0)
+          ? tau_mig
           : 0.0;
+
+  const double theta_tau_mig =
+      (k_tau_shape > 0.0)
+          ? tau_mean_mig / k_tau_shape
+          : 0.0;
+
+  // Regularized lower incomplete gamma function P(a,x).
+  // This gives the CDF of Gamma(shape = a, scale = 1).
+  auto regularized_gamma_p = [](double a, double x) -> double
+  {
+    const int ITMAX = 200;
+    const double EPS = 3.0e-14;
+    const double FPMIN = 1.0e-300;
+
+    if (!(a > 0.0) || !std::isfinite(a))
+    {
+      return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    if (x <= 0.0)
+    {
+      return 0.0;
+    }
+
+    if (!std::isfinite(x))
+    {
+      return 1.0;
+    }
+
+    const double gln = std::lgamma(a);
+
+    // Series representation for x < a + 1
+    if (x < a + 1.0)
+    {
+      double ap = a;
+      double del = 1.0 / a;
+      double sum = del;
+
+      for (int n = 1; n <= ITMAX; ++n)
+      {
+        ap += 1.0;
+        del *= x / ap;
+        sum += del;
+
+        if (std::fabs(del) < std::fabs(sum) * EPS)
+        {
+          break;
+        }
+      }
+
+      double result = sum * std::exp(-x + a * std::log(x) - gln);
+      return std::max(0.0, std::min(1.0, result));
+    }
+
+    // Continued fraction representation for Q(a,x), then P = 1 - Q
+    double b = x + 1.0 - a;
+    double c = 1.0 / FPMIN;
+    double d = 1.0 / std::max(std::fabs(b), FPMIN);
+
+    if (b < 0.0 && std::fabs(b) < FPMIN)
+    {
+      d = -1.0 / FPMIN;
+    }
+
+    double h = d;
+
+    for (int i = 1; i <= ITMAX; ++i)
+    {
+      const double an = -static_cast<double>(i) * (static_cast<double>(i) - a);
+
+      b += 2.0;
+
+      d = an * d + b;
+      if (std::fabs(d) < FPMIN)
+      {
+        d = FPMIN;
+      }
+
+      c = b + an / c;
+      if (std::fabs(c) < FPMIN)
+      {
+        c = FPMIN;
+      }
+
+      d = 1.0 / d;
+
+      const double del = d * c;
+      h *= del;
+
+      if (std::fabs(del - 1.0) < EPS)
+      {
+        break;
+      }
+    }
+
+    const double q = std::exp(-x + a * std::log(x) - gln) * h;
+    const double result = 1.0 - q;
+
+    return std::max(0.0, std::min(1.0, result));
+  };
+
+  // Inverse CDF for Gamma(shape = a, scale = 1), computed by bisection.
+  // Gamma(shape = a, scale = theta) quantile is theta times this value.
+  auto gamma_unit_quantile = [&](double q, double a) -> double
+  {
+    const double eps_q = 1.0e-12;
+
+    q = std::max(eps_q, std::min(1.0 - eps_q, q));
+
+    double lo = 0.0;
+    double hi = std::max(1.0, a);
+
+    while (regularized_gamma_p(a, hi) < q)
+    {
+      hi *= 2.0;
+
+      if (hi > 1.0e8)
+      {
+        break;
+      }
+    }
+
+    for (int it = 0; it < 100; ++it)
+    {
+      const double mid = 0.5 * (lo + hi);
+
+      if (regularized_gamma_p(a, mid) < q)
+      {
+        lo = mid;
+      }
+      else
+      {
+        hi = mid;
+      }
+    }
+
+    return 0.5 * (lo + hi);
+  };
+
+  // Build deterministic threshold quantiles.
+  std::vector<double> tau_quantiles_mig(N_tau_quantiles_mig, 0.0);
+
+  for (int j = 0; j < N_tau_quantiles_mig; ++j)
+  {
+    const double q_j =
+        (static_cast<double>(j) + 0.5) /
+        static_cast<double>(N_tau_quantiles_mig);
+
+    if (tau_mean_mig <= 0.0 || theta_tau_mig <= 0.0)
+    {
+      tau_quantiles_mig[j] = 0.0;
+    }
+    else
+    {
+      tau_quantiles_mig[j] =
+          theta_tau_mig * gamma_unit_quantile(q_j, k_tau_shape);
+    }
+  }
+
+  const double tau_weight_mig =
+      1.0 / static_cast<double>(N_tau_quantiles_mig);
 
   for (int o = 0; o < NR; ++o)
   {
-    // Reset row
+    // Reset row.
     for (int d = 0; d < NR; ++d)
     {
       diag_pi_mig[o][d] = 0.0;
@@ -3198,8 +3505,10 @@ void MOBILITY_COMPUTATION(void)
     diag_pi_mig_row_sum[o] = 0.0;
     diag_pi_stay[o] = 1.0;
 
-    // If migration propensity is zero, everyone stays
-    if (p_move_clamped <= 0.0)
+    const double V_o = diag_V_region[o];
+
+    // If origin attractiveness is invalid, force staying.
+    if (!std::isfinite(V_o))
     {
       diag_pi_mig[o][o] = 1.0;
       diag_pi_mig_row_sum[o] = 1.0;
@@ -3207,57 +3516,15 @@ void MOBILITY_COMPUTATION(void)
       continue;
     }
 
-    // Log-sum-exp over valid destinations d != o
-    double max_exp_arg = -1e308;
-
-    for (int d = 0; d < NR; ++d)
+    // Average destination-choice probabilities across threshold quantiles.
+    for (int j = 0; j < N_tau_quantiles_mig; ++j)
     {
-      if (d == o)
-      {
-        continue;
-      }
+      const double tau_j = tau_quantiles_mig[j];
 
-      const double V_d = diag_V_region[d];
+      // Staying is always feasible.
+      double max_exp_arg = V_o;
 
-      if (std::isfinite(V_d))
-      {
-        max_exp_arg = std::max(max_exp_arg, V_d);
-      }
-    }
-
-    // If there is no valid destination, force staying
-    if (!std::isfinite(max_exp_arg))
-    {
-      diag_pi_mig[o][o] = 1.0;
-      diag_pi_mig_row_sum[o] = 1.0;
-      diag_pi_stay[o] = 1.0;
-      continue;
-    }
-
-    double sum_exp = 0.0;
-
-    for (int d = 0; d < NR; ++d)
-    {
-      if (d == o)
-      {
-        continue;
-      }
-
-      const double V_d = diag_V_region[d];
-
-      if (std::isfinite(V_d))
-      {
-        sum_exp += std::exp(V_d - max_exp_arg);
-      }
-    }
-
-    // Normalize conditional destination probabilities
-    if (sum_exp > 0.0 && std::isfinite(sum_exp))
-    {
-      // Staying probability
-      diag_pi_mig[o][o] = 1.0 - p_move_clamped;
-
-      // Moving probabilities conditional on leaving origin o
+      // First pass: find max V among feasible alternatives for log-sum-exp.
       for (int d = 0; d < NR; ++d)
       {
         if (d == o)
@@ -3267,20 +3534,116 @@ void MOBILITY_COMPUTATION(void)
 
         const double V_d = diag_V_region[d];
 
-        if (std::isfinite(V_d))
+        if (!std::isfinite(V_d))
         {
-          const double q_od = std::exp(V_d - max_exp_arg) / sum_exp;
-          diag_pi_mig[o][d] = p_move_clamped * q_od;
+          continue;
         }
+
+        const double delta_V = V_d - V_o;
+
+        if (delta_V > tau_j)
+        {
+          max_exp_arg = std::max(max_exp_arg, V_d);
+        }
+      }
+
+      // Second pass: compute denominator over feasible set.
+      double sum_exp = std::exp(V_o - max_exp_arg); // stay alternative
+
+      for (int d = 0; d < NR; ++d)
+      {
+        if (d == o)
+        {
+          continue;
+        }
+
+        const double V_d = diag_V_region[d];
+
+        if (!std::isfinite(V_d))
+        {
+          continue;
+        }
+
+        const double delta_V = V_d - V_o;
+
+        if (delta_V > tau_j)
+        {
+          sum_exp += std::exp(V_d - max_exp_arg);
+        }
+      }
+
+      if (!(sum_exp > 0.0) || !std::isfinite(sum_exp))
+      {
+        // Fallback for this threshold quantile: stay at origin.
+        diag_pi_mig[o][o] += tau_weight_mig;
+        continue;
+      }
+
+      // Stay probability for this threshold quantile.
+      diag_pi_mig[o][o] +=
+          tau_weight_mig *
+          std::exp(V_o - max_exp_arg) /
+          sum_exp;
+
+      // Destination probabilities for this threshold quantile.
+      for (int d = 0; d < NR; ++d)
+      {
+        if (d == o)
+        {
+          continue;
+        }
+
+        const double V_d = diag_V_region[d];
+
+        if (!std::isfinite(V_d))
+        {
+          continue;
+        }
+
+        const double delta_V = V_d - V_o;
+
+        if (delta_V > tau_j)
+        {
+          diag_pi_mig[o][d] +=
+              tau_weight_mig *
+              std::exp(V_d - max_exp_arg) /
+              sum_exp;
+        }
+      }
+    }
+
+    // Diagnostics and numerical normalization.
+    diag_pi_mig_row_sum[o] = 0.0;
+
+    for (int d = 0; d < NR; ++d)
+    {
+      if (!std::isfinite(diag_pi_mig[o][d]) || diag_pi_mig[o][d] < 0.0)
+      {
+        diag_pi_mig[o][d] = 0.0;
+      }
+
+      diag_pi_mig_row_sum[o] += diag_pi_mig[o][d];
+    }
+
+    if (diag_pi_mig_row_sum[o] > 0.0 && std::isfinite(diag_pi_mig_row_sum[o]))
+    {
+      for (int d = 0; d < NR; ++d)
+      {
+        diag_pi_mig[o][d] /= diag_pi_mig_row_sum[o];
       }
     }
     else
     {
-      // Fallback: stay at origin
+      // Full fallback: stay at origin.
+      for (int d = 0; d < NR; ++d)
+      {
+        diag_pi_mig[o][d] = 0.0;
+      }
+
       diag_pi_mig[o][o] = 1.0;
     }
 
-    // Diagnostics
+    // Final diagnostics.
     diag_pi_mig_row_sum[o] = 0.0;
 
     for (int d = 0; d < NR; ++d)
