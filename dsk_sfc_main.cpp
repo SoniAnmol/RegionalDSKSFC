@@ -3127,8 +3127,7 @@ void MOBILITY_COMPUTATION(void)
   // ========== Compute regional utility V_region[r] ==========
   // V_r = beta_w * ln(omega_r) - beta_u * ln(max(u_r, u_min)) + beta_prot * K_prot_r + beta_pub * K_pub_r
   // omega_r = real wage = nominal_wage / CPI
-  // For now, use national wage; protection and public capital normalized to zero if unavailable
-  const double omega_nat = (cpi(1) > 0) ? w(1) / cpi(1) : w(1); // Real national wage
+
   for (int r = 0; r < NR; ++r)
   {
     // Regional real wage when regional labour market is active, else national proxy
@@ -3143,11 +3142,7 @@ void MOBILITY_COMPUTATION(void)
     double u_clamp = max(u_r, u_min_mig);
     double v_unemp = -beta_u_mig * log(u_clamp); // Negative because higher unemployment = worse
 
-    // Protection and public capital (set to 0.0 for now as they're not decomposed by region)
-    double v_prot = 0.0;
-    double v_pub = 0.0;
-
-    diag_V_region[r] = v_wage + v_unemp + v_prot + v_pub;
+    diag_V_region[r] = v_wage + v_unemp;
   }
 
   // ========== Compute monetary moving costs MC_mig[o][d] ==========
@@ -3174,152 +3169,6 @@ void MOBILITY_COMPUTATION(void)
       }
     }
   }
-
-  // // ========== Compute destination-choice probabilities ==========
-  // // Final design:
-  // // p_move_mig = probability that an unemployed worker leaves origin region o
-  // // conditional destination choice among d != o using softmax over V_d
-  // //
-  // // pi_{o,o} = 1 - p_move_mig
-  // // pi_{o,d} = p_move_mig * exp(V_d) / sum_{n != o} exp(V_n), d != o
-  // //
-  // // p_move_mig is read from input parameters and should satisfy 0 <= p_move_mig <= 1.
-
-  // const double p_move_clamped =
-  //     std::isfinite(p_move_mig)
-  //         ? std::max(0.0, std::min(1.0, p_move_mig))
-  //         : 0.0;
-
-  // for (int o = 0; o < NR; ++o)
-  // {
-  //   // Reset row
-  //   for (int d = 0; d < NR; ++d)
-  //   {
-  //     diag_pi_mig[o][d] = 0.0;
-  //   }
-
-  //   diag_pi_mig_row_sum[o] = 0.0;
-  //   diag_pi_stay[o] = 1.0;
-
-  //   // If migration propensity is zero, everyone stays
-  //   if (p_move_clamped <= 0.0)
-  //   {
-  //     diag_pi_mig[o][o] = 1.0;
-  //     diag_pi_mig_row_sum[o] = 1.0;
-  //     diag_pi_stay[o] = 1.0;
-  //     continue;
-  //   }
-
-  //   // Log-sum-exp over valid destinations d != o
-  //   double max_exp_arg = -1e308;
-
-  //   for (int d = 0; d < NR; ++d)
-  //   {
-  //     if (d == o)
-  //     {
-  //       continue;
-  //     }
-
-  //     const double V_d = diag_V_region[d];
-
-  //     if (std::isfinite(V_d))
-  //     {
-  //       max_exp_arg = std::max(max_exp_arg, V_d);
-  //     }
-  //   }
-
-  //   // If there is no valid destination, force staying
-  //   if (!std::isfinite(max_exp_arg))
-  //   {
-  //     diag_pi_mig[o][o] = 1.0;
-  //     diag_pi_mig_row_sum[o] = 1.0;
-  //     diag_pi_stay[o] = 1.0;
-  //     continue;
-  //   }
-
-  //   double sum_exp = 0.0;
-
-  //   for (int d = 0; d < NR; ++d)
-  //   {
-  //     if (d == o)
-  //     {
-  //       continue;
-  //     }
-
-  //     const double V_d = diag_V_region[d];
-
-  //     if (std::isfinite(V_d))
-  //     {
-  //       sum_exp += std::exp(V_d - max_exp_arg);
-  //     }
-  //   }
-
-  //   // Normalize conditional destination probabilities
-  //   if (sum_exp > 0.0 && std::isfinite(sum_exp))
-  //   {
-  //     // Staying probability
-  //     diag_pi_mig[o][o] = 1.0 - p_move_clamped;
-
-  //     // Moving probabilities conditional on leaving origin o
-  //     for (int d = 0; d < NR; ++d)
-  //     {
-  //       if (d == o)
-  //       {
-  //         continue;
-  //       }
-
-  //       const double V_d = diag_V_region[d];
-
-  //       if (std::isfinite(V_d))
-  //       {
-  //         const double q_od = std::exp(V_d - max_exp_arg) / sum_exp;
-  //         diag_pi_mig[o][d] = p_move_clamped * q_od;
-  //       }
-  //     }
-  //   }
-  //   else
-  //   {
-  //     // Fallback: stay at origin
-  //     diag_pi_mig[o][o] = 1.0;
-  //   }
-
-  //   // Diagnostics
-  //   diag_pi_mig_row_sum[o] = 0.0;
-
-  //   for (int d = 0; d < NR; ++d)
-  //   {
-  //     diag_pi_mig_row_sum[o] += diag_pi_mig[o][d];
-  //   }
-
-  //   diag_pi_stay[o] = diag_pi_mig[o][o];
-  // }
-
-  // ========== Compute destination-choice probabilities ==========
-  // Final design:
-  // Heterogeneous migration thresholds are represented by deterministic quantiles
-  // of a Gamma distribution.
-  //
-  // tau_j^{mig} = F_Gamma^{-1}(q_j; k_tau_mig, tau_mig / k_tau_mig)
-  // q_j = (j + 0.5) / J, j = 0,...,J-1
-  //
-  // With k_tau_mig = 2:
-  // tau_j^{mig} ~ Gamma(2, tau_mig / 2)
-  // E[tau_j^{mig}] = tau_mig
-  //
-  // A destination d is feasible for threshold type j only if:
-  // V_d - V_o > tau_j^{mig}
-  //
-  // Staying in the origin region is always feasible.
-  // Aggregate probabilities are averaged across threshold quantiles.
-  //
-  // This implementation is deterministic: no RNG and no seed dependence.
-
-  // ========== Threshold-distribution parameters ==========
-  // tau_mig   = mean migration threshold, read from input
-  // k_tau_mig = Gamma shape parameter, read from input
-  //
-  // tau_j^{mig} = F_Gamma^{-1}(q_j; k_tau_mig, tau_mig / k_tau_mig)
-  // E[tau_j^{mig}] = tau_mig
 
   const int N_tau_quantiles_mig = 50;
 
@@ -3672,7 +3521,7 @@ void MOBILITY_COMPUTATION(void)
   }
   diag_total_intended_migration = total_intent;
 
-  // ========== Step 7: Compute intended migration expenditure ==========
+  // ========== Compute intended migration expenditure ==========
   // ME^int_o = sum_{d != o} MC_{o,d} * M^int_{o,d}
   for (int o = 0; o < NR; ++o)
   {
@@ -3686,7 +3535,7 @@ void MOBILITY_COMPUTATION(void)
     }
   }
 
-  // ========== Step 8: Compute liquidity scaling lambda_liq_region[o] ==========
+  // ========== Compute liquidity scaling lambda_liq_region[o] ==========
   // D^{h,U}_o = u_o * Dh_pre_migration_o (unemployment-weighted regional household deposits)
   // lambda^liq_o = min(1, D^{h,U}_o / ME^int_o) if ME^int_o > 0 else 1
   // Phase 5B: liquidity is based on TRUE regional household deposits before migration
@@ -3711,7 +3560,7 @@ void MOBILITY_COMPUTATION(void)
     diag_lambda_liq_region[o] = max(0.0, min(1.0, diag_lambda_liq_region[o]));
   }
 
-  // ========== Step 9: Compute actual migration M_mig[o][d] ==========
+  // ========== Compute actual migration M_mig[o][d] ==========
   // M_{o,d} = lambda^liq_o * M^int_{o,d}
   double total_actual = 0.0;
   for (int o = 0; o < NR; ++o)
@@ -3733,7 +3582,7 @@ void MOBILITY_COMPUTATION(void)
   }
   diag_total_actual_migration = total_actual;
 
-  // ========== Step 10: Compute residual stayers M_mig[o][o] ==========
+  // ========== Compute residual stayers M_mig[o][o] ==========
   // M_{o,o} = UN_o - sum_{d != o} M_{o,d}
   for (int o = 0; o < NR; ++o)
   {
@@ -3750,7 +3599,7 @@ void MOBILITY_COMPUTATION(void)
     }
   }
 
-  // ========== Step 11: Compute inflows ==========
+  // ========== Compute inflows ==========
   // M^in_d = sum_{o != d} M_{o,d}
   for (int d = 0; d < NR; ++d)
   {
@@ -3772,7 +3621,7 @@ void MOBILITY_COMPUTATION(void)
     diag_sum_M_in += diag_M_in_region[r];
   }
 
-  // ========== Step 12: Update next-period regional labor supply shares ==========
+  // ========== Update next-period regional labor supply shares ==========
   // LS_tilde_{r,t+1} = LS_{r,t} - M^out_r + M^in_r
   // s^LS_{r,t+1} = LS_tilde_{r,t+1} / sum_q LS_tilde_{q,t+1}
   std::vector<double> LS_next(NR, 0.0);
@@ -3802,7 +3651,7 @@ void MOBILITY_COMPUTATION(void)
     diag_sum_LS_region_share_next += diag_LS_region_share_next[r];
   }
 
-  // ===== Phase 5A: write authoritative next-period labour-supply shares =====
+  // ===== write authoritative next-period labour-supply shares =====
   // Migration writes LS_region_share_next ONLY; the roll into LS_region_share
   // happens at the start of next period, so current-period outcomes are
   // unaffected. National labour conservation: sum_r LS_region_share_next = 1.
@@ -3815,7 +3664,7 @@ void MOBILITY_COMPUTATION(void)
     }
   }
 
-  // ========== Step 13: Diagnostic migration expenditure ==========
+  // ========== Diagnostic migration expenditure ==========
   // ME_t = sum_o sum_{d != o} MC_{o,d} * M_{o,d}
   diag_migration_expenditure_total = 0.0;
   for (int o = 0; o < NR; ++o)
@@ -3829,7 +3678,7 @@ void MOBILITY_COMPUTATION(void)
     }
   }
 
-  // ========== Phase 5B: Migration expenditure SFC closure ==========
+  // ==========Migration expenditure SFC closure ==========
   // Monetary moving costs leave origin-region households and arrive at C-firms as
   // a separate migration-service revenue flow (allocated by national lagged C-firm
   // market shares). This runs AFTER SFC_CHECK and AFTER actual migration is known,
@@ -3998,7 +3847,7 @@ void MOBILITY_COMPUTATION(void)
     diag_national_Deposits_h = Deposits_h(1);
   }
 
-  // Note: LS_region_share_next will be rolled into LS_region_share at the
+  // LS_region_share_next will be rolled into LS_region_share at the
   // beginning of next period, before regional labor supply is computed.
   // This ensures no retroactive changes to current-period outcomes.
 }
@@ -9052,159 +8901,6 @@ void REGIONAL_CONSISTENCY_CHECK(void)
     }
   }
 
-  // ========== OUTPUT MOBILITY DIAGNOSTICS ==========
-  if (NR > 0 && flag_regional_mobility == 1)
-  {
-    string mobility_diagnostics_file = "output/mobility_diagnostics_" + str_runname + "_1.csv";
-
-    // Header written only on first period
-    if (t == 1)
-    {
-      ofstream mob_out(mobility_diagnostics_file, ios::trunc);
-      mob_out << "t,total_intended_migration,total_actual_migration,migration_expenditure_total,"
-              << "sum_M_out,sum_M_in,max_abs_pi_row_sum_error,max_abs_M_row_sum_error,"
-              << "sum_LS_region_share,sum_LS_region_share_next,min_pi_stay,max_pi_stay,mean_pi_stay,"
-              << "min_lambda_liq,max_lambda_liq,mean_lambda_liq,"
-              << "p_move_mig,mean_move_probability,gross_migration_rate";
-
-      // Add origin-destination diagnostics headers if NR is small
-      if (NR <= 10)
-      {
-        for (int o = 0; o < NR; ++o)
-        {
-          for (int d = 0; d < NR; ++d)
-          {
-            mob_out << ",pi_mig[" << o << "][" << d << "]";
-          }
-        }
-        for (int o = 0; o < NR; ++o)
-        {
-          for (int d = 0; d < NR; ++d)
-          {
-            mob_out << ",M_int_mig[" << o << "][" << d << "]";
-          }
-        }
-        for (int o = 0; o < NR; ++o)
-        {
-          for (int d = 0; d < NR; ++d)
-          {
-            mob_out << ",M_mig[" << o << "][" << d << "]";
-          }
-        }
-        for (int o = 0; o < NR; ++o)
-        {
-          for (int d = 0; d < NR; ++d)
-          {
-            mob_out << ",MC_mig[" << o << "][" << d << "]";
-          }
-        }
-        for (int o = 0; o < NR; ++o)
-        {
-          for (int d = 0; d < NR; ++d)
-          {
-            mob_out << ",CU_mig[" << o << "][" << d << "]";
-          }
-        }
-      }
-      mob_out << "\n";
-      mob_out.close();
-    }
-
-    // Write data row
-    ofstream mob_out(mobility_diagnostics_file, ios::app);
-    mob_out.setf(ios::fixed);
-    mob_out.precision(8);
-
-    mob_out << t << ","
-            << diag_total_intended_migration << ","
-            << diag_total_actual_migration << ","
-            << diag_migration_expenditure_total << ","
-            << diag_sum_M_out << ","
-            << diag_sum_M_in << ",";
-
-    // Compute row sum errors for pi_mig and M_mig
-    double max_pi_error = 0.0;
-    double max_M_error = 0.0;
-    for (int o = 0; o < NR; ++o)
-    {
-      double pi_row_sum_error = fabs(diag_pi_mig_row_sum[o] - 1.0);
-      double M_row_sum_error = fabs(diag_M_mig_row_sum[o] -
-                                    (max(0.0, reg_LS[o] - (reg_Ld1[o] + reg_Ld2[o]))));
-      max_pi_error = max(max_pi_error, pi_row_sum_error);
-      max_M_error = max(max_M_error, M_row_sum_error);
-    }
-    mob_out << max_pi_error << ","
-            << max_M_error << ","
-            << diag_sum_LS_region_share << ","
-            << diag_sum_LS_region_share_next << ",";
-
-    // Compute min/max/mean of pi_stay and lambda_liq
-    double min_pi_stay = 1.0, max_pi_stay = 0.0, sum_pi_stay = 0.0;
-    double min_lambda = 1.0, max_lambda = 0.0, sum_lambda = 0.0;
-    for (int r = 0; r < NR; ++r)
-    {
-      min_pi_stay = min(min_pi_stay, diag_pi_stay[r]);
-      max_pi_stay = max(max_pi_stay, diag_pi_stay[r]);
-      sum_pi_stay += diag_pi_stay[r];
-      min_lambda = min(min_lambda, diag_lambda_liq_region[r]);
-      max_lambda = max(max_lambda, diag_lambda_liq_region[r]);
-      sum_lambda += diag_lambda_liq_region[r];
-    }
-    double mean_pi_stay = (NR > 0) ? sum_pi_stay / NR : 0.0;
-    double mean_lambda = (NR > 0) ? sum_lambda / NR : 0.0;
-
-    mob_out << min_pi_stay << ","
-            << max_pi_stay << ","
-            << mean_pi_stay << ","
-            << min_lambda << ","
-            << max_lambda << ","
-            << mean_lambda << ","
-            << p_move_mig << ","
-            << (1.0 - mean_pi_stay) << ","
-            << ((LS > 0) ? diag_total_actual_migration / LS : 0.0);
-
-    if (NR <= 10)
-    {
-      for (int o = 0; o < NR; ++o)
-      {
-        for (int d = 0; d < NR; ++d)
-        {
-          mob_out << "," << diag_pi_mig[o][d];
-        }
-      }
-      for (int o = 0; o < NR; ++o)
-      {
-        for (int d = 0; d < NR; ++d)
-        {
-          mob_out << "," << diag_M_int_mig[o][d];
-        }
-      }
-      for (int o = 0; o < NR; ++o)
-      {
-        for (int d = 0; d < NR; ++d)
-        {
-          mob_out << "," << diag_M_mig[o][d];
-        }
-      }
-      for (int o = 0; o < NR; ++o)
-      {
-        for (int d = 0; d < NR; ++d)
-        {
-          mob_out << "," << diag_MC_mig[o][d];
-        }
-      }
-      for (int o = 0; o < NR; ++o)
-      {
-        for (int d = 0; d < NR; ++d)
-        {
-          mob_out << "," << diag_CU_mig[o][d];
-        }
-      }
-    }
-    mob_out << "\n";
-    mob_out.close();
-  }
-
   Errors.close();
 }
 
@@ -10472,8 +10168,6 @@ void SAVE(void)
         target << reg_YD[region - 1]; // 43: reg_YD (Regional disposable income, decomposition)
         target.width(60);
         target << reg_C[region - 1]; // 44: reg_C (Regional consumption, decomposition)
-        target.width(60);
-        target << reg_w[region - 1]; // 65: reg_w (Regional wage rate; income/benefit/migration use)
         target.width(60);
         target << ((LS > 0) ? reg_LS[region - 1] / LS : 0.0) << endl; // 45: LS_region_share (sigma_r)
       };
