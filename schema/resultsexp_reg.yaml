@@ -73,3 +73,13 @@ columns:
   - name: reg_w
   - name: reg_YD
   - name: reg_C
+  - name: mach_import_share
+  - name: mach_export_share
+  - name: cons_import_share
+  - name: cons_export_share
+  - name: mach_buy_from_R1
+  - name: mach_buy_from_R2
+  - name: mach_buy_from_R3
+  - name: cons_buy_from_R1
+  - name: cons_buy_from_R2
+  - name: cons_buy_from_R3

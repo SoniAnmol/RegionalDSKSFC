@@ -269,84 +269,110 @@ double Deposits_recovered_1; // Liquidity recovered from failing K-firms
 double Deposits_recovered_2; // Liquidity recovered from failing C-firms
 
 // C-Firms
-RowVector p2;                           // C-firms' prices
-RowVector BankingSupplier_2;            // C-firms' suppliers of banking services
-Matrix BankMatch_2;                     // Matrix matching C-firms to banks
-RowVector A2;                           // Labour productivity C-firms
-RowVector A2_en;                        // Energy efficiency C-firms
-RowVector A2_ef;                        // Environmental friendliness C-firms
-RowVector c2;                           // Production cost C-firms
-RowVector c2p;                          // Production cost C-firms use to set prices (for energy price shock experiment)
-RowVector c1p;                          // Production cost K-firms use to set prices (for energy price shock experiment)
-RowVector l2;                           // Unsatisfied consumption demand
-RowVector DebtRemittances2;             // Loan repayments C-firms
-RowVector baddebt_2;                    // Bad debt of exiting C-firms
-Matrix S2;                              // C-firm revenues
-RowVector Sales2;                       // Temporary storage for C-firm revenues
-RowVector K;                            // C-firms' productive capacity
-RowVector K_cur;                        // Needed for shocks to capital stock
-Matrix f2;                              // C-firms' market share
-RowVector E2;                           // C-firms' competitiveness
-RowVector CreditDemand;                 // C-firms' credit demand
-RowVector I;                            // Total investment of C-firms in terms of productive capacity
-Matrix EI;                              // Expansion investment of C-firms in terms of productive capacity
-RowVector EI_n;                         // Nominal value of C-firms' expansion investment
-RowVector SI;                           // Substitution investment of C-firms in terms of productive capacity
-RowVector SI_n;                         // Nominal value of C-firms' substitution investment
-RowVector Q2;                           // Quantity produced by C-firms
-Matrix mu2;                             // Mark-up of C-firms
-RowVector fornit;                       // C-firms' supplier of machine tools
-RowVector n_mach;                       // C-firms' number of machines
-Matrix D2;                              // Demand for consumption goods
-RowVector De;                           // Expected demand
-Matrix N;                               // Inventories (real)
-RowVector Ne;                           // Desired inventories
-RowVector DebtServiceToSales2;          // C-firms' debt service to sales ratio
-Matrix DebtService_2;                   // C-firms' debt service
-Real DS2_min;                           // Minimum debt service to sales ratio
-RowVector DebtServiceToSales2_temp;     // Temporary storage for C-firms' debt service to sales ratio
-RowVector k;                            // Ranking of C-firms' debt service to sales ratio
-RowVector r_deb_h;                      // Borrowing rate charged to individual C-firms
-RowVector EId;                          // Desired expansion investment
-RowVector SId;                          // Desired replacement investment
-RowVector SId_age;                      // Desired replacement investment due to excessive age
-RowVector SId_cost;                     // Desired replacement investment due to high cost
-RowVector EIp;                          // Expansion investment post determination of maximum acceptable borrowing
-RowVector SIp;                          // Replacement investment post determination of maximum acceptable borrowing
-RowVector SIp_age;                      // Replacement investment due to excessive age post determination of maximum acceptable borrowing
-RowVector SIp_cost;                     // Replacement investment due to high cost post determination of maximum acceptable borrowing
-RowVector Ip;                           // Overall investment post determination of maximum acceptable borrowing
-RowVector Cmach;                        // Cost of overall investment
-RowVector CmachEI;                      // Cost of expansion investment
-RowVector CmachSI;                      // Cost of replacement investment
-RowVector CmachSI_age;                  // Cost of replacement investment due to excessive age
-RowVector CmachSI_cost;                 // Cost of replacement investment due to high cost
-RowVector Qd;                           // Quantity demanded from C-firms
-RowVector Kd;                           // Desired capital stock of C-firms
-RowVector Ktrig;                        // Current capital stock determining expansion investment
-RowVector A2e;                          // Effective labour productivity
-RowVector c2e;                          // Effective unit cost
-RowVector A2e_en;                       // Effective energy efficiency
-RowVector A2e_ef;                       // Effective environmental friendliness
-RowVector A2e2;                         // Needed for capital stock shocks
-RowVector A2e_en2;                      // Needed for capital stock shocks
-RowVector A2e_ef2;                      // Needed for capital stock shocks
-RowVector Ld2;                          // C-firms' labour demand
-RowVector Ld2_control;                  // Needed for capital stock shocks
-RowVector mol;                          // C-firms' net revenue
-RowVector exiting_2;                    // Indicating whether firm is exiting
-RowVector exit_payments2;               // Indicating whether firm is exiting due to inability to make a payment
-RowVector exit_equity2;                 // Indicating whether firm is exiting due to negative equity
-RowVector exit_marketshare2;            // Indicating whether firm is exiting due to loss of market share
-std::vector<double> reg_exit_payments2; // Regional C-firm exits triggered by payment inability
-std::vector<double> reg_exit_equity2;   // Regional C-firm exits triggered by negative equity
-RowVector D2_en;                        // C-firms' energy demand
-RowVector Emiss2;                       // C-firms' emissions
-RowVector dN;                           // Change in inventories
-RowVector dNm;                          // Change in nominal value of inventories
-RowVector Pi2;                          // C-firms' profit
-RowVector n_mach_entry;                 // Number of machines of entering firms
-RowVector scrap_age;                    // Number of machines scrapped due to age
+RowVector p2;                // C-firms' prices
+RowVector BankingSupplier_2; // C-firms' suppliers of banking services
+Matrix BankMatch_2;          // Matrix matching C-firms to banks
+RowVector A2;                // Labour productivity C-firms
+RowVector A2_en;             // Energy efficiency C-firms
+RowVector A2_ef;             // Environmental friendliness C-firms
+RowVector c2;                // Production cost C-firms
+RowVector c2p;               // Production cost C-firms use to set prices (for energy price shock experiment)
+RowVector c1p;               // Production cost K-firms use to set prices (for energy price shock experiment)
+RowVector l2;                // Unsatisfied consumption demand
+RowVector DebtRemittances2;  // Loan repayments C-firms
+RowVector baddebt_2;         // Bad debt of exiting C-firms
+Matrix S2;                   // C-firm revenues
+RowVector Sales2;            // Temporary storage for C-firm revenues
+RowVector K;                 // C-firms' productive capacity
+RowVector K_cur;             // Needed for shocks to capital stock
+Matrix f2;                   // C-firms' market share
+RowVector E2;                // C-firms' competitiveness
+// Regional home-bias (flag_regional_bias) structures.
+// f2_reg[r] mirrors the full 3xN2 structure of national f2 (row1 current, row2 lag,
+// row3 lag2) but holds region r's buyer-specific C-firm market shares under perceived
+// effective prices. reg_cons_share holds the normalised regional consumption-budget
+// weights s_r (from reg_Dh, with population/equal fallbacks). Diagnostics are aggregate
+// validation-only quantities and never feed back into model behaviour.
+std::vector<Matrix> f2_reg;             // Region-by-firm C-firm market shares (NR matrices, each 3xN2)
+std::vector<double> reg_cons_share;     // Normalised regional consumption-budget weights s_r
+double diag_hh_local_cons_share;        // Share of household consumption spent on same-region C-firms
+double diag_kfirm_local_supplier_share; // Share of C-firms whose selected K-firm is same-region
+double diag_wedge_cmarket;              // Average effective-price wedge applied in the C-firm (household) market
+double diag_wedge_kmarket;              // Average effective-price wedge applied in the K-firm market
+// Inter-regional trade accumulators (nominal value, per period). Machine flows use K-firm supplier
+// identity (always available); consumption flows require regional home-bias allocation to be active.
+std::vector<double> reg_mach_buy_local;   // Machines bought by region r from same-region K-firms
+std::vector<double> reg_mach_buy_import;  // Machines bought by region r from other-region K-firms
+std::vector<double> reg_mach_sell_local;  // Machines sold by region r K-firms to same-region buyers
+std::vector<double> reg_mach_sell_export; // Machines sold by region r K-firms to other-region buyers
+std::vector<double> reg_cons_buy_local;   // C-goods bought by region r from same-region C-firms
+std::vector<double> reg_cons_buy_import;  // C-goods bought by region r from other-region C-firms
+std::vector<double> reg_cons_sell_local;  // C-goods sold by region r C-firms to same-region buyers
+std::vector<double> reg_cons_sell_export; // C-goods sold by region r C-firms to other-region buyers
+// Bilateral purchase matrices [buyer region][source region] (nominal value, per period).
+std::vector<std::vector<double>> reg_mach_buy_from; // Machines bought by buyer r from source s
+std::vector<std::vector<double>> reg_cons_buy_from; // C-goods bought by buyer r from source s
+RowVector KfirmGovCredit;                           // Per-K-firm govt investment credit (EA public + I_adapt), set in RG block
+RowVector CreditDemand;                             // C-firms' credit demand
+RowVector I;                                        // Total investment of C-firms in terms of productive capacity
+Matrix EI;                                          // Expansion investment of C-firms in terms of productive capacity
+RowVector EI_n;                                     // Nominal value of C-firms' expansion investment
+RowVector SI;                                       // Substitution investment of C-firms in terms of productive capacity
+RowVector SI_n;                                     // Nominal value of C-firms' substitution investment
+RowVector Q2;                                       // Quantity produced by C-firms
+Matrix mu2;                                         // Mark-up of C-firms
+RowVector fornit;                                   // C-firms' supplier of machine tools
+RowVector n_mach;                                   // C-firms' number of machines
+Matrix D2;                                          // Demand for consumption goods
+RowVector De;                                       // Expected demand
+Matrix N;                                           // Inventories (real)
+RowVector Ne;                                       // Desired inventories
+RowVector DebtServiceToSales2;                      // C-firms' debt service to sales ratio
+Matrix DebtService_2;                               // C-firms' debt service
+Real DS2_min;                                       // Minimum debt service to sales ratio
+RowVector DebtServiceToSales2_temp;                 // Temporary storage for C-firms' debt service to sales ratio
+RowVector k;                                        // Ranking of C-firms' debt service to sales ratio
+RowVector r_deb_h;                                  // Borrowing rate charged to individual C-firms
+RowVector EId;                                      // Desired expansion investment
+RowVector SId;                                      // Desired replacement investment
+RowVector SId_age;                                  // Desired replacement investment due to excessive age
+RowVector SId_cost;                                 // Desired replacement investment due to high cost
+RowVector EIp;                                      // Expansion investment post determination of maximum acceptable borrowing
+RowVector SIp;                                      // Replacement investment post determination of maximum acceptable borrowing
+RowVector SIp_age;                                  // Replacement investment due to excessive age post determination of maximum acceptable borrowing
+RowVector SIp_cost;                                 // Replacement investment due to high cost post determination of maximum acceptable borrowing
+RowVector Ip;                                       // Overall investment post determination of maximum acceptable borrowing
+RowVector Cmach;                                    // Cost of overall investment
+RowVector CmachEI;                                  // Cost of expansion investment
+RowVector CmachSI;                                  // Cost of replacement investment
+RowVector CmachSI_age;                              // Cost of replacement investment due to excessive age
+RowVector CmachSI_cost;                             // Cost of replacement investment due to high cost
+RowVector Qd;                                       // Quantity demanded from C-firms
+RowVector Kd;                                       // Desired capital stock of C-firms
+RowVector Ktrig;                                    // Current capital stock determining expansion investment
+RowVector A2e;                                      // Effective labour productivity
+RowVector c2e;                                      // Effective unit cost
+RowVector A2e_en;                                   // Effective energy efficiency
+RowVector A2e_ef;                                   // Effective environmental friendliness
+RowVector A2e2;                                     // Needed for capital stock shocks
+RowVector A2e_en2;                                  // Needed for capital stock shocks
+RowVector A2e_ef2;                                  // Needed for capital stock shocks
+RowVector Ld2;                                      // C-firms' labour demand
+RowVector Ld2_control;                              // Needed for capital stock shocks
+RowVector mol;                                      // C-firms' net revenue
+RowVector exiting_2;                                // Indicating whether firm is exiting
+RowVector exit_payments2;                           // Indicating whether firm is exiting due to inability to make a payment
+RowVector exit_equity2;                             // Indicating whether firm is exiting due to negative equity
+RowVector exit_marketshare2;                        // Indicating whether firm is exiting due to loss of market share
+std::vector<double> reg_exit_payments2;             // Regional C-firm exits triggered by payment inability
+std::vector<double> reg_exit_equity2;               // Regional C-firm exits triggered by negative equity
+RowVector D2_en;                                    // C-firms' energy demand
+RowVector Emiss2;                                   // C-firms' emissions
+RowVector dN;                                       // Change in inventories
+RowVector dNm;                                      // Change in nominal value of inventories
+RowVector Pi2;                                      // C-firms' profit
+RowVector n_mach_entry;                             // Number of machines of entering firms
+RowVector scrap_age;                                // Number of machines scrapped due to age
 
 std::vector<std::vector<std::vector<int>>> age;        // Age of exiting machines
 std::vector<std::vector<std::vector<double>>> g_c;     // Frequency of machines for cost calculation

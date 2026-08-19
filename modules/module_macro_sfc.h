@@ -48,6 +48,9 @@ extern double Emiss1_TOT, Emiss2_TOT, Emiss_en, Cum_emissions, LS, LD;
 extern Matrix NW_1, NW_2, Deposits_1, Deposits_2, CapitalStock, deltaCapitalStock, Loans_2, Inventories, EI, N, S2;
 extern RowVector S1, Ld1, Ld2, K, I, SI, A1p, A2, nclient, Pi1, Pi2, Emiss2, CreditDemand;
 extern RowVector NW_h;
+extern RowVector KfirmGovCredit;
+extern int flag_regional_bias;
+extern double tau_regional;
 
 // -- Functions -- //
 void LABOR(void);           // Allocates labour supply; scales down production of firms if labour supply is insufficient

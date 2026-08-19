@@ -1423,6 +1423,34 @@ void SETPARAMS(const rapidjson::Document &inputs)
   flag_regional_labor = getFlagIntMobility("flag_regional_labor", 0);
   flag_ls_distribution = getFlagIntMobility("flag_ls_distribution", 0);
 
+  // Regional purchasing-preference (home-bias) mechanism.
+  // flag_regional_bias: 0 = baseline (no regional preference); 1 = perceived non-regional price penalty.
+  // tau_regional: proportional PERCEIVED non-regional purchasing-cost wedge (>= 0). This affects supplier
+  // evaluation only; actual payments always use posted prices p1/p2. No financial flow is created by it.
+  flag_regional_bias = getFlagIntMobility("flag_regional_bias", 0);
+  if (flag_regional_bias != 0 && flag_regional_bias != 1)
+  {
+    ofstream Errors(errorfilename, ios::app);
+    std::cerr << "[WARN] flag_regional_bias invalid (" << flag_regional_bias << "); clamping to 0" << std::endl;
+    Errors << "[WARN] flag_regional_bias invalid (" << flag_regional_bias << "); clamping to 0" << std::endl;
+    Errors.close();
+    flag_regional_bias = 0;
+  }
+  tau_regional = getDoubleParam("tau_regional", 0.0);
+  if (tau_regional < 0.0)
+  {
+    ofstream Errors(errorfilename, ios::app);
+    std::cerr << "[WARN] tau_regional negative (" << tau_regional << "); clamping to 0.0" << std::endl;
+    Errors << "[WARN] tau_regional negative (" << tau_regional << "); clamping to 0.0" << std::endl;
+    Errors.close();
+    tau_regional = 0.0;
+  }
+  if (verbose)
+  {
+    std::cerr << "[DEBUG] Regional bias loaded: flag_regional_bias=" << flag_regional_bias
+              << ", tau_regional=" << tau_regional << std::endl;
+  }
+
   // Regional wage-setting parameters (active when flag_regional_labor == 1)
   chi_w = getDoubleParam("chi_w", 1.0);         // 1.0 -> fully national wage growth (baseline-preserving default)
   dwage_max = getDoubleParam("dwage_max", 0.5); // symmetric bound on per-period regional wage growth
@@ -1500,6 +1528,12 @@ void RESIZE(void)
   D2.ReSize(2, N2);
   De.ReSize(N2);
   f2.ReSize(3, N2);
+  // Regional home-bias market-share structures: NR matrices mirroring national f2 (3 x N2).
+  if (NR > 0)
+  {
+    f2_reg.assign(NR, Matrix(3, N2));
+    reg_cons_share.assign(NR, 1.0 / NR);
+  }
   E2.ReSize(N2);
   c2.ReSize(N2);
   c2p.ReSize(N2);
@@ -1660,6 +1694,7 @@ void RESIZE(void)
   Emiss1.ReSize(N1);
   Injection_1.ReSize(N1);
   Balances_1.ReSize(N1);
+  KfirmGovCredit.ReSize(N1);
   baddebt_1.ReSize(N1);
   exiting_1.ReSize(N1);
   c1p.ReSize(N1);
@@ -1913,6 +1948,18 @@ void RESIZE(void)
       for (int rr = 0; rr < NR; rr++)
         reg_LS[rr] = LS * LS_region_share[rr];
     }
+
+    // Inter-regional trade accumulators
+    reg_mach_buy_local.assign(NR, 0.0);
+    reg_mach_buy_import.assign(NR, 0.0);
+    reg_mach_sell_local.assign(NR, 0.0);
+    reg_mach_sell_export.assign(NR, 0.0);
+    reg_cons_buy_local.assign(NR, 0.0);
+    reg_cons_buy_import.assign(NR, 0.0);
+    reg_cons_sell_local.assign(NR, 0.0);
+    reg_cons_sell_export.assign(NR, 0.0);
+    reg_mach_buy_from.assign(NR, std::vector<double>(NR, 0.0));
+    reg_cons_buy_from.assign(NR, std::vector<double>(NR, 0.0));
 
     // Regional Government Block
     TS_rg.assign(NR, 0.0);
@@ -2183,6 +2230,18 @@ void INITIALIZE(int Exseed)
       for (int rr = 0; rr < NR; rr++)
         reg_LS[rr] = LS * LS_region_share[rr];
     }
+
+    // Inter-regional trade accumulators
+    reg_mach_buy_local.assign(NR, 0.0);
+    reg_mach_buy_import.assign(NR, 0.0);
+    reg_mach_sell_local.assign(NR, 0.0);
+    reg_mach_sell_export.assign(NR, 0.0);
+    reg_cons_buy_local.assign(NR, 0.0);
+    reg_cons_buy_import.assign(NR, 0.0);
+    reg_cons_sell_local.assign(NR, 0.0);
+    reg_cons_sell_export.assign(NR, 0.0);
+    reg_mach_buy_from.assign(NR, std::vector<double>(NR, 0.0));
+    reg_cons_buy_from.assign(NR, std::vector<double>(NR, 0.0));
   }
 
   INTFILE();
@@ -2420,6 +2479,14 @@ void INITIALIZE(int Exseed)
   E2 = 1;
   f1 = 1 / N1r;
   f2 = 1 / N2r;
+  // Seed every regional market-share row from the national f2 (uniform 1/N2r).
+  if (NR > 0)
+  {
+    for (int rr = 0; rr < NR; rr++)
+    {
+      f2_reg[rr] = 1.0 / N2r;
+    }
+  }
   t0 = 1;
   Fragility = 0;
 
@@ -2631,7 +2698,7 @@ void SETVARS(void)
   Taxes_e_shock = 0;
   Taxes_f_shock = 0;
   Wages = 0;
-  Deposits_recovered_1 = 0;
+  KfirmGovCredit = 0;
   Deposits_recovered_2 = 0;
   EntryCosts = 0;
   BankTransfer = 0;
@@ -2731,6 +2798,19 @@ void SETVARS(void)
       reg_SI[rr] = 0;
       reg_Ld1[rr] = 0;
       reg_Ld2[rr] = 0;
+      reg_mach_buy_local[rr] = 0;
+      reg_mach_buy_import[rr] = 0;
+      reg_mach_sell_local[rr] = 0;
+      reg_mach_sell_export[rr] = 0;
+      reg_cons_buy_local[rr] = 0;
+      reg_cons_buy_import[rr] = 0;
+      reg_cons_sell_local[rr] = 0;
+      reg_cons_sell_export[rr] = 0;
+      for (int ss = 0; ss < NR; ++ss)
+      {
+        reg_mach_buy_from[rr][ss] = 0;
+        reg_cons_buy_from[rr][ss] = 0;
+      }
       reg_Emiss1[rr] = 0;
       reg_Emiss2[rr] = 0;
       reg_Pi1[rr] = 0;
@@ -3900,7 +3980,20 @@ void BROCHURE(void)
     {
       if (A1(i) > 0)
       {
-        if (Match(j, i) == 1 && p1(i) + (w(2) / A1(i) + c_en(2) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b < p1(indforn) + (w(2) / A1(indforn) + c_en(2) / A1_en(indforn) + t_CO2 * A1_ef(indforn) / A1_en(indforn)) * b)
+        // Apply a perceived non-regional purchasing-cost wedge to the machine PRICE only.
+        // This affects supplier evaluation; the selected C-firm still pays the posted price p1.
+        // The operating-cost term (labour/energy/carbon)*b is a physical property of the
+        // machine and is never wedged. When the mechanism is inactive the effective prices
+        // equal the posted prices, so the comparison reproduces the baseline exactly.
+        double p1_cand = p1(i);
+        double p1_inc = p1(indforn);
+        if (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0)
+        {
+          int buyer_region = region_firm_assignment_C[j - 1];
+          p1_cand = perceivedRegionalPrice(p1(i), buyer_region, region_firm_assignment_K[i - 1], flag_regional_bias, tau_regional);
+          p1_inc = perceivedRegionalPrice(p1(indforn), buyer_region, region_firm_assignment_K[indforn - 1], flag_regional_bias, tau_regional);
+        }
+        if (Match(j, i) == 1 && p1_cand + (w(2) / A1(i) + c_en(2) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b < p1_inc + (w(2) / A1(indforn) + c_en(2) / A1_en(indforn) + t_CO2 * A1_ef(indforn) / A1_en(indforn)) * b)
         {
           indforn = i;
         }
@@ -5440,6 +5533,27 @@ void PAY_LAB_INV(void)
         }
       }
     }
+
+    // Split the (actually paid) machine purchase into intra-regional and cross-regional flows
+    if (NR > 0 && Investment_2(j) > 0)
+    {
+      int rb = region_firm_assignment_C[j - 1];
+      int rs = region_firm_assignment_K[indforn - 1];
+      if (rb >= 1 && rb <= NR && rs >= 1 && rs <= NR)
+      {
+        reg_mach_buy_from[rb - 1][rs - 1] += Investment_2(j);
+        if (rb == rs)
+        {
+          reg_mach_buy_local[rb - 1] += Investment_2(j);
+          reg_mach_sell_local[rs - 1] += Investment_2(j);
+        }
+        else
+        {
+          reg_mach_buy_import[rb - 1] += Investment_2(j);
+          reg_mach_sell_export[rs - 1] += Investment_2(j);
+        }
+      }
+    }
   }
 
   // K-firms pay wages
@@ -5619,20 +5733,195 @@ void COMPET2(void)
     exit(EXIT_FAILURE);
   }
 
-  for (j = 1; j <= N2; j++)
-  {
-    f2(1, j) = f2(2, j) * ((2 * omega3) / (1 + exp((-chi) * ((E2(j) - Em2(1)) / Em2(1)))) + (1 - omega3));
+  // Regional home-bias is active only when the flag is on, the wedge is materially
+  // positive, and the model is regionalised. Otherwise the original national
+  // quasi-replicator update below runs unchanged (exact baseline nesting).
+  bool regional_active = (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0);
 
-    if (f2(1, j) <= (1 / (N2r * 500)))
+  if (!regional_active)
+  {
+    // ----- BASELINE: national quasi-replicator (unchanged) -----
+    for (j = 1; j <= N2; j++)
     {
-      f2(1, j) = 0;
-      f2(2, j) = 0;
-      f2(3, j) = 0;
-      if (exiting_2(j) == 0 && exit_payments2(j) == 0 && exit_marketshare2(j) == 0)
+      f2(1, j) = f2(2, j) * ((2 * omega3) / (1 + exp((-chi) * ((E2(j) - Em2(1)) / Em2(1)))) + (1 - omega3));
+
+      if (f2(1, j) <= (1 / (N2r * 500)))
       {
-        exit_marketshare2(j) = 1;
-        if (NR > 0)
+        f2(1, j) = 0;
+        f2(2, j) = 0;
+        f2(3, j) = 0;
+        if (exiting_2(j) == 0 && exit_payments2(j) == 0 && exit_marketshare2(j) == 0)
         {
+          exit_marketshare2(j) = 1;
+          if (NR > 0)
+          {
+            int rr = region_firm_assignment_C[j - 1];
+            if (rr >= 1 && rr <= NR)
+            {
+              reg_exit_marketshare2[rr - 1] += 1.0;
+            }
+          }
+        }
+      }
+      ftot(1) += f2(1, j);
+      ftot(2) += f2(2, j);
+      ftot(3) += f2(3, j);
+    }
+  }
+  else
+  {
+    // ----- REGIONAL HOME-BIAS: buyer-region-specific quasi-replicator -----
+    // Households in region r perceive an effective price for C-firm c that is inflated
+    // by tau_regional when c is located in another region. Each region runs its own
+    // replicator on its own market-share row f2_reg[r], using the existing unweighted
+    // average-price convention but computed per buyer region from effective prices.
+    // The national f2(1,c) is then the consumption-budget-weighted aggregate of the
+    // regional rows; national exit/markup/timing continue to use national f2.
+
+    // Regional consumption-budget weights s_r: primary reg_Dh, then population share
+    // (LS_region_share), then equal shares. Weights are sanitised and normalised.
+    {
+      double sumDh = 0.0;
+      bool dh_ok = ((int)reg_Dh.size() == NR);
+      if (dh_ok)
+      {
+        for (int rr = 0; rr < NR; rr++)
+        {
+          double v = reg_Dh[rr];
+          if (!std::isfinite(v) || v < 0.0)
+          {
+            dh_ok = false;
+            break;
+          }
+          sumDh += v;
+        }
+      }
+      if (dh_ok && sumDh > 0.0)
+      {
+        for (int rr = 0; rr < NR; rr++)
+          reg_cons_share[rr] = reg_Dh[rr] / sumDh;
+      }
+      else
+      {
+        double sumLs = 0.0;
+        bool ls_ok = ((int)LS_region_share.size() == NR);
+        if (ls_ok)
+        {
+          for (int rr = 0; rr < NR; rr++)
+          {
+            double v = LS_region_share[rr];
+            if (!std::isfinite(v) || v < 0.0)
+            {
+              ls_ok = false;
+              break;
+            }
+            sumLs += v;
+          }
+        }
+        if (ls_ok && sumLs > 0.0)
+        {
+          for (int rr = 0; rr < NR; rr++)
+            reg_cons_share[rr] = LS_region_share[rr] / sumLs;
+        }
+        else
+        {
+          for (int rr = 0; rr < NR; rr++)
+            reg_cons_share[rr] = 1.0 / NR;
+        }
+      }
+    }
+
+    // Region-specific replicator: update each f2_reg[r] current row (row 1) from its lag (row 2).
+    for (int rr = 0; rr < NR; rr++)
+    {
+      int region_id = rr + 1; // buyer region (1-based)
+
+      // Region-specific unweighted mean effective price (same convention as national p2m).
+      double p2m_r = 0.0;
+      for (j = 1; j <= N2; j++)
+      {
+        p2m_r += perceivedRegionalPrice(p2(j), region_id, region_firm_assignment_C[j - 1], flag_regional_bias, tau_regional);
+      }
+      p2m_r /= N2r;
+      if (!(p2m_r > 0.0))
+        p2m_r = (p2m > 0.0) ? p2m : 1.0; // guard: fall back to national mean
+
+      // Normalise the region lag row and compute the region weighted-average competitiveness.
+      double ftot2_r = 0.0;
+      for (j = 1; j <= N2; j++)
+        ftot2_r += f2_reg[rr](2, j);
+
+      double Em2_r = 0.0;
+      if (ftot2_r > 0.0)
+      {
+        for (j = 1; j <= N2; j++)
+        {
+          f2_reg[rr](2, j) /= ftot2_r;
+          double pe = perceivedRegionalPrice(p2(j), region_id, region_firm_assignment_C[j - 1], flag_regional_bias, tau_regional);
+          double E2rc;
+          if (omega1 <= 1)
+            E2rc = -omega1 * pe / p2m_r - omega2 * l2(j) / l2m;
+          else
+            E2rc = -pow(pe / p2m_r, omega1) - pow(l2(j) / l2m, omega2);
+          Em2_r += E2rc * f2_reg[rr](2, j);
+        }
+      }
+      else
+      {
+        // Degenerate region row: reseed uniform lag so the replicator can proceed.
+        for (j = 1; j <= N2; j++)
+          f2_reg[rr](2, j) = 1.0 / N2r;
+        for (j = 1; j <= N2; j++)
+        {
+          double pe = perceivedRegionalPrice(p2(j), region_id, region_firm_assignment_C[j - 1], flag_regional_bias, tau_regional);
+          double E2rc;
+          if (omega1 <= 1)
+            E2rc = -omega1 * pe / p2m_r - omega2 * l2(j) / l2m;
+          else
+            E2rc = -pow(pe / p2m_r, omega1) - pow(l2(j) / l2m, omega2);
+          Em2_r += E2rc * f2_reg[rr](2, j);
+        }
+      }
+      if (Em2_r == 0.0)
+        Em2_r = (Em2(1) != 0.0) ? Em2(1) : 1.0; // guard divisor
+
+      // Update region current row.
+      for (j = 1; j <= N2; j++)
+      {
+        double pe = perceivedRegionalPrice(p2(j), region_id, region_firm_assignment_C[j - 1], flag_regional_bias, tau_regional);
+        double E2rc;
+        if (omega1 <= 1)
+          E2rc = -omega1 * pe / p2m_r - omega2 * l2(j) / l2m;
+        else
+          E2rc = -pow(pe / p2m_r, omega1) - pow(l2(j) / l2m, omega2);
+        f2_reg[rr](1, j) = f2_reg[rr](2, j) * ((2 * omega3) / (1 + exp((-chi) * ((E2rc - Em2_r) / Em2_r))) + (1 - omega3));
+      }
+    }
+
+    // National f2(1,c) = consumption-budget-weighted aggregate of regional rows.
+    // Exit/normalisation below then run on national f2 exactly as in the baseline;
+    // an exiting firm is zeroed across every regional row.
+    for (j = 1; j <= N2; j++)
+    {
+      double agg = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+        agg += reg_cons_share[rr] * f2_reg[rr](1, j);
+      f2(1, j) = agg;
+
+      if (f2(1, j) <= (1 / (N2r * 500)))
+      {
+        f2(1, j) = 0;
+        f2(2, j) = 0;
+        f2(3, j) = 0;
+        for (int rr = 0; rr < NR; rr++)
+        {
+          f2_reg[rr](1, j) = 0;
+          f2_reg[rr](2, j) = 0;
+          f2_reg[rr](3, j) = 0;
+        }
+        if (exiting_2(j) == 0 && exit_payments2(j) == 0 && exit_marketshare2(j) == 0)
+        {
+          exit_marketshare2(j) = 1;
           int rr = region_firm_assignment_C[j - 1];
           if (rr >= 1 && rr <= NR)
           {
@@ -5640,10 +5929,10 @@ void COMPET2(void)
           }
         }
       }
+      ftot(1) += f2(1, j);
+      ftot(2) += f2(2, j);
+      ftot(3) += f2(3, j);
     }
-    ftot(1) += f2(1, j);
-    ftot(2) += f2(2, j);
-    ftot(3) += f2(3, j);
   }
 
   if (ftot(1) == 0 || ftot(2) == 0 || ftot(3) == 0)
@@ -5658,6 +5947,23 @@ void COMPET2(void)
     f2(1, j) /= ftot(1);
     f2(2, j) /= ftot(2);
     f2(3, j) /= ftot(3);
+  }
+
+  // Renormalise each regional current row over surviving firms so that region-specific
+  // budgets are distributed across a proper probability vector during allocation.
+  if (regional_active)
+  {
+    for (int rr = 0; rr < NR; rr++)
+    {
+      double s1 = 0.0;
+      for (j = 1; j <= N2; j++)
+        s1 += f2_reg[rr](1, j);
+      if (s1 > 0.0)
+      {
+        for (j = 1; j <= N2; j++)
+          f2_reg[rr](1, j) /= s1;
+      }
+    }
   }
 
   Errors.close();
@@ -6440,66 +6746,275 @@ void ALLOC(void)
 
   for (j = 1; j <= N2; j++)
   {
-    f_temp2(j) = f2(1, j);
-    ftot(1) += f_temp2(j);
     Q2temp(j) = Q2(j) + N(2, j);
   }
 
-  // Consumption demand is distributed among C-firms based on market shares
-  while (Cres >= 1 && ftot(1) > 0)
+  bool regional_active = (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0);
+
+  if (!regional_active)
   {
-    Cresbis = Cres;
+    // ----- BASELINE: single national consumption market (unchanged) -----
     for (j = 1; j <= N2; j++)
     {
-      if (f_temp2(j) > 0)
+      f_temp2(j) = f2(1, j);
+      ftot(1) += f_temp2(j);
+    }
+
+    // Consumption demand is distributed among C-firms based on market shares
+    while (Cres >= 1 && ftot(1) > 0)
+    {
+      Cresbis = Cres;
+      for (j = 1; j <= N2; j++)
       {
-        D_temp2(j) = Cres / cpi_temp * f_temp2(j);
-
-        if (n == 1)
+        if (f_temp2(j) > 0)
         {
-          D2(1, j) += D_temp2(j);
-        }
+          D_temp2(j) = Cres / cpi_temp * f_temp2(j);
 
-        if (D_temp2(j) <= Q2temp(j))
-        {
-          if (n > 1)
+          if (n == 1)
           {
             D2(1, j) += D_temp2(j);
           }
-          S2(1, j) += p2(j) * D_temp2(j);
-          Cresbis -= D_temp2(j) * p2(j);
-          if (n == 1)
+
+          if (D_temp2(j) <= Q2temp(j))
           {
-            l2(j) = 1;
+            if (n > 1)
+            {
+              D2(1, j) += D_temp2(j);
+            }
+            S2(1, j) += p2(j) * D_temp2(j);
+            Cresbis -= D_temp2(j) * p2(j);
+            if (n == 1)
+            {
+              l2(j) = 1;
+            }
+            Q2temp(j) -= D_temp2(j);
           }
-          Q2temp(j) -= D_temp2(j);
+          else
+          {
+            if (n > 1)
+            {
+              D2(1, j) += Q2temp(j);
+            }
+            S2(1, j) += p2(j) * Q2temp(j);
+            Cresbis -= Q2temp(j) * p2(j);
+            f_temp2(j) = 0;
+            if (n == 1)
+            {
+              l2(j) = 1 + (D_temp2(j) - Q2temp(j));
+            }
+            Q2temp(j) = 0;
+          }
+        }
+      }
+      ftot(1) = f_temp2.Sum();
+      f_temp2 /= ftot(1);
+      Cres = Cresbis;
+      cpi_temp = 0;
+      for (j = 1; j <= N2; j++)
+      {
+        cpi_temp += p2(j) * f_temp2(j);
+      }
+      n++;
+    }
+  }
+  else
+  {
+    // ----- REGIONAL HOME-BIAS ALLOCATION -----
+    // Each region r receives a nominal consumption budget Cons * s_r and spends it on
+    // C-firms according to its own ex ante share row f2_reg[r]. Firms hold a single
+    // physical inventory Q2temp shared across regions; when a firm's inventory binds,
+    // its available output is rationed pro rata across the regions' desired demands
+    // (proportional, no region priority). The downstream-observable aggregates
+    // S2 (nominal revenue), D2 (real demand) and l2 (unmet-demand index) are
+    // accumulated exactly as in the baseline single-market loop.
+    std::vector<double> Cres_r(NR, 0.0);
+    std::vector<double> cpi_r(NR, 0.0);
+    std::vector<std::vector<double>> g(NR, std::vector<double>(N2 + 1, 0.0));        // region ex ante shares (firm 1..N2)
+    std::vector<std::vector<double>> realized(NR, std::vector<double>(N2 + 1, 0.0)); // realized real purchases
+
+    for (int rr = 0; rr < NR; rr++)
+    {
+      Cres_r[rr] = Cons * reg_cons_share[rr];
+      if (Cres_r[rr] < 0.0)
+        Cres_r[rr] = 0.0;
+      double gsum = 0.0;
+      for (j = 1; j <= N2; j++)
+      {
+        double gv = f2_reg[rr](1, j);
+        if (!std::isfinite(gv) || gv < 0.0)
+          gv = 0.0;
+        g[rr][j] = gv;
+        gsum += gv;
+      }
+      cpi_r[rr] = 0.0;
+      if (gsum > 0.0)
+      {
+        for (j = 1; j <= N2; j++)
+          cpi_r[rr] += p2(j) * (g[rr][j] / gsum);
+      }
+      if (!(cpi_r[rr] > 0.0))
+        cpi_r[rr] = cpi_temp; // guard: fall back to national CPI
+    }
+
+    // Any region still has budget to spend and at least one available supplier?
+    auto anyActive = [&]() -> bool
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        if (Cres_r[rr] >= 1.0)
+        {
+          double gs = 0.0;
+          for (int jj = 1; jj <= N2; jj++)
+            gs += g[rr][jj];
+          if (gs > 0.0)
+            return true;
+        }
+      }
+      return false;
+    };
+
+    while (anyActive())
+    {
+      std::vector<double> Cresbis_r = Cres_r;
+      // Desired real demand per region per firm, computed from start-of-pass budgets/CPIs.
+      std::vector<std::vector<double>> Xd(NR, std::vector<double>(N2 + 1, 0.0));
+      for (int rr = 0; rr < NR; rr++)
+      {
+        double gsum = 0.0;
+        for (j = 1; j <= N2; j++)
+          gsum += g[rr][j];
+        if (Cres_r[rr] >= 1.0 && gsum > 0.0 && cpi_r[rr] > 0.0)
+        {
+          for (j = 1; j <= N2; j++)
+          {
+            double gnorm = g[rr][j] / gsum;
+            Xd[rr][j] = Cres_r[rr] / cpi_r[rr] * gnorm;
+          }
+        }
+      }
+
+      for (j = 1; j <= N2; j++)
+      {
+        double Xd_j = 0.0;
+        for (int rr = 0; rr < NR; rr++)
+          Xd_j += Xd[rr][j];
+        if (Xd_j <= 0.0)
+          continue;
+
+        if (n == 1)
+        {
+          D2(1, j) += Xd_j;
+          l2(j) = (Xd_j <= Q2temp(j)) ? 1.0 : 1.0 + (Xd_j - Q2temp(j));
+        }
+
+        if (Xd_j <= Q2temp(j))
+        {
+          if (n > 1)
+            D2(1, j) += Xd_j;
+          for (int rr = 0; rr < NR; rr++)
+          {
+            double q = Xd[rr][j];
+            if (q <= 0.0)
+              continue;
+            S2(1, j) += p2(j) * q;
+            Cresbis_r[rr] -= q * p2(j);
+            realized[rr][j] += q;
+          }
+          Q2temp(j) -= Xd_j;
         }
         else
         {
+          double ratio = (Xd_j > 0.0) ? (Q2temp(j) / Xd_j) : 0.0;
           if (n > 1)
-          {
             D2(1, j) += Q2temp(j);
-          }
-          S2(1, j) += p2(j) * Q2temp(j);
-          Cresbis -= Q2temp(j) * p2(j);
-          f_temp2(j) = 0;
-          if (n == 1)
+          for (int rr = 0; rr < NR; rr++)
           {
-            l2(j) = 1 + (D_temp2(j) - Q2temp(j));
+            double q = Xd[rr][j] * ratio;
+            if (q <= 0.0)
+              continue;
+            S2(1, j) += p2(j) * q;
+            Cresbis_r[rr] -= q * p2(j);
+            realized[rr][j] += q;
           }
-          Q2temp(j) = 0;
+          for (int rr = 0; rr < NR; rr++)
+            g[rr][j] = 0.0;
+          Q2temp(j) = 0.0;
+        }
+      }
+
+      // Update per-region residual budgets and CPIs for the next pass.
+      for (int rr = 0; rr < NR; rr++)
+      {
+        Cres_r[rr] = Cresbis_r[rr];
+        if (Cres_r[rr] < 0.0)
+          Cres_r[rr] = 0.0;
+        double gsum = 0.0;
+        for (j = 1; j <= N2; j++)
+          gsum += g[rr][j];
+        cpi_r[rr] = 0.0;
+        if (gsum > 0.0)
+        {
+          for (j = 1; j <= N2; j++)
+            cpi_r[rr] += p2(j) * (g[rr][j] / gsum);
+        }
+        else
+        {
+          Cres_r[rr] = 0.0;
+        }
+        if (!(cpi_r[rr] > 0.0) && Cres_r[rr] > 0.0)
+          cpi_r[rr] = cpi_temp;
+      }
+      n++;
+    }
+
+    // Split realized consumption purchases into intra-regional and cross-regional flows (nominal value).
+    for (int rr = 0; rr < NR; rr++)
+    {
+      int region_id = rr + 1;
+      for (j = 1; j <= N2; j++)
+      {
+        double val = realized[rr][j] * p2(j);
+        if (val <= 0.0)
+          continue;
+        int rs = region_firm_assignment_C[j - 1];
+        if (rs >= 1 && rs <= NR)
+          reg_cons_buy_from[rr][rs - 1] += val;
+        if (region_firm_assignment_C[j - 1] == region_id)
+        {
+          reg_cons_buy_local[rr] += val;
+          reg_cons_sell_local[rr] += val;
+        }
+        else
+        {
+          reg_cons_buy_import[rr] += val;
+          if (rs >= 1 && rs <= NR)
+            reg_cons_sell_export[rs - 1] += val;
         }
       }
     }
-    ftot(1) = f_temp2.Sum();
-    f_temp2 /= ftot(1);
-    Cres = Cresbis;
-    cpi_temp = 0;
-    for (j = 1; j <= N2; j++)
+
+    // Demand-side regional diagnostic: local-purchase share and average applied wedge.
+    if (verbose)
     {
-      cpi_temp += p2(j) * f_temp2(j);
+      double tot_real = 0.0, local_real = 0.0, wedge_num = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+      {
+        int region_id = rr + 1;
+        for (j = 1; j <= N2; j++)
+        {
+          double q = realized[rr][j];
+          if (q <= 0.0)
+            continue;
+          tot_real += q;
+          if (region_firm_assignment_C[j - 1] == region_id)
+            local_real += q;
+          else
+            wedge_num += q * tau_regional;
+        }
+      }
+      diag_hh_local_cons_share = (tot_real > 0.0) ? (local_real / tot_real) : 0.0;
+      diag_wedge_cmarket = (tot_real > 0.0) ? (wedge_num / tot_real) : 0.0;
     }
-    n++;
   }
 
   // Nominal consumption is calculated
@@ -7401,6 +7916,43 @@ void ENTRYEXIT(void)
     f2(1, j) /= ftot(1);
     f2(2, j) /= ftot(2);
     f2(3, j) /= ftot(3);
+  }
+
+  // Mirror the (normalised) national C-firm shares of entrant firms into every regional
+  // market-share row, then renormalise each regional row so it remains a valid share vector.
+  if (NR > 0)
+  {
+    for (j = 1; j <= N2; j++)
+    {
+      if (exiting_2(j) == 1)
+      {
+        for (int rr = 0; rr < NR; rr++)
+        {
+          f2_reg[rr](1, j) = f2(1, j);
+          f2_reg[rr](2, j) = f2(2, j);
+          f2_reg[rr](3, j) = f2(3, j);
+        }
+      }
+    }
+    for (int rr = 0; rr < NR; rr++)
+    {
+      double s1 = 0.0, s2 = 0.0, s3 = 0.0;
+      for (j = 1; j <= N2; j++)
+      {
+        s1 += f2_reg[rr](1, j);
+        s2 += f2_reg[rr](2, j);
+        s3 += f2_reg[rr](3, j);
+      }
+      if (s1 > 0.0)
+        for (j = 1; j <= N2; j++)
+          f2_reg[rr](1, j) /= s1;
+      if (s2 > 0.0)
+        for (j = 1; j <= N2; j++)
+          f2_reg[rr](2, j) /= s2;
+      if (s3 > 0.0)
+        for (j = 1; j <= N2; j++)
+          f2_reg[rr](3, j) /= s3;
+    }
   }
 
   // Update C-firm K-firm network
@@ -8435,22 +8987,9 @@ void SFC_CHECK(void)
   // Compare stock and flow measures of K-firm net worth
   for (i = 1; i <= N1; i++)
   {
-    // Compute per-firm EA credit (matches market-share allocation in RG_BLOCK_FISCAL)
-    double ea_firm_i = 0.0;
-    if (NR > 0 && gamma_bar > 0.0)
-    {
-      int rr = region_firm_assignment_K[i - 1]; // 1-based region index
-      if (rr >= 1 && rr <= NR && reg_N1[rr - 1] > 0 && EA_rg[rr - 1] > 0.0)
-      {
-        double total_share_rr = 0.0;
-        for (int ii2 = 1; ii2 <= N1; ii2++)
-          if (region_firm_assignment_K[ii2 - 1] == rr)
-            total_share_rr += f1(1, ii2);
-        ea_firm_i = (total_share_rr > 0.0)
-                        ? EA_rg[rr - 1] * (f1(1, i) / total_share_rr)
-                        : EA_rg[rr - 1] / reg_N1[rr - 1];
-      }
-    }
+    // Per-firm govt investment credit recorded during RG_BLOCK_FISCAL disbursement
+    // (public-capital EA within region + adaptation I_adapt over perceived-national shares).
+    double ea_firm_i = (NR > 0) ? KfirmGovCredit(i) : 0.0;
     Balances_1(i) = Sales1(i) + InterestDeposits_1(i) - Wages_1(i) - EnergyPayments_1(i) - Dividends_1(i) - Taxes_1(i) - Taxes_CO2_1(i) + ea_firm_i;
     NW_1(1, i) = Deposits_1(1, i);
     NW_1_c(i) = NW_1(2, i) + Balances_1(i) + baddebt_1(i) + Injection_1(i);
@@ -8488,6 +9027,20 @@ void SFC_CHECK(void)
   // Compare stock and flow measures of CB net worth
   NW_cb(1) = GB_cb(1) + Advances(1) - Reserves(1) - Deposits_fuel_cb(1);
   NW_cb_c = NW_cb(2) + Balance_cb + Adjustment_cb;
+  if (t >= 100 && t <= 104)
+  {
+    double gap = NW_cb(1) - NW_cb_c;
+    double dfuel = Deposits_fuel_cb(1) - Deposits_fuel_cb(2);
+    Errors << "[CBDBG t=" << t << "] gap=" << gap
+           << " dNW_cb=" << (NW_cb(1) - NW_cb(2))
+           << " Balance_cb=" << Balance_cb
+           << " Adjustment_cb=" << Adjustment_cb
+           << " dDeposits_fuel_cb=" << dfuel
+           << " dGB_cb=" << (GB_cb(1) - GB_cb(2))
+           << " dAdvances=" << (Advances(1) - Advances(2))
+           << " dReserves=" << (Reserves(1) - Reserves(2))
+           << " NW_cb1=" << NW_cb(1) << " GDP_n=" << GDP_n(1) << std::endl;
+  }
   deviation = fabs((NW_cb(1) - NW_cb_c) / NW_cb_c);
   if (deviation > tolerance && fabs(NW_cb(1) / GDP_n(1)) > tolerance && fabs(NW_cb_c / GDP_n(1)) > tolerance)
   {
@@ -9020,9 +9573,19 @@ void UPDATE(void)
     DebtService_2(2, j) = DebtService_2(1, j);
     f2(3, j) = f2(2, j);
     f2(2, j) = f2(1, j);
+    // Advance the lag rows of every regional market-share matrix in lock-step with f2.
+    if (NR > 0)
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        f2_reg[rr](3, j) = f2_reg[rr](2, j);
+        f2_reg[rr](2, j) = f2_reg[rr](1, j);
+      }
+    }
     D2(2, j) = D2(1, j);
     N(2, j) = N(1, j);
     Inventories(2, j) = Inventories(1, j);
+
     EI(2, j) = EI(1, j);
     deltaCapitalStock(2, j) = deltaCapitalStock(1, j);
     S2(2, j) = S2(1, j);
@@ -9753,7 +10316,33 @@ void SAVE(void)
         target.width(60);
         target << reg_YD[region - 1]; // 66: reg_YD (Regional disposable income, decomposition)
         target.width(60);
-        target << reg_C[region - 1] << endl; // 67: reg_C (Regional consumption, decomposition)
+        target << reg_C[region - 1]; // 67: reg_C (Regional consumption, decomposition)
+        {
+          int rgi = region - 1;
+          double mb = reg_mach_buy_local[rgi] + reg_mach_buy_import[rgi];
+          double ms = reg_mach_sell_local[rgi] + reg_mach_sell_export[rgi];
+          double cb = reg_cons_buy_local[rgi] + reg_cons_buy_import[rgi];
+          double cs = reg_cons_sell_local[rgi] + reg_cons_sell_export[rgi];
+          target.width(60);
+          target << ((mb > 0.0) ? reg_mach_buy_import[rgi] / mb : 0.0); // 68: mach_import_share
+          target.width(60);
+          target << ((ms > 0.0) ? reg_mach_sell_export[rgi] / ms : 0.0); // 69: mach_export_share
+          target.width(60);
+          target << ((cb > 0.0) ? reg_cons_buy_import[rgi] / cb : 0.0); // 70: cons_import_share
+          target.width(60);
+          target << ((cs > 0.0) ? reg_cons_sell_export[rgi] / cs : 0.0); // 71: cons_export_share
+          for (int ss = 0; ss < NR; ss++)
+          {
+            target.width(60);
+            target << reg_mach_buy_from[rgi][ss]; // 72..: mach_buy_from_R(ss+1)
+          }
+          for (int ss = 0; ss < NR; ss++)
+          {
+            target.width(60);
+            target << reg_cons_buy_from[rgi][ss]; // ..: cons_buy_from_R(ss+1)
+          }
+          target << endl;
+        }
       };
 
       for (int rr = 1; rr <= NR; ++rr)
@@ -10169,7 +10758,33 @@ void SAVE(void)
         target.width(60);
         target << reg_C[region - 1]; // 44: reg_C (Regional consumption, decomposition)
         target.width(60);
-        target << ((LS > 0) ? reg_LS[region - 1] / LS : 0.0) << endl; // 45: LS_region_share (sigma_r)
+        target << ((LS > 0) ? reg_LS[region - 1] / LS : 0.0); // 45: LS_region_share (sigma_r)
+        {
+          int rgi = region - 1;
+          double mb = reg_mach_buy_local[rgi] + reg_mach_buy_import[rgi];
+          double ms = reg_mach_sell_local[rgi] + reg_mach_sell_export[rgi];
+          double cb = reg_cons_buy_local[rgi] + reg_cons_buy_import[rgi];
+          double cs = reg_cons_sell_local[rgi] + reg_cons_sell_export[rgi];
+          target.width(60);
+          target << ((mb > 0.0) ? reg_mach_buy_import[rgi] / mb : 0.0); // 44: mach_import_share
+          target.width(60);
+          target << ((ms > 0.0) ? reg_mach_sell_export[rgi] / ms : 0.0); // 45: mach_export_share
+          target.width(60);
+          target << ((cb > 0.0) ? reg_cons_buy_import[rgi] / cb : 0.0); // 46: cons_import_share
+          target.width(60);
+          target << ((cs > 0.0) ? reg_cons_sell_export[rgi] / cs : 0.0); // 47: cons_export_share
+          for (int ss = 0; ss < NR; ss++)
+          {
+            target.width(60);
+            target << reg_mach_buy_from[rgi][ss]; // 48..: mach_buy_from_R(ss+1)
+          }
+          for (int ss = 0; ss < NR; ss++)
+          {
+            target.width(60);
+            target << reg_cons_buy_from[rgi][ss]; // ..: cons_buy_from_R(ss+1)
+          }
+          target << endl;
+        }
       };
 
       for (int rr = 1; rr <= NR; ++rr)

@@ -42,6 +42,11 @@ double Gamma;               // Determining number of potential new clients conta
 double chi;                 // Governing replicator dynamics of C-firm market share
 double omega1;              // Weight of relative price in C-firm competitiveness
 double omega2;              // Weight of unsatisfied demand in C-firm competitiveness
+double tau_regional;        // Regional home-bias wedge: proportional perceived non-regional purchasing-cost
+                            // wedge applied to buyers evaluating suppliers in a different region.
+                            // NOTE: this is a PERCEIVED price wedge used only in supplier/consumption
+                            // evaluation. It is NOT a transaction payment, tax, transfer or transport cost,
+                            // and it has no effect when flag_regional_bias == 0. Requires tau_regional >= 0.
 double psi1;                // Wage sensitivity to inflation
 double psi2;                // Wage sensitivity to productivity
 double psi3;                // Wage sensitivity to unemployment

@@ -1446,9 +1446,13 @@ void RG_BLOCK_FISCAL(void)
 		G += EA_total;
 		GovPurchases_1 = EA_total;
 
+		// Part A: public-capital residual (EA net of adaptation) -> K-firms WITHIN the region.
 		for (int rr = 1; rr <= NR; rr++)
 		{
-			if (EA_rg[rr - 1] > 0.0 && reg_N1[rr - 1] > 0)
+			double ea_pub = EA_rg[rr - 1] - I_adapt_rg[rr - 1];
+			if (ea_pub <= 0.0)
+				continue;
+			if (reg_N1[rr - 1] > 0)
 			{
 				// Market-share-based allocation among K-firms in region
 				double total_share = 0.0;
@@ -1465,20 +1469,48 @@ void RG_BLOCK_FISCAL(void)
 					if (region_firm_assignment_K[ii - 1] == rr)
 					{
 						double ea_firm = (total_share > 0.0)
-											 ? EA_rg[rr - 1] * (f1(1, ii) / total_share)
-											 : EA_rg[rr - 1] / n_rg;
+											 ? ea_pub * (f1(1, ii) / total_share)
+											 : ea_pub / n_rg;
 						Deposits_1(1, ii) += ea_firm;
+						KfirmGovCredit(ii) += ea_firm;
 						int bank = static_cast<int>(BankingSupplier_1(ii));
 						Deposits(1, bank) += ea_firm;
 						Inflows(bank) += ea_firm;
 					}
 				}
 			}
-			else if (EA_rg[rr - 1] > 0.0)
+			else
 			{
-				// No K-firms in region; EA cannot be disbursed.
-				G -= EA_rg[rr - 1];
-				GovPurchases_1 -= EA_rg[rr - 1];
+				// No K-firms in region; public-capital portion cannot be disbursed.
+				G -= ea_pub;
+				GovPurchases_1 -= ea_pub;
+			}
+		}
+
+		// Part B: adaptation investment I_adapt -> ALL national K-firms, weighted by the market
+		// share PERCEIVED from the funding region (non-regional K-firms discounted by tau_regional).
+		// Mirrors local C-firms sourcing machines: no strict regional confinement, but home-bias.
+		bool kbias = (flag_regional_bias == 1 && tau_regional > 1e-12);
+		for (int rr = 1; rr <= NR; rr++)
+		{
+			double iad = I_adapt_rg[rr - 1];
+			if (iad <= 0.0)
+				continue;
+			double Wr = 0.0;
+			for (int ii = 1; ii <= N1; ii++)
+			{
+				double phi = (!kbias || region_firm_assignment_K[ii - 1] == rr) ? 1.0 : 1.0 / (1.0 + tau_regional);
+				Wr += f1(1, ii) * phi;
+			}
+			for (int ii = 1; ii <= N1; ii++)
+			{
+				double phi = (!kbias || region_firm_assignment_K[ii - 1] == rr) ? 1.0 : 1.0 / (1.0 + tau_regional);
+				double ad_firm = (Wr > 0.0) ? iad * (f1(1, ii) * phi / Wr) : iad / N1;
+				Deposits_1(1, ii) += ad_firm;
+				KfirmGovCredit(ii) += ad_firm;
+				int bank = static_cast<int>(BankingSupplier_1(ii));
+				Deposits(1, bank) += ad_firm;
+				Inflows(bank) += ad_firm;
 			}
 		}
 	}

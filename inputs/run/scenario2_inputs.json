@@ -37,7 +37,7 @@
       "chi": -1.39,
       "omega1": 20,
       "omega2": 1,
-      "tau_regional": 0.0,
+      "tau_regional": 0.5,
       "psi1": 0.4,
       "psi2": 1,
       "psi3": 0.26,
@@ -220,8 +220,8 @@
       ],
       "b6_0": [
         70,
-        1000,
-        1000
+        100,
+        100
       ],
       "a7_0": [
         1.0,
@@ -445,12 +445,12 @@
   ],
   "flags": [
     {
-      "flag_shockexperiment": 1,
+      "flag_shockexperiment": 0,
       "flag_exogenousshocks": 0,
       "flag_cum_emissions": 0,
       "flag_tax_CO2": 4,
       "flag_energyshocks": 0,
-      "flag_capshocks": 1,
+      "flag_capshocks": 0,
       "flag_outputshocks": 0,
       "flag_inventshocks": 0,
       "flag_encapshocks": 0,
@@ -469,11 +469,10 @@
       "flag_scrap_age": 1,
       "flag_uniformshocks": 1,
       "flag_desc": 0,
-      "flag_adaptation": 2,
       "flag_regional_mobility": 1,
       "flag_regional_labor": 1,
       "flag_ls_distribution": 0,
-      "flag_regional_bias": 0
+      "flag_regional_bias": 1
     }
   ],
   "inits": [
@@ -599,22 +598,6 @@
       0.05,
       0.05
     ],
-    "psi_rec_rg": [
-      1.0,
-      0.1,
-      0.1
-    ],
-    "s_bar_rec_rg": [
-      0.0,
-      0.001,
-      0.001
-    ],
-    "delta_imp_rg": [
-      1.0,
-      1.0,
-      1.0
-    ],
-    "d_bar_rec": 0.0,
     "LS_region_share": [
       0.333333,
       0.333333,
