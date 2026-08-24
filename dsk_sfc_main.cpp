@@ -1026,11 +1026,7 @@ void SETPARAMS(const rapidjson::Document &inputs)
     std::cerr << "[DEBUG] Shock parameter loading finished successfully" << std::endl;
     std::cerr.flush();
 
-    // Also populate legacy flat vectors for backward compatibility with existing code
-    a_0_reg.ReSize(nshocks * NR);
-    b_0_reg.ReSize(nshocks * NR);
-    shockexponent1_reg.ReSize(nshocks * NR);
-    shockexponent2_reg.ReSize(nshocks * NR);
+
 
     for (int i = 1; i <= nshocks; i++)
     {
