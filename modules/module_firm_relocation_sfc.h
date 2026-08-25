@@ -2,6 +2,12 @@
 #define MODULE_FIRM_RELOCATION_SFC_H
 
 #include <vector>
+#include "../newmat10/include.h"
+#include "../newmat10/newmat.h"
+
+// Regional climate-hazard distributions
+extern Matrix X_a_reg;
+extern Matrix X_b_reg;
 
 // Regional model structure
 extern int NR;
@@ -45,6 +51,19 @@ extern bool profit_expectations_initialized_reloc;
 extern double lambda_profit_reloc;
 extern double beta_market_K_reloc;
 extern double beta_market_C_reloc;
+
+// Climate-shock activation flags
+extern int flag_exogenousshocks;
+extern int flag_prodshocks1;
+extern int flag_prodshocks2;
+extern int flag_capshocks;
+extern int flag_outputshocks;
+extern int flag_inventshocks;
+extern int flag_RDshocks;
+
+// Raw firm-relocation climate hazard
+extern std::vector<double> hazard_K_reloc;
+extern std::vector<double> hazard_C_reloc;
 
 // Firm regional relocation
 void FIRM_RELOCATION_COMPUTATION(void);

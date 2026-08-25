@@ -1945,6 +1945,8 @@ void RESIZE(void)
     market_signal_C_reloc.assign(NR, 0.0);
     attractiveness_econ_K_reloc.assign(NR, 0.0);
     attractiveness_econ_C_reloc.assign(NR, 0.0);
+    hazard_K_reloc.assign(NR, 0.0);
+    hazard_C_reloc.assign(NR, 0.0);
     region_labor_supply.assign(NR, 0.0);
     region_unemployment.assign(NR, 0.0);
     region_dirty_capacity.assign(NR, 0.0);

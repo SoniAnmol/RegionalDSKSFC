@@ -193,5 +193,124 @@ void FIRM_RELOCATION_COMPUTATION(void)
             rho_C_reloc_exp[rr] +
             beta_market_C_reloc * market_signal_C_reloc[rr];
     }
+    // ------------------------------------------------------------
+    // Raw regional climate hazard
+    // ------------------------------------------------------------
+    //
+    // The expected intensity of a Beta(a,b) shock is:
+    //
+    //     E[x] = a / (a + b)
+    //
+    // Only shock channels that generate region-specific firm damage
+    // enter the relocation hazard index.
+    //
+    // Equal weights are used across active sector-relevant channels
+    // in this first implementation.
+
+    for (int rr = 0; rr < NR; rr++)
+    {
+        hazard_K_reloc[rr] = 0.0;
+        hazard_C_reloc[rr] = 0.0;
+    }
+
+    if (flag_exogenousshocks == 0)
+    {
+        auto expected_beta_shock = [&](int channel, int rr) -> double
+        {
+            const double a = X_a_reg(channel, rr + 1);
+            const double b = X_b_reg(channel, rr + 1);
+            const double denom = a + b;
+
+            if (a < 0.0 || b < 0.0 || denom <= eps)
+            {
+                return 0.0;
+            }
+
+            return a / denom;
+        };
+
+        for (int rr = 0; rr < NR; rr++)
+        {
+            double hazard_sum_K = 0.0;
+            double hazard_sum_C = 0.0;
+
+            int active_channels_K = 0;
+            int active_channels_C = 0;
+
+            // --------------------------------------------------------
+            // K-firm regional climate exposure
+            // --------------------------------------------------------
+
+            // Channel 1: machine/process productivity
+            if (flag_prodshocks1 > 0)
+            {
+                hazard_sum_K += expected_beta_shock(1, rr);
+                active_channels_K++;
+            }
+
+            // Channel 2: labour productivity / energy efficiency
+            if (flag_prodshocks2 > 0)
+            {
+                const double h = expected_beta_shock(2, rr);
+
+                hazard_sum_K += h;
+                hazard_sum_C += h;
+
+                active_channels_K++;
+                active_channels_C++;
+            }
+
+            // Channel 7: output shock.
+            // Only flag==1 applies the hazard region-specifically.
+            if (flag_outputshocks == 1)
+            {
+                const double h = expected_beta_shock(7, rr);
+
+                hazard_sum_K += h;
+                hazard_sum_C += h;
+
+                active_channels_K++;
+                active_channels_C++;
+            }
+
+            // Channel 9: K-firm R&D effectiveness
+            if (flag_RDshocks > 0)
+            {
+                hazard_sum_K += expected_beta_shock(9, rr);
+                active_channels_K++;
+            }
+
+            // --------------------------------------------------------
+            // C-firm regional climate exposure
+            // --------------------------------------------------------
+
+            // Channel 6: physical capital destruction.
+            // Only flag==1 applies the hazard region-specifically.
+            if (flag_capshocks == 1)
+            {
+                hazard_sum_C += expected_beta_shock(6, rr);
+                active_channels_C++;
+            }
+
+            // Channel 8: inventory destruction.
+            // Only flag==1 applies the hazard region-specifically.
+            if (flag_inventshocks == 1)
+            {
+                hazard_sum_C += expected_beta_shock(8, rr);
+                active_channels_C++;
+            }
+
+            // Equal-weight mean across active relevant channels.
+            hazard_K_reloc[rr] =
+                (active_channels_K > 0)
+                    ? hazard_sum_K / static_cast<double>(active_channels_K)
+                    : 0.0;
+
+            hazard_C_reloc[rr] =
+                (active_channels_C > 0)
+                    ? hazard_sum_C / static_cast<double>(active_channels_C)
+                    : 0.0;
+        }
+    }
     // No relocation decision is made in this step.
 }
