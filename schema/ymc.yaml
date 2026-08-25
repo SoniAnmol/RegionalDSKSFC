@@ -1,0 +1,65 @@
+version: 1.0
+scope: macro_financial
+format:
+  file_type: txt
+  header: false
+  delimiter: whitespace
+
+columns:
+  - name: t
+  - name: GDP_r
+  - name: Consumption_r
+  - name: Investment_r
+  - name: EmploymentRate
+  - name: cpi
+  - name: cpi_rel
+  - name: Am
+  - name: Deficit
+  - name: GB
+  - name: w
+  - name: real_wage_rate
+  - name: r
+  - name: r_bonds
+  - name: Loans_2
+  - name: Deposits_over_GDP
+  - name: baddebt_b_over_GDP
+  - name: CreditSupply_all
+  - name: CreditDemand_all
+  - name: Inventories
+  - name: Inventories_r
+  - name: Bailout
+  - name: GDP_n
+  - name: GreenCapacityShare
+  - name: D_en_TOT
+  - name: Emiss_TOT
+  - name: Cum_emissions
+  - name: Tmixed
+  - name: bankfailure_dummy
+  - name: Q1tot
+  - name: Q2tot
+  - name: N1r
+  - name: N2r
+  - name: LS
+  - name: Q_ge
+  - name: Q_de
+  - name: Emiss1_TOT
+  - name: Emiss2_TOT
+  - name: Emiss_en
+  - name: CreditDemand_over_Supply
+  - name: Exiting_C-Firms
+  - name: NW_b_over_GDPn
+  - name: NW_gov_over_GDPn
+  - name: NW_e_over_GDPn
+  - name: NW_h
+  - name: NW_2
+  - name: NW_1
+  - name: G
+  - name: RegGov_Revenue
+  - name: RegGov_Grant
+  - name: RegGov_SP
+  - name: RegGov_EA
+  - name: PublicStock
+  - name: RegGov_BaseGrant_total
+  - name: RegGov_TopupGrant_total
+  - name: H1
+  - name: H2

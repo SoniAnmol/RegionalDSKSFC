@@ -1,0 +1,47 @@
+version: 1.1
+scope: exogenous_shock_parameters
+format:
+  file_type: txt
+  header: false
+  layout: fixed_width
+  column_width: 60
+  numeric_precision: 10
+  alignment: right
+
+parameters:
+  nshocks: 9
+  nr: "<provided at runtime>"
+
+fixed_columns:
+  - name: t
+  - name: X_a_1
+  - name: X_a_2
+  - name: X_a_3
+  - name: X_a_4
+  - name: X_a_5
+  - name: X_a_6
+  - name: X_a_7
+  - name: X_a_8
+  - name: X_a_9
+  - name: X_b_1
+  - name: X_b_2
+  - name: X_b_3
+  - name: X_b_4
+  - name: X_b_5
+  - name: X_b_6
+  - name: X_b_7
+  - name: X_b_8
+  - name: X_b_9
+
+regional_blocks:
+  order:
+    - X_a_reg
+    - X_b_reg
+
+  X_a_reg:
+    count: nshocks
+    name_pattern: X_a_reg_{shock}_{region}
+
+  X_b_reg:
+    count: nshocks
+    name_pattern: X_b_reg_{shock}_{region}

@@ -98,11 +98,7 @@ extern RowVector shockexponent1;
 extern RowVector shockexponent2;
 
 // Regional shock parameters
-extern int NR;                                    // Number of regions
-extern RowVector a_0_reg;                         // Regional a_0 parameters (nshocks × NR) - LEGACY
-extern RowVector b_0_reg;                         // Regional b_0 parameters (nshocks × NR) - LEGACY
-extern RowVector shockexponent1_reg;              // Regional shockexponent1 (nshocks × NR) - LEGACY
-extern RowVector shockexponent2_reg;              // Regional shockexponent2 (nshocks × NR) - LEGACY
+extern int NR; // Number of regions
 
 // Regional shock parameters - NEW 2D format [shock][region]
 extern std::vector<std::vector<double>> a_0_regional;            // [nshocks][NR]
@@ -217,5 +213,16 @@ extern int nshocks;
 extern std::vector<std::vector<std::vector<double>>> g;
 extern std::vector<std::vector<std::vector<double>>> gtemp;
 extern std::vector<std::vector<std::vector<double>>> g_price;
+
+// Adaptation dampening (set by RG_BLOCK_FISCAL, used by SHOCKS/SINGLESHOCK)
+extern int flag_adaptation;
+extern std::vector<double> Omega_adapt_rg;
+extern double Omega_adapt_national;
+
+// Channel-specific fragility (NC_adapt=6: machprod, labprod, eneff, encapstock, capstock, invent)
+extern int NC_adapt;
+extern std::vector<std::vector<double>> h_thresh_c_rg;                     // [NC_adapt][NR] protection threshold
+extern std::vector<std::vector<double>> Omega_c_rg;                        // [NC_adapt][NR] effective Omega (diagnostic)
+extern std::vector<std::vector<double>> hbar_c_rg, kappa_c_rg, alpha_c_rg; // fragility curve parameters
 
 #endif

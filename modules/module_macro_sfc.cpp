@@ -57,20 +57,38 @@ static void UPDATE_UNEMPLOYMENT_RATES(void)
 	{
 		double reg_LD_total = reg_LD_totals[rr - 1];
 
-		if (LS > 0 && mapped_reg_LD_total > 0)
+		if (flag_regional_labor == 1)
 		{
-			reg_LS[rr - 1] = LS * (reg_LD_total / mapped_reg_LD_total);
-		}
-		else if (LS > 0)
-		{
-			reg_LS[rr - 1] = LS / NR;
+			// Regional labour supply is a STATE driven by exogenous shares sigma_r:
+			//   LS_r = LS * LS_region_share[r].
+			// Do NOT allocate supply by regional labour demand here.
+			double sigma_r = ((int)LS_region_share.size() == NR) ? LS_region_share[rr - 1] : 1.0 / NR;
+			reg_LS[rr - 1] = (LS > 0) ? LS * sigma_r : 0;
+
+			// Employment and unemployment with safe handling of LS_r <= 0.
+			double L_r = std::min(reg_LD_total, reg_LS[rr - 1]);
+			if (L_r < 0)
+				L_r = 0;
+			reg_U[rr - 1] = (reg_LS[rr - 1] > 0) ? (reg_LS[rr - 1] - L_r) / reg_LS[rr - 1] : 0;
 		}
 		else
 		{
-			reg_LS[rr - 1] = 0;
-		}
+			// Legacy (flag off): demand-proportional regional labour supply (back-compat).
+			if (LS > 0 && mapped_reg_LD_total > 0)
+			{
+				reg_LS[rr - 1] = LS * (reg_LD_total / mapped_reg_LD_total);
+			}
+			else if (LS > 0)
+			{
+				reg_LS[rr - 1] = LS / NR;
+			}
+			else
+			{
+				reg_LS[rr - 1] = 0;
+			}
 
-		reg_U[rr - 1] = (reg_LS[rr - 1] > 0) ? (reg_LS[rr - 1] - reg_LD_total) / reg_LS[rr - 1] : 0;
+			reg_U[rr - 1] = (reg_LS[rr - 1] > 0) ? (reg_LS[rr - 1] - reg_LD_total) / reg_LS[rr - 1] : 0;
+		}
 	}
 }
 
@@ -96,7 +114,100 @@ void LABOR(void)
 	LSe -= (LD1rdtot + LDentot);
 
 	// If total labour demand exceeds supply, production is scaled back
-	if (LD2tot + LD1tot <= LSe)
+	if (flag_regional_labor == 1 && NR > 0)
+	{
+		// ===== Per-region labour rationing (phi_r) =====
+		// Region-r firms can only use region-r labour. If regional production
+		// labour demand exceeds the labour available for production in region r,
+		// scale that region's firm labour (and hence output) by phi_r.
+		double total_prod_LD = LD1tot + LD2tot;
+
+		for (int rr = 1; rr <= NR; ++rr)
+		{
+			// Production labour demand for region r
+			double prod_LD_r = 0.0;
+			for (int ii = 1; ii <= N1; ++ii)
+				if (region_firm_assignment_K[ii - 1] == rr)
+					prod_LD_r += Ld1(ii);
+			for (int jj = 1; jj <= N2; ++jj)
+				if (region_firm_assignment_C[jj - 1] == rr)
+					prod_LD_r += Ld2(jj);
+
+			// Apportion national R&D + energy labour to region r by production-labour share
+			double share_r = (total_prod_LD > 0) ? prod_LD_r / total_prod_LD : 1.0 / NR;
+			double reg_LD_rd_r = LD1rdtot * share_r;
+			double reg_LD_en_r = LDentot * share_r;
+
+			// Regional labour supply (state) and labour available for production:
+			//   LSe_r = LS_r - LD^rd_r - LD^en_r,  LS_r = LS * sigma_r
+			double sigma_r = ((int)LS_region_share.size() == NR) ? LS_region_share[rr - 1] : 1.0 / NR;
+			double LS_r = LS * sigma_r;
+			double LSe_r = LS_r - reg_LD_rd_r - reg_LD_en_r;
+			if (LSe_r < 0)
+				LSe_r = 0;
+
+			// Ration only if regional production labour demand exceeds available labour
+			if (prod_LD_r > LSe_r && prod_LD_r > 0)
+			{
+				double phi_r = LSe_r / prod_LD_r;
+
+				// Scale C-firms in region r
+				for (int jj = 1; jj <= N2; ++jj)
+				{
+					if (region_firm_assignment_C[jj - 1] == rr)
+					{
+						Ld2(jj) = Ld2(jj) * phi_r;
+						Q2(jj) = Ld2(jj) * A2e(jj);
+					}
+				}
+
+				// Scale K-firms in region r and their machine orders (mirror national logic)
+				for (int ii = 1; ii <= N1; ++ii)
+				{
+					if (region_firm_assignment_K[ii - 1] != rr)
+						continue;
+					Qpast = Q1(ii);
+					if (Qpast > 0)
+					{
+						Ld1(ii) = Ld1(ii) * phi_r;
+						Q1(ii) = floor(Ld1(ii) * ((1 - shocks_labprod1(ii)) * A1p(ii) * a));
+						reduction = Qpast - Q1(ii);
+						while (reduction > 0)
+						{
+							ranj = int(ran1(p_seed) * N1 * N2) % N2 + 1;
+							if (Match(ranj, ii) == 1 && I(ranj) > 0)
+							{
+								Ipast = I(ranj);
+								I(ranj) = floor((I(ranj) / dim_mach) * Q1(ii) / Qpast) * dim_mach;
+								if (I(ranj) < EI(1, ranj))
+								{
+									EI(1, ranj) = I(ranj);
+								}
+								SI(ranj) = I(ranj) - EI(1, ranj);
+								reduction -= (Ipast - I(ranj)) / dim_mach;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Recompute national totals after regional rationing
+		LD1tot = 0;
+		LD2tot = 0;
+		for (i = 1; i <= N1; i++)
+		{
+			LD1tot += Ld1(i);
+		}
+		for (j = 1; j <= N2; j++)
+		{
+			LD2tot += Ld2(j);
+		}
+		LSe = LS - (LD1rdtot + LDentot) - LD1tot - LD2tot;
+		if (LSe < 0)
+			LSe = 0;
+	}
+	else if (LD2tot + LD1tot <= LSe)
 	{
 		LSe = LSe - LD1tot - LD2tot;
 	}
@@ -388,6 +499,8 @@ void REGIONAL_UPDATE(void)
 			reg_CapitalStock1[rr] = 0;
 			reg_CapitalStock2[rr] = 0;
 			reg_CapitalStock[rr] = 0;
+			reg_H1[rr] = 0;
+			reg_H2[rr] = 0;
 		}
 
 		// Recalculate regional GDP_n (depends on prices which change in ENTRYEXIT)
@@ -511,6 +624,34 @@ void REGIONAL_UPDATE(void)
 		std::vector<double> reg_LD_totals(NR, 0.0);
 		double mapped_reg_LD_total = 0;
 
+		// Compute regional normalised Herfindahl indices for K-firms and C-firms.
+		// Use the same formula as the national index: H = (sum(s_i^2) - 1/n) / (1 - 1/n)
+		for (int ii = 1; ii <= N1; ++ii)
+		{
+			int rr = region_firm_assignment_K[ii - 1];
+			if (rr >= 1 && rr <= NR && reg_Q1tot[rr - 1] > 0)
+			{
+				double s = Q1(ii) / reg_Q1tot[rr - 1];
+				reg_H1[rr - 1] += s * s;
+			}
+		}
+		for (int jj = 1; jj <= N2; ++jj)
+		{
+			int rr = region_firm_assignment_C[jj - 1];
+			if (rr >= 1 && rr <= NR && reg_Q2tot[rr - 1] > 0)
+			{
+				double s = Q2(jj) / reg_Q2tot[rr - 1];
+				reg_H2[rr - 1] += s * s;
+			}
+		}
+		for (int rr = 1; rr <= NR; ++rr)
+		{
+			double n1 = reg_N1[rr - 1];
+			double n2 = reg_N2[rr - 1];
+			reg_H1[rr - 1] = (n1 > 1) ? (reg_H1[rr - 1] - 1.0 / n1) / (1.0 - 1.0 / n1) : 0.0;
+			reg_H2[rr - 1] = (n2 > 1) ? (reg_H2[rr - 1] - 1.0 / n2) / (1.0 - 1.0 / n2) : 0.0;
+		}
+
 		for (int rr = 1; rr <= NR; ++rr)
 		{
 			double reg_A1_sum = 0;
@@ -551,7 +692,8 @@ void REGIONAL_UPDATE(void)
 			// Calculate regional real investment
 			reg_Investment_r[rr - 1] = reg_EI[rr - 1] + reg_SI[rr - 1];
 
-			// Calculate regional labor supply (proportional to total regional labor demand)
+			// Aggregate regional labour DEMAND (firms + R&D + energy apportioned by firm-labour share).
+			// Regional labour SUPPLY is set separately below from sigma_r (state), not from demand.
 			double reg_LD_firms = reg_Ld1[rr - 1] + reg_Ld2[rr - 1];
 			double total_LD_firms = LD1tot + LD2tot;
 			double reg_LD_rd = 0;
@@ -581,20 +723,131 @@ void REGIONAL_UPDATE(void)
 
 		for (int rr = 1; rr <= NR; ++rr)
 		{
-			if (LS > 0 && mapped_reg_LD_total > 0)
+			if (flag_regional_labor == 1)
 			{
-				reg_LS[rr - 1] = LS * (reg_LD_totals[rr - 1] / mapped_reg_LD_total);
-			}
-			else if (LS > 0)
-			{
-				reg_LS[rr - 1] = LS / NR;
+				// Regional labour supply is a STATE driven by exogenous shares sigma_r:
+				//   LS_r = LS * LS_region_share[r]. Demand is NOT used to allocate supply.
+				double sigma_r = ((int)LS_region_share.size() == NR) ? LS_region_share[rr - 1] : 1.0 / NR;
+				reg_LS[rr - 1] = (LS > 0) ? LS * sigma_r : 0;
+
+				double L_r = std::min(reg_LD_totals[rr - 1], reg_LS[rr - 1]);
+				if (L_r < 0)
+					L_r = 0;
+				reg_U[rr - 1] = (reg_LS[rr - 1] > 0) ? (reg_LS[rr - 1] - L_r) / reg_LS[rr - 1] : 0;
+
+				// Explicit rate and headcount (disambiguate reg_U usage; Phase 5B)
+				if ((int)reg_U_rate.size() == NR)
+					reg_U_rate[rr - 1] = reg_U[rr - 1];
+				if ((int)reg_UN.size() == NR)
+					reg_UN[rr - 1] = std::max(0.0, reg_LS[rr - 1] - L_r);
 			}
 			else
 			{
-				reg_LS[rr - 1] = 0;
+				// Legacy (flag off): demand-proportional regional labour supply (back-compat).
+				if (LS > 0 && mapped_reg_LD_total > 0)
+				{
+					reg_LS[rr - 1] = LS * (reg_LD_totals[rr - 1] / mapped_reg_LD_total);
+				}
+				else if (LS > 0)
+				{
+					reg_LS[rr - 1] = LS / NR;
+				}
+				else
+				{
+					reg_LS[rr - 1] = 0;
+				}
+
+				reg_U[rr - 1] = (reg_LS[rr - 1] > 0) ? (reg_LS[rr - 1] - reg_LD_totals[rr - 1]) / reg_LS[rr - 1] : 0;
+			}
+		}
+
+		// ===== Phase 4 / 5B: regional disposable income, consumption, deposits =====
+		// True regional household accounts. Households now hold regional deposits
+		// (reg_Dh) that accumulate disposable income minus consumption. reg_C is an
+		// accounting decomposition of national Consumption by disposable-income share.
+		//   UN_r       = max(0, LS_r - L_r)                 (unemployed persons)
+		//   Benefits_r = wu_rg[r] * w_lag_r * UN_r          (replacement_rate_r = wu_rg[r])
+		//   YD_r       = Wages_r + Benefits_r + Dividends_r + i*Dh_lag_r - Taxes_h_r
+		//   C_r        = Consumption * YD_r / sum_r YD_r     (fallback: by LS share)
+		//   Dh_pre_r   = Dh_lag_r + YD_r - C_r
+		if (flag_regional_labor == 1 && (int)reg_YD.size() == NR && (int)reg_C.size() == NR &&
+			(int)reg_Dh_lag.size() == NR && (int)reg_Dh_pre_migration.size() == NR)
+		{
+			double total_reg_YD = 0.0;
+			for (int rr = 0; rr < NR; ++rr)
+			{
+				// Unemployed persons (count), not the rate
+				double unemployed_r = ((int)reg_UN.size() == NR) ? reg_UN[rr] : reg_U[rr] * reg_LS[rr];
+				if (unemployed_r < 0)
+					unemployed_r = 0;
+
+				// Regional benefits: replacement_rate_r (= wu_rg[r]) * lagged regional wage * unemployed
+				double wage_lag_r = ((int)reg_w_past.size() == NR) ? reg_w_past[rr] : w(2);
+				double repl_rate_r = ((int)wu_rg.size() == NR) ? wu_rg[rr] : wu;
+				double benefit_r = repl_rate_r * wage_lag_r * unemployed_r;
+				reg_Benefits[rr] = benefit_r;
+
+				double div_r = reg_Dividends_1[rr] + reg_Dividends_2[rr];
+				double interest_r = r_depo * reg_Dh_lag[rr]; // interest on regional deposits
+				double taxes_h_r = 0.0;						 // no regional household tax yet
+
+				reg_YD[rr] = reg_Wages[rr] + benefit_r + div_r + interest_r - taxes_h_r;
+				total_reg_YD += reg_YD[rr];
 			}
 
-			reg_U[rr - 1] = (reg_LS[rr - 1] > 0) ? (reg_LS[rr - 1] - reg_LD_totals[rr - 1]) / reg_LS[rr - 1] : 0;
+			// Liquidity-feasible regional consumption decomposition.
+			// Desired regional consumption follows the disposable-income share (fallback
+			// LS share) but is capped at available household resources (lagged regional
+			// deposits + disposable income), so pre-migration regional deposits can never
+			// go negative. National Consumption is never forced onto regions by making
+			// their deposits negative: any infeasible remainder is reported as a residual.
+			std::vector<double> reg_C_raw(NR, 0.0);
+			double sum_raw = 0.0;
+			for (int rr = 0; rr < NR; ++rr)
+			{
+				// 1. Desired regional consumption (by disposable-income share)
+				double share;
+				if (total_reg_YD > 1e-12)
+					share = reg_YD[rr] / total_reg_YD;
+				else
+					share = ((int)LS_region_share.size() == NR) ? LS_region_share[rr] : 1.0 / NR;
+				double desired_r = Consumption * share;
+				if (desired_r < 0.0)
+					desired_r = 0.0; // no negative consumption
+
+				// 2. Available household resources before migration
+				double resources_r = reg_Dh_lag[rr] + reg_YD[rr];
+				if (resources_r < 0.0)
+					resources_r = 0.0;
+
+				// 3. Cap regional consumption at available resources
+				double c_raw = (desired_r < resources_r) ? desired_r : resources_r;
+				reg_C_raw[rr] = c_raw;
+				sum_raw += c_raw;
+			}
+
+			// 4. Rescale raw consumption to national Consumption only if feasible
+			//    (scaling DOWN). If raw resources fall short, keep the feasible
+			//    expenditure and record the unallocated national consumption.
+			diag_reg_C_unallocated = 0.0;
+			if (sum_raw >= Consumption && sum_raw > 1e-12)
+			{
+				double cscale = Consumption / sum_raw;
+				for (int rr = 0; rr < NR; ++rr)
+					reg_C[rr] = reg_C_raw[rr] * cscale;
+			}
+			else
+			{
+				for (int rr = 0; rr < NR; ++rr)
+					reg_C[rr] = reg_C_raw[rr];
+				diag_reg_C_unallocated = Consumption - sum_raw;
+			}
+
+			// 5. Pre-migration regional deposits (income/consumption applied)
+			for (int rr = 0; rr < NR; ++rr)
+			{
+				reg_Dh_pre_migration[rr] = reg_Dh_lag[rr] + reg_YD[rr] - reg_C[rr];
+			}
 		}
 	}
 
@@ -643,6 +896,55 @@ void WAGE(void)
 	if (w(1) < w_min - 0.001)
 	{
 		w(1) = w_min;
+	}
+
+	// ===== Phase 3A: regional wage setting (income/benefit/migration use) =====
+	// Firms still pay the national wage; reg_w feeds household income, benefits
+	// and migration utility only (cost-side routing is Phase 3B, postponed).
+	//   wdot_reg_r = pi* + psi1(pi - pi*) + psi2*dAm_r - psi3*du_r
+	//   wdot_r     = chi_w*wdot_nat + (1 - chi_w)*wdot_reg_r,  |wdot_r| <= dwage_max
+	//   reg_w[r]   = reg_w_past[r] * (1 + wdot_r)
+	if (flag_regional_labor == 1 && NR > 0 &&
+		(int)reg_w.size() == NR && (int)reg_w_past.size() == NR &&
+		(int)reg_U.size() == NR && (int)reg_U_past.size() == NR &&
+		(int)reg_Am.size() == NR && (int)reg_Am_past.size() == NR)
+	{
+		for (int rr = 0; rr < NR; ++rr)
+		{
+			// Regional productivity growth
+			double dAm_r = 0.0;
+			if (reg_Am_past[rr] > 1e-12)
+				dAm_r = (reg_Am[rr] - reg_Am_past[rr]) / reg_Am_past[rr];
+
+			// Regional unemployment change (mirror national specification)
+			double dU_r;
+			if (u_low == 0.05)
+			{
+				double U_past_r = reg_U_past[rr];
+				if (U_past_r < u_low)
+					U_past_r = u_low;
+				dU_r = (reg_U[rr] - U_past_r) / U_past_r;
+			}
+			else
+			{
+				dU_r = (reg_U[rr] - reg_U_past[rr]);
+			}
+
+			double dw_reg = d_cpi_target + psi1 * (d_cpi - d_cpi_target) + psi2 * dAm_r - psi3 * dU_r;
+
+			// Mix with national wage growth (chi_w = 1 -> fully national, baseline)
+			double dw_r = chi_w * dw + (1.0 - chi_w) * dw_reg;
+
+			// Symmetric bound on regional wage growth
+			if (dw_r > dwage_max)
+				dw_r = dwage_max;
+			if (dw_r < -dwage_max)
+				dw_r = -dwage_max;
+
+			reg_w[rr] = reg_w_past[rr] * (1 + dw_r);
+			if (reg_w[rr] < w_min - 0.001)
+				reg_w[rr] = w_min;
+		}
 	}
 }
 
@@ -954,51 +1256,287 @@ void RG_BLOCK_FISCAL(void)
 		// 2f: Total regional revenue
 		REV_rg[rr - 1] = TS_rg[rr - 1] + GT_rg[rr - 1];
 
-		// 2g: Expenditure allocation (remainder after SP)
-		EA_rg[rr - 1] = std::max(0.0, REV_rg[rr - 1] - SP_rg[rr - 1]);
+		// -------------------------------------------------------------------
+		// 2g-rec-0: Compute current-period damage indicators from shocks_capstock
+		// (shocks_capstock still holds the shock applied this period by PRODMACH)
+		// -------------------------------------------------------------------
+		if ((flag_adaptation == 2 || flag_adaptation == 3) && flag_capshocks > 0)
+		{
+			double sum_shock = 0.0;
+			int n_in_rg = 0;
+			for (int jj = 1; jj <= N2; jj++)
+			{
+				if (region_firm_assignment_C[jj - 1] == rr && exiting_2(jj) == 0)
+				{
+					sum_shock += shocks_capstock(jj);
+					n_in_rg++;
+					if (shocks_capstock(jj) >= d_bar_rec)
+					{
+						affected_indicator(jj) = 1.0;
+						n_aff_rg[rr - 1] += 1.0;
+					}
+				}
+			}
+			Saff_rg[rr - 1] = (n_in_rg > 0) ? sum_shock / n_in_rg : 0.0;
+		}
 
-		// 2h: Total regional expenditure (balanced budget: REV = EXP)
-		EXP_rg[rr - 1] = SP_rg[rr - 1] + EA_rg[rr - 1];
+		// -------------------------------------------------------------------
+		// 2g-rec-1: Recovery obligation (uses LAGGED damage to avoid same-period feedback)
+		// I_Rec_{r,t} = psi_r * Y_{r,t-1} * max(0, Saff_{r,t-1} - s_bar_r)
+		// -------------------------------------------------------------------
+		bool rec_active = (flag_adaptation == 2 || flag_adaptation == 3);
+		if (rec_active && psi_rec_rg[rr - 1] > 0.0)
+		{
+			double gdp_lag = std::max(reg_GDP_r_lag[rr - 1], 1.0);
+			I_Rec_rg[rr - 1] = psi_rec_rg[rr - 1] * gdp_lag * std::max(0.0, Saff_rg_lag[rr - 1] - s_bar_rec_rg[rr - 1]);
+		}
 
-		// 2i: Public capital accumulation (stock with depreciation)
-		K_pub_rg[rr - 1] = K_pub_rg[rr - 1] * (1.0 - delta_pub) + EA_rg[rr - 1];
+		// -------------------------------------------------------------------
+		// 2g-rec-2: Backlog update and disbursement
+		// B_rec_{r,t} = I_Rec_{r,t} + (1 - delta_imp_r) * B_rec_{r,t-1}
+		// GRecPaid_{r,t} = delta_imp_r * B_rec_{r,t}
+		// -------------------------------------------------------------------
+		if (rec_active)
+		{
+			B_rec_rg[rr - 1] = I_Rec_rg[rr - 1] + (1.0 - delta_imp_rg[rr - 1]) * B_rec_rg_lag[rr - 1];
+			GRecPaid_rg[rr - 1] = delta_imp_rg[rr - 1] * B_rec_rg[rr - 1];
+		}
+
+		// -------------------------------------------------------------------
+		// 2g-rec-3: Central government backstop
+		// TREC_{r,t} = max(0, GRecPaid - max(0, TS_{r,t} - SP_{r,t}))
+		// -------------------------------------------------------------------
+		if (rec_active && GRecPaid_rg[rr - 1] > 0.0)
+		{
+			double own_surplus = std::max(0.0, TS_rg[rr - 1] - SP_rg[rr - 1]);
+			TREC_rg[rr - 1] = std::max(0.0, GRecPaid_rg[rr - 1] - own_surplus);
+		}
+
+		// -------------------------------------------------------------------
+		// 2g-rec-4: Revised residual R (Step 5 of math)
+		// R = REV + TREC - SP - GRecPaid
+		// Adaptation carve-out from R; remainder goes to public capital
+		// -------------------------------------------------------------------
+		double R_rg = std::max(0.0, REV_rg[rr - 1] + TREC_rg[rr - 1] - SP_rg[rr - 1] - GRecPaid_rg[rr - 1]);
+		EA_rg[rr - 1] = R_rg; // EA_rg now = residual for public capital (after recovery)
+
+		// 2g-adapt: Adaptation investment carve-out from residual (fiscally constrained)
+		double EA_pub = R_rg; // default: all residual goes to public capital
+		if ((flag_adaptation == 1 || flag_adaptation == 3) && R_rg > 0.0)
+		{
+			double gdp_safe = std::max(reg_GDP_n[rr - 1], 1.0);
+			I_adapt_rg[rr - 1] = std::min(iota_adapt_rg[rr - 1] * gdp_safe, R_rg);
+			EA_pub = R_rg - I_adapt_rg[rr - 1];
+		}
+		else
+		{
+			I_adapt_rg[rr - 1] = 0.0;
+		}
+
+		// 2g-adapt-stock: Update adaptation stock (depreciation + new investment)
+		K_adapt_rg[rr - 1] = K_adapt_rg_lag[rr - 1] * (1.0 - delta_adapt) + I_adapt_rg[rr - 1];
+
+		// 2g-adapt-channels: Split adaptation investment across NC_adapt channels and update per-channel stocks
+		if (flag_adaptation == 1 || flag_adaptation == 3)
+		{
+			double gdp_lag = std::max(reg_GDP_n[rr - 1], 1.0);
+			for (int cc = 0; cc < NC_adapt; cc++)
+			{
+				// Proportional split of total investment across channels
+				I_adapt_c_rg[cc][rr - 1] = phi_alloc_c_rg[cc][rr - 1] * I_adapt_rg[rr - 1];
+				// Update channel stock with channel-specific depreciation
+				K_adapt_c_rg[cc][rr - 1] = K_adapt_c_rg_lag[cc][rr - 1] * (1.0 - delta_adapt_c_rg[cc][rr - 1]) + I_adapt_c_rg[cc][rr - 1];
+				// Protection threshold from LAGGED stock (temporal consistency: investment this period acts next period)
+				// h = hbar × (1 - exp(-kappa × K_lag / Y))
+				h_thresh_c_rg[cc][rr - 1] = hbar_c_rg[cc][rr - 1] * (1.0 - std::exp(-kappa_c_rg[cc][rr - 1] * K_adapt_c_rg_lag[cc][rr - 1] / gdp_lag));
+			}
+		}
+		// else: h_thresh_c_rg remains 0.0 (reset in SETVARS); no fragility protection
+
+		// 2g-adapt-omega: Shock dampening factor from LAGGED stock (temporal consistency)
+		if (flag_adaptation == 1 || flag_adaptation == 3)
+		{
+			double gdp_safe = std::max(reg_GDP_n[rr - 1], 1.0);
+			Omega_adapt_rg[rr - 1] = omega_floor_adapt +
+									 (1.0 - omega_floor_adapt) * std::exp(-phi_adapt * K_adapt_rg_lag[rr - 1] / gdp_safe);
+		}
+		else
+		{
+			Omega_adapt_rg[rr - 1] = 1.0; // no dampening when protection is off
+		}
+
+		// 2h: Total regional expenditure (balanced budget: REV + TREC = SP + GRecPaid + EA)
+		EXP_rg[rr - 1] = SP_rg[rr - 1] + GRecPaid_rg[rr - 1] + EA_rg[rr - 1];
+
+		// 2i: Public capital accumulation (stock with depreciation; uses EA net of adaptation)
+		K_pub_rg[rr - 1] = K_pub_rg[rr - 1] * (1.0 - delta_pub) + EA_pub;
+	}
+
+	// -------------------------------------------------------------------
+	// Step 2g-rec-5: Per-firm subsidy disbursement to LAGGED affected C-firms
+	// sub_Rec(j) = GRecPaid_{r,t} / |J^aff_{r,t-1}| for j in J^aff_{r,t-1}
+	// K-firm supplier gets machine order revenue; C-firm capital is restored
+	// -------------------------------------------------------------------
+	// Step 2g-rec-5: Per-firm subsidy assignment to LAGGED affected C-firms
+	// sub_Rec(j) = GRecPaid_{r,t} / |J^aff_{r,t-1}| for j in J^aff_{r,t-1}
+	// Capital is restored here. K-firm revenue routing happens in Step 4
+	// alongside EA so that all govt spending flows through one unified channel.
+	// -------------------------------------------------------------------
+	if (flag_adaptation == 2 || flag_adaptation == 3)
+	{
+		for (int rr = 1; rr <= NR; rr++)
+		{
+			if (GRecPaid_rg[rr - 1] > 0.0 && n_aff_rg_lag[rr - 1] > 0.0)
+			{
+				double share = GRecPaid_rg[rr - 1] / n_aff_rg_lag[rr - 1];
+				for (int jj = 1; jj <= N2; jj++)
+				{
+					if (region_firm_assignment_C[jj - 1] == rr && affected_indicator_lag(jj) == 1.0 && exiting_2(jj) == 0)
+					{
+						sub_Rec(jj) = share;
+					}
+				}
+			}
+		}
 	}
 
 	// Step 3: Compute national aggregates
 	REV_rg_total = 0.0;
 	TR_rg_total = 0.0;
+	GT_base_total = 0.0;
+	GT_topup_total = 0.0;
+	TS_rg_total = 0.0;
 	EA_total = 0.0;
 	K_pub_total = 0.0;
+	K_adapt_total = 0.0;
+	I_adapt_total = 0.0;
+
+	double gdp_sum_w = 0.0;
+	double omega_gdp_sum = 0.0;
 
 	for (int rr = 0; rr < NR; rr++)
 	{
 		REV_rg_total += REV_rg[rr];
 		TR_rg_total += GT_rg[rr];
+		GT_base_total += GT_base_rg[rr];
+		GT_topup_total += GT_topup_rg[rr];
+		TS_rg_total += TS_rg[rr];
 		EA_total += EA_rg[rr];
 		K_pub_total += K_pub_rg[rr];
+		K_adapt_total += K_adapt_rg[rr];
+		I_adapt_total += I_adapt_rg[rr];
+		GRecPaid_total += GRecPaid_rg[rr];
+		TREC_total += TREC_rg[rr];
+		double gdp_w = std::max(reg_GDP_n[rr], 1.0);
+		gdp_sum_w += gdp_w;
+		omega_gdp_sum += Omega_adapt_rg[rr] * gdp_w;
 	}
 
-	// Step 4: Route EA as government purchases to K-firms
-	// EA credited to K-firm deposits as financial transfer; production effect next period
+	Omega_adapt_national = (gdp_sum_w > 0.0) ? omega_gdp_sum / gdp_sum_w : 1.0;
+	GovPurchases_Rec = GRecPaid_total;
+
+	// Step 4: Route EA as government purchases to K-firms for public capital accumulation
+	// Also add GRecPaid_total to G so the government budget reflects recovery outlay.
+	// GovPurchases_1 must include BOTH EA_total and GovPurchases_Rec for SFC balance to hold.
+	if (GRecPaid_total > 0.0)
+		G += GRecPaid_total;
+
 	if (EA_total > 0.0)
 	{
 		G += EA_total;
 		GovPurchases_1 = EA_total;
 
+		// Part A: public-capital residual (EA net of adaptation) -> K-firms WITHIN the region.
 		for (int rr = 1; rr <= NR; rr++)
 		{
-			if (EA_rg[rr - 1] > 0.0 && reg_N1[rr - 1] > 0)
+			double ea_pub = EA_rg[rr - 1] - I_adapt_rg[rr - 1];
+			if (ea_pub <= 0.0)
+				continue;
+			if (reg_N1[rr - 1] > 0)
 			{
-				double ea_per_firm = EA_rg[rr - 1] / reg_N1[rr - 1];
-
+				// Market-share-based allocation among K-firms in region
+				double total_share = 0.0;
 				for (int ii = 1; ii <= N1; ii++)
 				{
 					if (region_firm_assignment_K[ii - 1] == rr)
 					{
-						Deposits_1(1, ii) += ea_per_firm;
+						total_share += f1(1, ii);
+					}
+				}
+				double n_rg = reg_N1[rr - 1];
+				for (int ii = 1; ii <= N1; ii++)
+				{
+					if (region_firm_assignment_K[ii - 1] == rr)
+					{
+						double ea_firm = (total_share > 0.0)
+											 ? ea_pub * (f1(1, ii) / total_share)
+											 : ea_pub / n_rg;
+						Deposits_1(1, ii) += ea_firm;
+						KfirmGovCredit(ii) += ea_firm;
 						int bank = static_cast<int>(BankingSupplier_1(ii));
-						Deposits(1, bank) += ea_per_firm;
-						Inflows(bank) += ea_per_firm;
+						Deposits(1, bank) += ea_firm;
+						Inflows(bank) += ea_firm;
+					}
+				}
+			}
+			else
+			{
+				// No K-firms in region; public-capital portion cannot be disbursed.
+				G -= ea_pub;
+				GovPurchases_1 -= ea_pub;
+			}
+		}
+
+		// Part B: adaptation investment I_adapt -> ALL national K-firms, weighted by the market
+		// share PERCEIVED from the funding region (non-regional K-firms discounted by tau_regional).
+		// Mirrors local C-firms sourcing machines: no strict regional confinement, but home-bias.
+		bool kbias = (flag_regional_bias == 1 && tau_regional > 1e-12);
+		for (int rr = 1; rr <= NR; rr++)
+		{
+			double iad = I_adapt_rg[rr - 1];
+			if (iad <= 0.0)
+				continue;
+			double Wr = 0.0;
+			for (int ii = 1; ii <= N1; ii++)
+			{
+				double phi = (!kbias || region_firm_assignment_K[ii - 1] == rr) ? 1.0 : 1.0 / (1.0 + tau_regional);
+				Wr += f1(1, ii) * phi;
+			}
+			for (int ii = 1; ii <= N1; ii++)
+			{
+				double phi = (!kbias || region_firm_assignment_K[ii - 1] == rr) ? 1.0 : 1.0 / (1.0 + tau_regional);
+				double ad_firm = (Wr > 0.0) ? iad * (f1(1, ii) * phi / Wr) : iad / N1;
+				Deposits_1(1, ii) += ad_firm;
+				KfirmGovCredit(ii) += ad_firm;
+				int bank = static_cast<int>(BankingSupplier_1(ii));
+				Deposits(1, bank) += ad_firm;
+				Inflows(bank) += ad_firm;
+			}
+		}
+	}
+	// Route recovery disbursements directly to affected C-firms (C-firm direct grant)
+	if (GRecPaid_total > 0.0 && (flag_adaptation == 2 || flag_adaptation == 3))
+	{
+		double GRecPaid_actual = 0.0;
+		for (int jj = 1; jj <= N2; jj++)
+			GRecPaid_actual += sub_Rec(jj);
+		if (GRecPaid_actual > 0.0)
+		{
+			GovPurchases_2 = GRecPaid_actual;
+			GovPurchases_Rec = GRecPaid_actual;
+			// Correct G for any gap from exiting firms that received no disbursement
+			G -= (GRecPaid_total - GRecPaid_actual);
+			// Route per C-firm: update deposit and bank reserve inflow
+			for (int jj = 1; jj <= N2; jj++)
+			{
+				if (sub_Rec(jj) > 0.0)
+				{
+					Deposits_2(1, jj) += sub_Rec(jj);
+					int bank = static_cast<int>(BankingSupplier_2(jj));
+					if (bank >= 1 && bank <= static_cast<int>(NB))
+					{
+						Deposits(1, bank) += sub_Rec(jj);
+						Inflows(bank) += sub_Rec(jj);
 					}
 				}
 			}

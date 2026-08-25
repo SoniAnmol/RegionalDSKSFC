@@ -5,6 +5,24 @@
 
 #include "rapidjson/document.h"
 
+// Regional home-bias helper.
+// Returns the PERCEIVED effective price a buyer assigns to a supplier's posted price.
+// A non-regional supplier (buyer_region != seller_region) is perceived as
+// actual_price * (1 + tau) when the mechanism is active; otherwise the posted
+// price is returned unchanged. This is a reduced-form regional trade-cost / home-bias
+// term used ONLY in supplier and consumption evaluation. It never changes the actual
+// price paid, firm revenue, or any stock-flow accounting entry. Pure function: the
+// flag and wedge are passed explicitly so the routine has no hidden global state.
+inline double perceivedRegionalPrice(double actual_price, int buyer_region, int seller_region,
+                                     int flag, double tau)
+{
+  if (flag == 1 && buyer_region != seller_region)
+  {
+    return actual_price * (1.0 + tau);
+  }
+  return actual_price;
+}
+
 // Initialisation
 void SETPARAMS(const rapidjson::Document &inputs); // Sets parameters, flags and initial values using JSON input
 void RESIZE(void);                                 // Re-sizes all arrays and matrices based on supplied number of agents & periods
@@ -16,6 +34,7 @@ double bpareto(double, double, double);            // Generates draws from paret
 void SETVARS(void);                    // Resets all variables for which this is necessary at the beginning of each period
 void DEPOSITINTEREST(void);            // Banks pay deposit interest to firms, households and energy sector
 void MACH(void);                       // New machines & technologies are delivered; prices are calculated
+void MOBILITY_COMPUTATION(void);       // Inter-regional labour migration
 void BROCHURE(void);                   // K-firms send brochures to new potential customers
 void INVEST(void);                     // C-firms calculate expected demand, desired expansion investment & inventories
 void SCRAPPING(void);                  // Old machines to be scrapped & corresponding substitution investment are determined

@@ -63,6 +63,9 @@ target_include_directories(dsk_SFC PRIVATE
     rapidjson
 )
 
+# Disable RapidJSON assertions to work around unsafe operator[] usage in existing code
+target_compile_definitions(dsk_SFC PRIVATE RAPIDJSON_NDEBUG)
+
 # Platform-specific options
 if (NOT APPLE)
     target_link_libraries(dsk_SFC -static)

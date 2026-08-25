@@ -278,15 +278,15 @@ void SINGLESHOCK(void)
                 for (i = 1; i <= N1; i++)
                 {
                     rnd = betadev(X_a(1), b_0(1), p_seed);
-                    shocks_machprod(i) = rnd;
+                    shocks_machprod(i) = rnd * Omega_adapt_national;
                     rnd = betadev(X_a(1), b_0(1), p_seed);
-                    shocks_techprod(i) = rnd;
+                    shocks_techprod(i) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_machprod = shocks_kfirms;
-                shocks_techprod = shocks_kfirms;
+                shocks_machprod = shocks_kfirms * Omega_adapt_national;
+                shocks_techprod = shocks_kfirms * Omega_adapt_national;
             }
         }
 
@@ -299,19 +299,19 @@ void SINGLESHOCK(void)
                 for (j = 1; j <= N2; j++)
                 {
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_labprod2(j) = rnd;
+                    shocks_labprod2(j) = rnd * Omega_adapt_national;
                 }
                 X_a(2) = (shocks_kfirms(1) * (b_0(2) - 2 / 3) + 1 / 3) / (1 - shocks_kfirms(1));
                 for (i = 1; i <= N1; i++)
                 {
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_labprod1(i) = rnd;
+                    shocks_labprod1(i) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_labprod2 = shocks_cfirms;
-                shocks_labprod1 = shocks_kfirms;
+                shocks_labprod2 = shocks_cfirms * Omega_adapt_national;
+                shocks_labprod1 = shocks_kfirms * Omega_adapt_national;
             }
         }
 
@@ -324,19 +324,19 @@ void SINGLESHOCK(void)
                 for (j = 1; j <= N2; j++)
                 {
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_eneff2(j) = rnd;
+                    shocks_eneff2(j) = rnd * Omega_adapt_national;
                 }
                 X_a(2) = (shocks_kfirms(1) * (b_0(2) - 2 / 3) + 1 / 3) / (1 - shocks_kfirms(1));
                 for (i = 1; i <= N1; i++)
                 {
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_eneff1(i) = rnd;
+                    shocks_eneff1(i) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_eneff2 = shocks_cfirms;
-                shocks_eneff1 = shocks_kfirms;
+                shocks_eneff2 = shocks_cfirms * Omega_adapt_national;
+                shocks_eneff1 = shocks_kfirms * Omega_adapt_national;
             }
         }
 
@@ -349,42 +349,42 @@ void SINGLESHOCK(void)
                 for (j = 1; j <= N2; j++)
                 {
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_labprod2(j) = rnd;
+                    shocks_labprod2(j) = rnd * Omega_adapt_national;
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_eneff2(j) = rnd;
+                    shocks_eneff2(j) = rnd * Omega_adapt_national;
                 }
                 X_a(2) = (shocks_kfirms(1) * (b_0(2) - 2 / 3) + 1 / 3) / (1 - shocks_kfirms(1));
                 for (i = 1; i <= N1; i++)
                 {
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_labprod1(i) = rnd;
+                    shocks_labprod1(i) = rnd * Omega_adapt_national;
                     rnd = betadev(X_a(2), b_0(2), p_seed);
-                    shocks_eneff1(i) = rnd;
+                    shocks_eneff1(i) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_labprod2 = shocks_cfirms;
-                shocks_labprod1 = shocks_kfirms;
-                shocks_eneff2 = shocks_cfirms;
-                shocks_eneff1 = shocks_kfirms;
+                shocks_labprod2 = shocks_cfirms * Omega_adapt_national;
+                shocks_labprod1 = shocks_kfirms * Omega_adapt_national;
+                shocks_eneff2 = shocks_cfirms * Omega_adapt_national;
+                shocks_eneff1 = shocks_kfirms * Omega_adapt_national;
             }
         }
 
         if (flag_encapshocks > 0)
         {
-            shocks_encapstock_de = shock_scalar;
-            shocks_encapstock_ge = shock_scalar;
+            shocks_encapstock_de = shock_scalar * Omega_adapt_national;
+            shocks_encapstock_ge = shock_scalar * Omega_adapt_national;
         }
 
         if (flag_popshocks > 0)
         {
-            shock_pop = shock_scalar;
+            shock_pop = shock_scalar * Omega_adapt_national;
         }
 
         if (flag_demandshocks > 0)
         {
-            shock_cons = shock_scalar;
+            shock_cons = shock_scalar * Omega_adapt_national;
         }
 
         if (flag_capshocks > 0)
@@ -396,12 +396,12 @@ void SINGLESHOCK(void)
                 for (j = 1; j <= N2; j++)
                 {
                     rnd = betadev(X_a(6), b_0(6), p_seed);
-                    shocks_capstock(j) = rnd;
+                    shocks_capstock(j) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_capstock = shocks_cfirms;
+                shocks_capstock = shocks_cfirms * Omega_adapt_national;
             }
 
             if (flag_capshocks == 3)
@@ -424,19 +424,19 @@ void SINGLESHOCK(void)
                 for (j = 1; j <= N2; j++)
                 {
                     rnd = betadev(X_a(7), b_0(7), p_seed);
-                    shocks_output2(j) = rnd;
+                    shocks_output2(j) = rnd * Omega_adapt_national;
                 }
                 X_a(7) = (shocks_kfirms(1) * (b_0(7) - 2 / 3) + 1 / 3) / (1 - shocks_kfirms(1));
                 for (i = 1; i <= N1; i++)
                 {
                     rnd = betadev(X_a(7), b_0(7), p_seed);
-                    shocks_output1(i) = rnd;
+                    shocks_output1(i) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_output2 = shocks_cfirms;
-                shocks_output1 = shocks_kfirms;
+                shocks_output2 = shocks_cfirms * Omega_adapt_national;
+                shocks_output1 = shocks_kfirms * Omega_adapt_national;
             }
 
             if (flag_outputshocks == 3)
@@ -464,12 +464,12 @@ void SINGLESHOCK(void)
                 for (j = 1; j <= N2; j++)
                 {
                     rnd = betadev(X_a(8), b_0(8), p_seed);
-                    shocks_invent(j) = rnd;
+                    shocks_invent(j) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_invent = shocks_cfirms;
+                shocks_invent = shocks_cfirms * Omega_adapt_national;
             }
 
             if (flag_inventshocks == 3 && risk_c.Sum() == 0)
@@ -492,12 +492,12 @@ void SINGLESHOCK(void)
                 for (i = 1; i <= N1; i++)
                 {
                     rnd = betadev(X_a(9), b_0(9), p_seed);
-                    shocks_rd(i) = rnd;
+                    shocks_rd(i) = rnd * Omega_adapt_national;
                 }
             }
             else
             {
-                shocks_rd = shocks_kfirms;
+                shocks_rd = shocks_kfirms * Omega_adapt_national;
             }
         }
     }
@@ -694,6 +694,25 @@ void SHOCKS(void)
 
     if (t > (t_start_climbox + 4))
     {
+        // Channel-specific fragility helper: apply threshold-based fragility curve to a raw shock draw.
+        // cc: channel index 0..NC_adapt-1 (0=machprod,1=labprod,2=eneff,3=encapstock,4=capstock,5=invent)
+        // rr: 1-based region index
+        // Returns effective shock after filtering; stores last-computed Omega into Omega_c_rg[cc][rr-1].
+        // Only active when flag_adaptation == 1 or 3; otherwise returns rnd_val unchanged.
+        auto apply_fragility = [&](double rnd_val, int cc, int rr) -> double
+        {
+            if (flag_adaptation == 1 || flag_adaptation == 3)
+            {
+                double h_c = h_thresh_c_rg[cc][rr - 1];
+                double denom = std::max(1.0 - h_c, 1e-12);
+                double excess = std::max(0.0, rnd_val - h_c);
+                double omega_c = (excess > 0.0) ? std::pow(excess / denom, alpha_c_rg[cc][rr - 1]) : 0.0;
+                Omega_c_rg[cc][rr - 1] = omega_c;
+                return omega_c * rnd_val;
+            }
+            return rnd_val;
+        };
+
         //=== SHOCK CHANNEL 1: K-firm Machine Productivity (flag_prodshocks1==1) ===
         if (flag_prodshocks1 == 1)
         {
@@ -706,11 +725,11 @@ void SHOCKS(void)
                     {
                         int rr = region_firm_assignment_K[i - 1];
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_machprod(i) = rnd;
+                        shocks_machprod(i) = apply_fragility(rnd, 0, rr);
                         A1(i) = max(A0, A1(i) * (1 - shocks_machprod(i)));
 
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_techprod(i) = rnd;
+                        shocks_techprod(i) = apply_fragility(rnd, 0, rr);
                         A1p(i) = max(A0 * pm, A1p(i) * (1 - shocks_techprod(i)));
                     }
                 }
@@ -720,9 +739,9 @@ void SHOCKS(void)
                     for (int rr = 1; rr <= NR; rr++)
                     {
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_machprod_reg = rnd;
+                        double shock_machprod_reg = apply_fragility(rnd, 0, rr);
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_techprod_reg = rnd;
+                        double shock_techprod_reg = apply_fragility(rnd, 0, rr);
 
                         // Broadcast to all K-firms in this region
                         for (i = 1; i <= N1; i++)
@@ -767,11 +786,11 @@ void SHOCKS(void)
                     {
                         int rr = region_firm_assignment_K[i - 1];
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_machprod(i) = rnd;
+                        shocks_machprod(i) = apply_fragility(rnd, 0, rr);
                         A1_en(i) = max(A0_en, A1_en(i) * (1 - shocks_machprod(i)));
 
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_techprod(i) = rnd;
+                        shocks_techprod(i) = apply_fragility(rnd, 0, rr);
                         A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shocks_techprod(i)));
                     }
                 }
@@ -781,9 +800,9 @@ void SHOCKS(void)
                     for (int rr = 1; rr <= NR; rr++)
                     {
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_machprod_reg = rnd;
+                        double shock_machprod_reg = apply_fragility(rnd, 0, rr);
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_techprod_reg = rnd;
+                        double shock_techprod_reg = apply_fragility(rnd, 0, rr);
 
                         // Broadcast to all K-firms in this region
                         for (i = 1; i <= N1; i++)
@@ -828,12 +847,12 @@ void SHOCKS(void)
                     {
                         int rr = region_firm_assignment_K[i - 1];
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_machprod(i) = rnd;
+                        shocks_machprod(i) = apply_fragility(rnd, 0, rr);
                         A1(i) = max(A0, A1(i) * (1 - shocks_machprod(i)));
                         A1_en(i) = max(A0_en, A1_en(i) * (1 - shocks_machprod(i)));
 
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_techprod(i) = rnd;
+                        shocks_techprod(i) = apply_fragility(rnd, 0, rr);
                         A1p(i) = max(A0 * pm, A1p(i) * (1 - shocks_techprod(i)));
                         A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shocks_techprod(i)));
                     }
@@ -844,9 +863,9 @@ void SHOCKS(void)
                     for (int rr = 1; rr <= NR; rr++)
                     {
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_machprod_reg = rnd;
+                        double shock_machprod_reg = apply_fragility(rnd, 0, rr);
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_techprod_reg = rnd;
+                        double shock_techprod_reg = apply_fragility(rnd, 0, rr);
 
                         // Broadcast to all K-firms in this region
                         for (i = 1; i <= N1; i++)
@@ -895,7 +914,7 @@ void SHOCKS(void)
                     {
                         int rr = region_firm_assignment_K[i - 1];
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_machprod(i) = rnd;
+                        shocks_machprod(i) = apply_fragility(rnd, 0, rr);
                         A1(i) = max(A0, A1(i) * (1 - shocks_machprod(i)));
                         for (tt = t0; tt <= t; tt++)
                         {
@@ -903,7 +922,7 @@ void SHOCKS(void)
                         }
 
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_techprod(i) = rnd;
+                        shocks_techprod(i) = apply_fragility(rnd, 0, rr);
                         A1p(i) = max(A0 * pm, A1p(i) * (1 - shocks_techprod(i)));
                     }
                 }
@@ -913,9 +932,9 @@ void SHOCKS(void)
                     for (int rr = 1; rr <= NR; rr++)
                     {
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_machprod_reg = rnd;
+                        double shock_machprod_reg = apply_fragility(rnd, 0, rr);
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_techprod_reg = rnd;
+                        double shock_techprod_reg = apply_fragility(rnd, 0, rr);
 
                         // Broadcast to all K-firms in this region
                         for (i = 1; i <= N1; i++)
@@ -968,7 +987,7 @@ void SHOCKS(void)
                     {
                         int rr = region_firm_assignment_K[i - 1];
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_machprod(i) = rnd;
+                        shocks_machprod(i) = apply_fragility(rnd, 0, rr);
                         A1_en(i) = max(A0_en, A1_en(i) * (1 - shocks_machprod(i)));
                         for (tt = t0; tt <= t; tt++)
                         {
@@ -976,7 +995,7 @@ void SHOCKS(void)
                         }
 
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_techprod(i) = rnd;
+                        shocks_techprod(i) = apply_fragility(rnd, 0, rr);
                         A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shocks_techprod(i)));
                     }
                 }
@@ -986,9 +1005,9 @@ void SHOCKS(void)
                     for (int rr = 1; rr <= NR; rr++)
                     {
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_machprod_reg = rnd;
+                        double shock_machprod_reg = apply_fragility(rnd, 0, rr);
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_techprod_reg = rnd;
+                        double shock_techprod_reg = apply_fragility(rnd, 0, rr);
 
                         // Broadcast to all K-firms in this region
                         for (i = 1; i <= N1; i++)
@@ -1041,7 +1060,7 @@ void SHOCKS(void)
                     {
                         int rr = region_firm_assignment_K[i - 1];
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_machprod(i) = rnd;
+                        shocks_machprod(i) = apply_fragility(rnd, 0, rr);
                         A1(i) = max(A0, A1(i) * (1 - shocks_machprod(i)));
                         A1_en(i) = max(A0_en, A1_en(i) * (1 - shocks_machprod(i)));
                         for (tt = t0; tt <= t; tt++)
@@ -1051,7 +1070,7 @@ void SHOCKS(void)
                         }
 
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        shocks_techprod(i) = rnd;
+                        shocks_techprod(i) = apply_fragility(rnd, 0, rr);
                         A1p(i) = max(A0 * pm, A1p(i) * (1 - shocks_techprod(i)));
                         A1p_en(i) = max(A0_en, A1p_en(i) * (1 - shocks_techprod(i)));
                     }
@@ -1062,9 +1081,9 @@ void SHOCKS(void)
                     for (int rr = 1; rr <= NR; rr++)
                     {
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_machprod_reg = rnd;
+                        double shock_machprod_reg = apply_fragility(rnd, 0, rr);
                         rnd = betadev(X_a_reg(1, rr), X_b_reg(1, rr), p_seed);
-                        double shock_techprod_reg = rnd;
+                        double shock_techprod_reg = apply_fragility(rnd, 0, rr);
 
                         // Broadcast to all K-firms in this region
                         for (i = 1; i <= N1; i++)
@@ -1123,14 +1142,14 @@ void SHOCKS(void)
                     {
                         int rr = region_firm_assignment_C[j - 1];
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_labprod2(j) = rnd;
+                        shocks_labprod2(j) = apply_fragility(rnd, 1, rr);
                     }
 
                     for (i = 1; i <= N1; i++)
                     {
                         int rr = region_firm_assignment_K[i - 1];
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_labprod1(i) = rnd;
+                        shocks_labprod1(i) = apply_fragility(rnd, 1, rr);
                     }
                 }
                 else
@@ -1139,7 +1158,7 @@ void SHOCKS(void)
                     for (int rr = 1; rr <= NR; rr++)
                     {
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        double shock_labprod_reg = rnd;
+                        double shock_labprod_reg = apply_fragility(rnd, 1, rr);
 
                         // Broadcast to all C-firms in this region
                         for (j = 1; j <= N2; j++)
@@ -1190,14 +1209,14 @@ void SHOCKS(void)
                     {
                         int rr = region_firm_assignment_C[j - 1];
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_eneff2(j) = rnd;
+                        shocks_eneff2(j) = apply_fragility(rnd, 2, rr);
                     }
 
                     for (i = 1; i <= N1; i++)
                     {
                         int rr = region_firm_assignment_K[i - 1];
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_eneff1(i) = rnd;
+                        shocks_eneff1(i) = apply_fragility(rnd, 2, rr);
                     }
                 }
                 else
@@ -1206,7 +1225,7 @@ void SHOCKS(void)
                     for (int rr = 1; rr <= NR; rr++)
                     {
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        double shock_eneff_reg = rnd;
+                        double shock_eneff_reg = apply_fragility(rnd, 2, rr);
 
                         // Broadcast to all C-firms in this region
                         for (j = 1; j <= N2; j++)
@@ -1257,18 +1276,18 @@ void SHOCKS(void)
                     {
                         int rr = region_firm_assignment_C[j - 1];
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_labprod2(j) = rnd;
+                        shocks_labprod2(j) = apply_fragility(rnd, 1, rr);
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_eneff2(j) = rnd;
+                        shocks_eneff2(j) = apply_fragility(rnd, 2, rr);
                     }
 
                     for (i = 1; i <= N1; i++)
                     {
                         int rr = region_firm_assignment_K[i - 1];
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_labprod1(i) = rnd;
+                        shocks_labprod1(i) = apply_fragility(rnd, 1, rr);
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        shocks_eneff1(i) = rnd;
+                        shocks_eneff1(i) = apply_fragility(rnd, 2, rr);
                     }
                 }
                 else
@@ -1277,9 +1296,9 @@ void SHOCKS(void)
                     for (int rr = 1; rr <= NR; rr++)
                     {
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        double shock_labprod_reg = rnd;
+                        double shock_labprod_reg = apply_fragility(rnd, 1, rr);
                         rnd = betadev(X_a_reg(2, rr), X_b_reg(2, rr), p_seed);
-                        double shock_eneff_reg = rnd;
+                        double shock_eneff_reg = apply_fragility(rnd, 2, rr);
 
                         // Broadcast to all C-firms in this region
                         for (j = 1; j <= N2; j++)
@@ -1335,7 +1354,7 @@ void SHOCKS(void)
                     regional_shock_value[rr - 1] = X_a_reg(3, rr) / (X_a_reg(3, rr) + X_b_reg(3, rr));
                 }
 
-                // Apply shocks to energy infrastructure (averaged across regions)
+                // Apply shocks to energy infrastructure (averaged across regions using channel-specific fragility)
                 double shock_encap_avg = 0.0;
                 for (int rr = 0; rr < NR; rr++)
                 {
@@ -1343,19 +1362,36 @@ void SHOCKS(void)
                 }
                 shock_encap_avg /= NR;
 
+                // Apply channel 3 (encapstock) fragility using average threshold across regions
+                double h_enc_avg = 0.0;
+                double alpha_enc_avg = 0.0;
+                for (int rr = 0; rr < NR; rr++)
+                {
+                    h_enc_avg += h_thresh_c_rg[3][rr];
+                    alpha_enc_avg += alpha_c_rg[3][rr];
+                }
+                h_enc_avg /= NR;
+                alpha_enc_avg /= NR;
+                double enc_denom = std::max(1.0 - h_enc_avg, 1e-12);
+                double enc_excess = std::max(0.0, shock_encap_avg - h_enc_avg);
+                double omega_enc = ((flag_adaptation == 1 || flag_adaptation == 3) && enc_excess > 0.0)
+                                       ? std::pow(enc_excess / enc_denom, alpha_enc_avg)
+                                       : 1.0;
+                double dampened_encap = shock_encap_avg * omega_enc;
+
                 for (tt = 1; tt <= t; tt++)
                 {
-                    shocks_encapstock_de(t) = shock_encap_avg;
+                    shocks_encapstock_de(t) = dampened_encap;
                     if (G_de(tt) > 0)
                     {
-                        G_de(tt) = ROUND(G_de(tt) * (1 - shock_encap_avg));
+                        G_de(tt) = ROUND(G_de(tt) * (1 - dampened_encap));
                     }
 
-                    shocks_encapstock_ge(t) = shock_encap_avg;
+                    shocks_encapstock_ge(t) = dampened_encap;
                     if (G_ge(tt) > 0)
                     {
-                        G_ge(tt) = ROUND(G_ge(tt) * (1 - shock_encap_avg));
-                        G_ge_n(tt) = ROUND(G_ge_n(tt) * (1 - shock_encap_avg));
+                        G_ge(tt) = ROUND(G_ge(tt) * (1 - dampened_encap));
+                        G_ge_n(tt) = ROUND(G_ge_n(tt) * (1 - dampened_encap));
                     }
                 }
                 CapitalStock_e(1) = G_ge_n.Sum();
@@ -1402,7 +1438,7 @@ void SHOCKS(void)
                 shock_pop_avg /= NR;
 
                 shock_pop = shock_pop_avg;
-                LS = LS * (1 - shock_pop_avg);
+                LS = LS * (1 - shock_pop_avg * Omega_adapt_national);
             }
             else
             {
@@ -1431,7 +1467,7 @@ void SHOCKS(void)
                 }
                 shock_cons_avg /= NR;
 
-                shock_cons = shock_cons_avg;
+                shock_cons = shock_cons_avg * Omega_adapt_national;
             }
             else
             {
@@ -1455,7 +1491,7 @@ void SHOCKS(void)
                         {
                             int rr = region_firm_assignment_C[j - 1];
                             rnd = betadev(X_a_reg(6, rr), X_b_reg(6, rr), p_seed);
-                            shocks_capstock(j) = rnd;
+                            shocks_capstock(j) = apply_fragility(rnd, 4, rr);
                         }
                     }
                     else
@@ -1464,7 +1500,7 @@ void SHOCKS(void)
                         for (int rr = 1; rr <= NR; rr++)
                         {
                             rnd = betadev(X_a_reg(6, rr), X_b_reg(6, rr), p_seed);
-                            double shock_capstock_reg = rnd;
+                            double shock_capstock_reg = apply_fragility(rnd, 4, rr);
 
                             for (j = 1; j <= N2; j++)
                             {
@@ -1541,15 +1577,17 @@ void SHOCKS(void)
                         for (j = 1; j <= N2; j++)
                         {
                             int rr = region_firm_assignment_C[j - 1];
+                            double om = (flag_adaptation == 1 || flag_adaptation == 3) ? Omega_adapt_rg[rr - 1] : 1.0;
                             rnd = betadev(X_a_reg(7, rr), X_b_reg(7, rr), p_seed);
-                            shocks_output2(j) = rnd;
+                            shocks_output2(j) = rnd * om;
                         }
 
                         for (i = 1; i <= N1; i++)
                         {
                             int rr = region_firm_assignment_K[i - 1];
+                            double om = (flag_adaptation == 1 || flag_adaptation == 3) ? Omega_adapt_rg[rr - 1] : 1.0;
                             rnd = betadev(X_a_reg(7, rr), X_b_reg(7, rr), p_seed);
-                            shocks_output1(i) = rnd;
+                            shocks_output1(i) = rnd * om;
                         }
                     }
                     else
@@ -1557,8 +1595,9 @@ void SHOCKS(void)
                         // Uniform regional mode: broadcast
                         for (int rr = 1; rr <= NR; rr++)
                         {
+                            double om = (flag_adaptation == 1 || flag_adaptation == 3) ? Omega_adapt_rg[rr - 1] : 1.0;
                             rnd = betadev(X_a_reg(7, rr), X_b_reg(7, rr), p_seed);
-                            double shock_output_reg = rnd;
+                            double shock_output_reg = rnd * om;
 
                             // Apply to C-firms
                             for (j = 1; j <= N2; j++)
@@ -1674,7 +1713,7 @@ void SHOCKS(void)
                         {
                             int rr = region_firm_assignment_C[j - 1];
                             rnd = betadev(X_a_reg(8, rr), X_b_reg(8, rr), p_seed);
-                            shocks_invent(j) = rnd;
+                            shocks_invent(j) = apply_fragility(rnd, 5, rr);
                         }
                     }
                     else
@@ -1683,7 +1722,7 @@ void SHOCKS(void)
                         for (int rr = 1; rr <= NR; rr++)
                         {
                             rnd = betadev(X_a_reg(8, rr), X_b_reg(8, rr), p_seed);
-                            double shock_invent_reg = rnd;
+                            double shock_invent_reg = apply_fragility(rnd, 5, rr);
 
                             for (j = 1; j <= N2; j++)
                             {
@@ -1757,8 +1796,9 @@ void SHOCKS(void)
                     for (i = 1; i <= N1; i++)
                     {
                         int rr = region_firm_assignment_K[i - 1];
+                        double om = (flag_adaptation == 1 || flag_adaptation == 3) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(9, rr), X_b_reg(9, rr), p_seed);
-                        shocks_rd(i) = rnd;
+                        shocks_rd(i) = rnd * om;
                     }
                 }
                 else
@@ -1766,8 +1806,9 @@ void SHOCKS(void)
                     // Uniform regional mode: draw one shock per region, broadcast to all firms in that region
                     for (int rr = 1; rr <= NR; rr++)
                     {
+                        double om = (flag_adaptation == 1 || flag_adaptation == 3) ? Omega_adapt_rg[rr - 1] : 1.0;
                         rnd = betadev(X_a_reg(9, rr), X_b_reg(9, rr), p_seed);
-                        double shock_rd_reg = rnd;
+                        double shock_rd_reg = rnd * om;
 
                         for (i = 1; i <= N1; i++)
                         {

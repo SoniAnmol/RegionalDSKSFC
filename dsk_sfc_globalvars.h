@@ -15,141 +15,141 @@ ofstream Errors;         // File for saving error messages
 int cerr_enabled;        // Determines whether error messages to console are printed to console
 int verbose;             // Determines whether simulation progress updates are printed to console
 
-int i;                              // Index
-int ii;                             // Index
-int iii;                            // Index
-int j;                              // Index
-int jjj;                            // Index
-int t;                              // Current simulation period
-int tt;                             // Index
-int rni;                            // Random number
-int t0;                             // Index
-int t00;                            // Index
-int n;                              // Counter
-double pareto_rv;                   // Pareto random number
-double tolerance;                   // Tolerance level for deviations from accounting consistency
-double regionalaccountingtolerance; // Tolerance for regional accounting validation (log-only)
-double deviation;                   // Deviation from accounting consistency
-double parber;                      // Input for draw from Bernoulli
-double rnd;                         // Random number
-double NB;                          // Number of banks
-long int NB_long;                   // Number of banks as int
-double N1r;                         // Number of K-firms as double
-double N2r;                         // Number of C-firms as double
-int step;                           // Counter
-int stepbis;                        // Counter
-int cont;                           // Counter
-double age0;                        // Age of initial machines
-double Amax;                        // Maximum labour productivity C-firms
-double A1pmax;                      // Maximum labour productivity K-firms
-double A1_en_max;                   // Maximum energy efficiency C-firms
-double A1_ef_max;                   // Maximum environmental friendliness C-firms
-double A1p_en_max;                  // Maximum energy efficiency K-firms
-double A1p_ef_max;                  // Maximum environmental friendliness K-firms
-double D20;                         // Initial demand for consumption goods
-int DS2_min_index;                  // Index of minimum debt service to sales ratio
-int newbroch;                       // Brochures sent to potential customers
-int indforn;                        // C-firm's machine supplier
-int flag;                           // Flag
-double payback;                     // Payback period
-int jmax;                           // Index
-int tmax;                           // Index
-int imax;                           // Index
-double nmachprod;                   // Number of machines used
-double nmp_temp;                    // Number of machines used (temporary value)
-double cmin;                        // Index
-int imin;                           // Index
-int jmin;                           // Index
-int tmin;                           // Index
-double InternalFunds;               // Internal funds available to C-firm
-double prestmax;                    // Maximum loans demanded by C-firm
-double p1prova;                     // Temporary storage for K-firm price
-int rated_firm_2;                   // Index
-double Qpast;                       // Temporary storage for K-firm output
-double Ipast;                       // Temporary storage for investment
-double scrapmax;                    // Maximum number of machines to be scrapped
-double cmax;                        // Maximum production cost
-int ind_i;                          // Index
-int ind_tt;                         // Index
-double scrap_n;                     // Nominal value of scrapped machines
-int sendingBank;                    // Index
-int receivingBank;                  // Index
-double c_de_min;                    // Minimum cost of dirty energy plant
-double cf_min_ge;                   // Minimum cost of green energy capacity expansion
-RowVector G_de_temp;                // Temporary storage for dirty energy capacity
-double Q_de_temp;                   // Temporary storage for dirty energy produced
-int idmin;                          // Index
-double parber_en_de;                // Input for draw from Bernoulli
-double parber_en_ge;                // Input for draw from Bernoulli
-double parber_en_ge2;               // Input for draw from Bernoulli
-double l2m;                         // Mean unsatisfied demand
-double p2m;                         // Mean C-firm price
-double Cres;                        // Residual consumption
-double Cresbis;                     // Temporary storage for residual consumption
-RowVector Q2temp;                   // Temporary storage for C-firm output
-RowVector f_temp2;                  // Temporary storage for C-firm market shares
-RowVector D_temp2;                  // Temporary storage for consumption demand
-double cpi_temp;                    // Temporary cpi
-RowVector Bond_share;               // Share of gov. bonds owned by each bank
-int maxbank;                        // Index
-double max_equity;                  // Maximum bank equity
-double multip_bailout;              // Multiplier for bailout
-double min_equity;                  // Minimum bank equity
-int ns1;                            // Number of active K-firms
-int ns2;                            // Number of active C-firms
-double mD1;                         // Mean deposits K-firms
-double mD2;                         // Mean deposits C-firms
-double multip_entry;                // Multiplier for firm entry
-double injection;                   // Liquidity injection for entering firms
-double injection2;                  // Alternative storage for liquidity injection for entering firms
-double n_mach_exit;                 // Number of machines of exiting firms
-double n_mach_exit2;                // Temporary storage for n_mach_exit
-double n_mach_needed;               // Number of machines needed for entering firms
-double n_mach_resid;                // Number of remaining machines for entering firms
-double n_mach_resid2;               // Temporary storage for remaining machines for entering firms
-double n_exit2;                     // Number of exiting C-firms
-RowVector k_entry;                  // Share of second-hand capital allocated to each firm
-double cpi_init;                    // Initial value of cpi needed for climate policy
-double GDP_init;                    // Initial value of nominal GDP needed for climate policy
-double baddebt_2_temp;              // Temporary storage for C-firms' bad debt
-double markdownCapital;             // Markdown applied to capital goods sold on second hand market
-RowVector prior;                    // Used to determine deviations in bank balance sheets
-double post;                        // Used to determine deviations in bank balance sheets
-double prior_cb;                    // Used to determine deviations in CB balance sheet
-double post_cb;                     // Used to determine deviations in CB balance sheet
-double DepositsCheck_1;             // Used to detect errors in distribution of firm deposits
-double DepositsCheck_2;             // Used to detect errors in distribution of firm deposits
-double p2_entry;                    // Price of newly entering C-firms
-double f2_exit;                     // Sum of market shares of exiting C-firms
-double CurrentDemand;               // Sum of demand experienced by C-firms in current period
-RowVector EntryShare;               // Share of available market captured by entering C-firms
-RowVector CompEntry;                // Pseudo-competitiveness of entering C-firms
-double CompEntry_m;                 // Mean pseudo-competitiveness of entering C-firms
-double K_gap;                       // Gap between desired and actual capital
-RowVector K_temp;                   // Temporary storage for capital stock
-double K_top;                       // Upper limit for expansion investment
-int loss;                           // Temporary storage for capital stock lost due to climate shocks
-int lossj;                          // Temporary storage for capital stock lost at firm level
-RowVector K_loss;                   // Temporary storage for capital stock lost at firm level
-int rani;                           // Random integer
-int rant;                           // Random integer
-int ranj;                           // Random integer
-double reduction;                   // Temporary storage for reduction in production due to insufficient labour supply
-RowVector marker_age;               // Indicates whether a firm has only 1 unit of capital left which is also older than agemax
-double K_temp_sum;                  // Temporary storage for overall capital stock
-double mi_en_preshock;              // Temporary storage for pre-shock energy markup
-double pf_preshock;                 // Temporary storage for pre-shock fossil fuel price
-double mi_en_shock;                 // Temporary storage for shocked energy markup
-double c_en_preshock;               // Temporary storage for pre-shock energy price
-double pf_shock;                    // Temporary storage for shocked fossil fuel price
-double c_infra_t;                   // Target inframarginal energy cost to achieve desired energy price shock
-RowVector risk_c;                   // Measure of individual C-firms' exposure to extreme events
-RowVector risk_k;                   // Measure of individual K-firms' exposure to extreme events
-std::vector<double> regional_shock_value;   // One shock scalar per region (size NR)
-double ptemp;                       // Temporary storage for C-firm price
-RowVector pass_1;                   // Indicator for K-firm passthrough of energy price shock
-RowVector pass_2;                   // Indicator for C-firm passthrough of energy price shock
-double Ldtemp;                      // Temporary storage for C-Firm labour
+int i;                                    // Index
+int ii;                                   // Index
+int iii;                                  // Index
+int j;                                    // Index
+int jjj;                                  // Index
+int t;                                    // Current simulation period
+int tt;                                   // Index
+int rni;                                  // Random number
+int t0;                                   // Index
+int t00;                                  // Index
+int n;                                    // Counter
+double pareto_rv;                         // Pareto random number
+double tolerance;                         // Tolerance level for deviations from accounting consistency
+double regionalaccountingtolerance;       // Tolerance for regional accounting validation (log-only)
+double deviation;                         // Deviation from accounting consistency
+double parber;                            // Input for draw from Bernoulli
+double rnd;                               // Random number
+double NB;                                // Number of banks
+long int NB_long;                         // Number of banks as int
+double N1r;                               // Number of K-firms as double
+double N2r;                               // Number of C-firms as double
+int step;                                 // Counter
+int stepbis;                              // Counter
+int cont;                                 // Counter
+double age0;                              // Age of initial machines
+double Amax;                              // Maximum labour productivity C-firms
+double A1pmax;                            // Maximum labour productivity K-firms
+double A1_en_max;                         // Maximum energy efficiency C-firms
+double A1_ef_max;                         // Maximum environmental friendliness C-firms
+double A1p_en_max;                        // Maximum energy efficiency K-firms
+double A1p_ef_max;                        // Maximum environmental friendliness K-firms
+double D20;                               // Initial demand for consumption goods
+int DS2_min_index;                        // Index of minimum debt service to sales ratio
+int newbroch;                             // Brochures sent to potential customers
+int indforn;                              // C-firm's machine supplier
+int flag;                                 // Flag
+double payback;                           // Payback period
+int jmax;                                 // Index
+int tmax;                                 // Index
+int imax;                                 // Index
+double nmachprod;                         // Number of machines used
+double nmp_temp;                          // Number of machines used (temporary value)
+double cmin;                              // Index
+int imin;                                 // Index
+int jmin;                                 // Index
+int tmin;                                 // Index
+double InternalFunds;                     // Internal funds available to C-firm
+double prestmax;                          // Maximum loans demanded by C-firm
+double p1prova;                           // Temporary storage for K-firm price
+int rated_firm_2;                         // Index
+double Qpast;                             // Temporary storage for K-firm output
+double Ipast;                             // Temporary storage for investment
+double scrapmax;                          // Maximum number of machines to be scrapped
+double cmax;                              // Maximum production cost
+int ind_i;                                // Index
+int ind_tt;                               // Index
+double scrap_n;                           // Nominal value of scrapped machines
+int sendingBank;                          // Index
+int receivingBank;                        // Index
+double c_de_min;                          // Minimum cost of dirty energy plant
+double cf_min_ge;                         // Minimum cost of green energy capacity expansion
+RowVector G_de_temp;                      // Temporary storage for dirty energy capacity
+double Q_de_temp;                         // Temporary storage for dirty energy produced
+int idmin;                                // Index
+double parber_en_de;                      // Input for draw from Bernoulli
+double parber_en_ge;                      // Input for draw from Bernoulli
+double parber_en_ge2;                     // Input for draw from Bernoulli
+double l2m;                               // Mean unsatisfied demand
+double p2m;                               // Mean C-firm price
+double Cres;                              // Residual consumption
+double Cresbis;                           // Temporary storage for residual consumption
+RowVector Q2temp;                         // Temporary storage for C-firm output
+RowVector f_temp2;                        // Temporary storage for C-firm market shares
+RowVector D_temp2;                        // Temporary storage for consumption demand
+double cpi_temp;                          // Temporary cpi
+RowVector Bond_share;                     // Share of gov. bonds owned by each bank
+int maxbank;                              // Index
+double max_equity;                        // Maximum bank equity
+double multip_bailout;                    // Multiplier for bailout
+double min_equity;                        // Minimum bank equity
+int ns1;                                  // Number of active K-firms
+int ns2;                                  // Number of active C-firms
+double mD1;                               // Mean deposits K-firms
+double mD2;                               // Mean deposits C-firms
+double multip_entry;                      // Multiplier for firm entry
+double injection;                         // Liquidity injection for entering firms
+double injection2;                        // Alternative storage for liquidity injection for entering firms
+double n_mach_exit;                       // Number of machines of exiting firms
+double n_mach_exit2;                      // Temporary storage for n_mach_exit
+double n_mach_needed;                     // Number of machines needed for entering firms
+double n_mach_resid;                      // Number of remaining machines for entering firms
+double n_mach_resid2;                     // Temporary storage for remaining machines for entering firms
+double n_exit2;                           // Number of exiting C-firms
+RowVector k_entry;                        // Share of second-hand capital allocated to each firm
+double cpi_init;                          // Initial value of cpi needed for climate policy
+double GDP_init;                          // Initial value of nominal GDP needed for climate policy
+double baddebt_2_temp;                    // Temporary storage for C-firms' bad debt
+double markdownCapital;                   // Markdown applied to capital goods sold on second hand market
+RowVector prior;                          // Used to determine deviations in bank balance sheets
+double post;                              // Used to determine deviations in bank balance sheets
+double prior_cb;                          // Used to determine deviations in CB balance sheet
+double post_cb;                           // Used to determine deviations in CB balance sheet
+double DepositsCheck_1;                   // Used to detect errors in distribution of firm deposits
+double DepositsCheck_2;                   // Used to detect errors in distribution of firm deposits
+double p2_entry;                          // Price of newly entering C-firms
+double f2_exit;                           // Sum of market shares of exiting C-firms
+double CurrentDemand;                     // Sum of demand experienced by C-firms in current period
+RowVector EntryShare;                     // Share of available market captured by entering C-firms
+RowVector CompEntry;                      // Pseudo-competitiveness of entering C-firms
+double CompEntry_m;                       // Mean pseudo-competitiveness of entering C-firms
+double K_gap;                             // Gap between desired and actual capital
+RowVector K_temp;                         // Temporary storage for capital stock
+double K_top;                             // Upper limit for expansion investment
+int loss;                                 // Temporary storage for capital stock lost due to climate shocks
+int lossj;                                // Temporary storage for capital stock lost at firm level
+RowVector K_loss;                         // Temporary storage for capital stock lost at firm level
+int rani;                                 // Random integer
+int rant;                                 // Random integer
+int ranj;                                 // Random integer
+double reduction;                         // Temporary storage for reduction in production due to insufficient labour supply
+RowVector marker_age;                     // Indicates whether a firm has only 1 unit of capital left which is also older than agemax
+double K_temp_sum;                        // Temporary storage for overall capital stock
+double mi_en_preshock;                    // Temporary storage for pre-shock energy markup
+double pf_preshock;                       // Temporary storage for pre-shock fossil fuel price
+double mi_en_shock;                       // Temporary storage for shocked energy markup
+double c_en_preshock;                     // Temporary storage for pre-shock energy price
+double pf_shock;                          // Temporary storage for shocked fossil fuel price
+double c_infra_t;                         // Target inframarginal energy cost to achieve desired energy price shock
+RowVector risk_c;                         // Measure of individual C-firms' exposure to extreme events
+RowVector risk_k;                         // Measure of individual K-firms' exposure to extreme events
+std::vector<double> regional_shock_value; // One shock scalar per region (size NR)
+double ptemp;                             // Temporary storage for C-firm price
+RowVector pass_1;                         // Indicator for K-firm passthrough of energy price shock
+RowVector pass_2;                         // Indicator for C-firm passthrough of energy price shock
+double Ldtemp;                            // Temporary storage for C-Firm labour
 
 // Balance sheet items
 RowVector Deposits_h(2);       // Household deposits
@@ -269,84 +269,110 @@ double Deposits_recovered_1; // Liquidity recovered from failing K-firms
 double Deposits_recovered_2; // Liquidity recovered from failing C-firms
 
 // C-Firms
-RowVector p2;                           // C-firms' prices
-RowVector BankingSupplier_2;            // C-firms' suppliers of banking services
-Matrix BankMatch_2;                     // Matrix matching C-firms to banks
-RowVector A2;                           // Labour productivity C-firms
-RowVector A2_en;                        // Energy efficiency C-firms
-RowVector A2_ef;                        // Environmental friendliness C-firms
-RowVector c2;                           // Production cost C-firms
-RowVector c2p;                          // Production cost C-firms use to set prices (for energy price shock experiment)
-RowVector c1p;                          // Production cost K-firms use to set prices (for energy price shock experiment)
-RowVector l2;                           // Unsatisfied consumption demand
-RowVector DebtRemittances2;             // Loan repayments C-firms
-RowVector baddebt_2;                    // Bad debt of exiting C-firms
-Matrix S2;                              // C-firm revenues
-RowVector Sales2;                       // Temporary storage for C-firm revenues
-RowVector K;                            // C-firms' productive capacity
-RowVector K_cur;                        // Needed for shocks to capital stock
-Matrix f2;                              // C-firms' market share
-RowVector E2;                           // C-firms' competitiveness
-RowVector CreditDemand;                 // C-firms' credit demand
-RowVector I;                            // Total investment of C-firms in terms of productive capacity
-Matrix EI;                              // Expansion investment of C-firms in terms of productive capacity
-RowVector EI_n;                         // Nominal value of C-firms' expansion investment
-RowVector SI;                           // Substitution investment of C-firms in terms of productive capacity
-RowVector SI_n;                         // Nominal value of C-firms' substitution investment
-RowVector Q2;                           // Quantity produced by C-firms
-Matrix mu2;                             // Mark-up of C-firms
-RowVector fornit;                       // C-firms' supplier of machine tools
-RowVector n_mach;                       // C-firms' number of machines
-Matrix D2;                              // Demand for consumption goods
-RowVector De;                           // Expected demand
-Matrix N;                               // Inventories (real)
-RowVector Ne;                           // Desired inventories
-RowVector DebtServiceToSales2;          // C-firms' debt service to sales ratio
-Matrix DebtService_2;                   // C-firms' debt service
-Real DS2_min;                           // Minimum debt service to sales ratio
-RowVector DebtServiceToSales2_temp;     // Temporary storage for C-firms' debt service to sales ratio
-RowVector k;                            // Ranking of C-firms' debt service to sales ratio
-RowVector r_deb_h;                      // Borrowing rate charged to individual C-firms
-RowVector EId;                          // Desired expansion investment
-RowVector SId;                          // Desired replacement investment
-RowVector SId_age;                      // Desired replacement investment due to excessive age
-RowVector SId_cost;                     // Desired replacement investment due to high cost
-RowVector EIp;                          // Expansion investment post determination of maximum acceptable borrowing
-RowVector SIp;                          // Replacement investment post determination of maximum acceptable borrowing
-RowVector SIp_age;                      // Replacement investment due to excessive age post determination of maximum acceptable borrowing
-RowVector SIp_cost;                     // Replacement investment due to high cost post determination of maximum acceptable borrowing
-RowVector Ip;                           // Overall investment post determination of maximum acceptable borrowing
-RowVector Cmach;                        // Cost of overall investment
-RowVector CmachEI;                      // Cost of expansion investment
-RowVector CmachSI;                      // Cost of replacement investment
-RowVector CmachSI_age;                  // Cost of replacement investment due to excessive age
-RowVector CmachSI_cost;                 // Cost of replacement investment due to high cost
-RowVector Qd;                           // Quantity demanded from C-firms
-RowVector Kd;                           // Desired capital stock of C-firms
-RowVector Ktrig;                        // Current capital stock determining expansion investment
-RowVector A2e;                          // Effective labour productivity
-RowVector c2e;                          // Effective unit cost
-RowVector A2e_en;                       // Effective energy efficiency
-RowVector A2e_ef;                       // Effective environmental friendliness
-RowVector A2e2;                         // Needed for capital stock shocks
-RowVector A2e_en2;                      // Needed for capital stock shocks
-RowVector A2e_ef2;                      // Needed for capital stock shocks
-RowVector Ld2;                          // C-firms' labour demand
-RowVector Ld2_control;                  // Needed for capital stock shocks
-RowVector mol;                          // C-firms' net revenue
-RowVector exiting_2;                    // Indicating whether firm is exiting
-RowVector exit_payments2;               // Indicating whether firm is exiting due to inability to make a payment
-RowVector exit_equity2;                 // Indicating whether firm is exiting due to negative equity
-RowVector exit_marketshare2;            // Indicating whether firm is exiting due to loss of market share
-std::vector<double> reg_exit_payments2; // Regional C-firm exits triggered by payment inability
-std::vector<double> reg_exit_equity2;   // Regional C-firm exits triggered by negative equity
-RowVector D2_en;                        // C-firms' energy demand
-RowVector Emiss2;                       // C-firms' emissions
-RowVector dN;                           // Change in inventories
-RowVector dNm;                          // Change in nominal value of inventories
-RowVector Pi2;                          // C-firms' profit
-RowVector n_mach_entry;                 // Number of machines of entering firms
-RowVector scrap_age;                    // Number of machines scrapped due to age
+RowVector p2;                // C-firms' prices
+RowVector BankingSupplier_2; // C-firms' suppliers of banking services
+Matrix BankMatch_2;          // Matrix matching C-firms to banks
+RowVector A2;                // Labour productivity C-firms
+RowVector A2_en;             // Energy efficiency C-firms
+RowVector A2_ef;             // Environmental friendliness C-firms
+RowVector c2;                // Production cost C-firms
+RowVector c2p;               // Production cost C-firms use to set prices (for energy price shock experiment)
+RowVector c1p;               // Production cost K-firms use to set prices (for energy price shock experiment)
+RowVector l2;                // Unsatisfied consumption demand
+RowVector DebtRemittances2;  // Loan repayments C-firms
+RowVector baddebt_2;         // Bad debt of exiting C-firms
+Matrix S2;                   // C-firm revenues
+RowVector Sales2;            // Temporary storage for C-firm revenues
+RowVector K;                 // C-firms' productive capacity
+RowVector K_cur;             // Needed for shocks to capital stock
+Matrix f2;                   // C-firms' market share
+RowVector E2;                // C-firms' competitiveness
+// Regional home-bias (flag_regional_bias) structures.
+// f2_reg[r] mirrors the full 3xN2 structure of national f2 (row1 current, row2 lag,
+// row3 lag2) but holds region r's buyer-specific C-firm market shares under perceived
+// effective prices. reg_cons_share holds the normalised regional consumption-budget
+// weights s_r (from reg_Dh, with population/equal fallbacks). Diagnostics are aggregate
+// validation-only quantities and never feed back into model behaviour.
+std::vector<Matrix> f2_reg;             // Region-by-firm C-firm market shares (NR matrices, each 3xN2)
+std::vector<double> reg_cons_share;     // Normalised regional consumption-budget weights s_r
+double diag_hh_local_cons_share;        // Share of household consumption spent on same-region C-firms
+double diag_kfirm_local_supplier_share; // Share of C-firms whose selected K-firm is same-region
+double diag_wedge_cmarket;              // Average effective-price wedge applied in the C-firm (household) market
+double diag_wedge_kmarket;              // Average effective-price wedge applied in the K-firm market
+// Inter-regional trade accumulators (nominal value, per period). Machine flows use K-firm supplier
+// identity (always available); consumption flows require regional home-bias allocation to be active.
+std::vector<double> reg_mach_buy_local;   // Machines bought by region r from same-region K-firms
+std::vector<double> reg_mach_buy_import;  // Machines bought by region r from other-region K-firms
+std::vector<double> reg_mach_sell_local;  // Machines sold by region r K-firms to same-region buyers
+std::vector<double> reg_mach_sell_export; // Machines sold by region r K-firms to other-region buyers
+std::vector<double> reg_cons_buy_local;   // C-goods bought by region r from same-region C-firms
+std::vector<double> reg_cons_buy_import;  // C-goods bought by region r from other-region C-firms
+std::vector<double> reg_cons_sell_local;  // C-goods sold by region r C-firms to same-region buyers
+std::vector<double> reg_cons_sell_export; // C-goods sold by region r C-firms to other-region buyers
+// Bilateral purchase matrices [buyer region][source region] (nominal value, per period).
+std::vector<std::vector<double>> reg_mach_buy_from; // Machines bought by buyer r from source s
+std::vector<std::vector<double>> reg_cons_buy_from; // C-goods bought by buyer r from source s
+RowVector KfirmGovCredit;                           // Per-K-firm govt investment credit (EA public + I_adapt), set in RG block
+RowVector CreditDemand;                             // C-firms' credit demand
+RowVector I;                                        // Total investment of C-firms in terms of productive capacity
+Matrix EI;                                          // Expansion investment of C-firms in terms of productive capacity
+RowVector EI_n;                                     // Nominal value of C-firms' expansion investment
+RowVector SI;                                       // Substitution investment of C-firms in terms of productive capacity
+RowVector SI_n;                                     // Nominal value of C-firms' substitution investment
+RowVector Q2;                                       // Quantity produced by C-firms
+Matrix mu2;                                         // Mark-up of C-firms
+RowVector fornit;                                   // C-firms' supplier of machine tools
+RowVector n_mach;                                   // C-firms' number of machines
+Matrix D2;                                          // Demand for consumption goods
+RowVector De;                                       // Expected demand
+Matrix N;                                           // Inventories (real)
+RowVector Ne;                                       // Desired inventories
+RowVector DebtServiceToSales2;                      // C-firms' debt service to sales ratio
+Matrix DebtService_2;                               // C-firms' debt service
+Real DS2_min;                                       // Minimum debt service to sales ratio
+RowVector DebtServiceToSales2_temp;                 // Temporary storage for C-firms' debt service to sales ratio
+RowVector k;                                        // Ranking of C-firms' debt service to sales ratio
+RowVector r_deb_h;                                  // Borrowing rate charged to individual C-firms
+RowVector EId;                                      // Desired expansion investment
+RowVector SId;                                      // Desired replacement investment
+RowVector SId_age;                                  // Desired replacement investment due to excessive age
+RowVector SId_cost;                                 // Desired replacement investment due to high cost
+RowVector EIp;                                      // Expansion investment post determination of maximum acceptable borrowing
+RowVector SIp;                                      // Replacement investment post determination of maximum acceptable borrowing
+RowVector SIp_age;                                  // Replacement investment due to excessive age post determination of maximum acceptable borrowing
+RowVector SIp_cost;                                 // Replacement investment due to high cost post determination of maximum acceptable borrowing
+RowVector Ip;                                       // Overall investment post determination of maximum acceptable borrowing
+RowVector Cmach;                                    // Cost of overall investment
+RowVector CmachEI;                                  // Cost of expansion investment
+RowVector CmachSI;                                  // Cost of replacement investment
+RowVector CmachSI_age;                              // Cost of replacement investment due to excessive age
+RowVector CmachSI_cost;                             // Cost of replacement investment due to high cost
+RowVector Qd;                                       // Quantity demanded from C-firms
+RowVector Kd;                                       // Desired capital stock of C-firms
+RowVector Ktrig;                                    // Current capital stock determining expansion investment
+RowVector A2e;                                      // Effective labour productivity
+RowVector c2e;                                      // Effective unit cost
+RowVector A2e_en;                                   // Effective energy efficiency
+RowVector A2e_ef;                                   // Effective environmental friendliness
+RowVector A2e2;                                     // Needed for capital stock shocks
+RowVector A2e_en2;                                  // Needed for capital stock shocks
+RowVector A2e_ef2;                                  // Needed for capital stock shocks
+RowVector Ld2;                                      // C-firms' labour demand
+RowVector Ld2_control;                              // Needed for capital stock shocks
+RowVector mol;                                      // C-firms' net revenue
+RowVector exiting_2;                                // Indicating whether firm is exiting
+RowVector exit_payments2;                           // Indicating whether firm is exiting due to inability to make a payment
+RowVector exit_equity2;                             // Indicating whether firm is exiting due to negative equity
+RowVector exit_marketshare2;                        // Indicating whether firm is exiting due to loss of market share
+std::vector<double> reg_exit_payments2;             // Regional C-firm exits triggered by payment inability
+std::vector<double> reg_exit_equity2;               // Regional C-firm exits triggered by negative equity
+RowVector D2_en;                                    // C-firms' energy demand
+RowVector Emiss2;                                   // C-firms' emissions
+RowVector dN;                                       // Change in inventories
+RowVector dNm;                                      // Change in nominal value of inventories
+RowVector Pi2;                                      // C-firms' profit
+RowVector n_mach_entry;                             // Number of machines of entering firms
+RowVector scrap_age;                                // Number of machines scrapped due to age
 
 std::vector<std::vector<std::vector<int>>> age;        // Age of exiting machines
 std::vector<std::vector<std::vector<double>>> g_c;     // Frequency of machines for cost calculation
@@ -553,92 +579,153 @@ std::vector<double> region_dirty_capacity_lag;        // Lagged regional dirty c
 std::vector<double> region_green_capacity_lag;        // Lagged regional green capacity stocks
 
 // Regional Accounting Variables
-std::vector<double> reg_N1;               // Regional number of K-firms
-std::vector<double> reg_N2;               // Regional number of C-firms
-std::vector<double> reg_Q1;               // Regional production of K-firms
-std::vector<double> reg_Q2;               // Regional production of C-firms
-std::vector<double> reg_Q1tot;            // Regional copy of national Q1tot
-std::vector<double> reg_Q2tot;            // Regional copy of national Q2tot
-std::vector<double> reg_GDP_r;            // Regional real GDP
-std::vector<double> reg_GDP_r_lag;        // Regional lagged real GDP (previous period)
-std::vector<double> reg_Consumption_r;    // Regional total real consumption
-std::vector<double> reg_Consumption;      // Regional total nominal consumption
-std::vector<double> reg_Investment_r;     // Regional total real investment
+std::vector<double> reg_N1;                      // Regional number of K-firms
+std::vector<double> reg_N2;                      // Regional number of C-firms
+std::vector<double> reg_Q1;                      // Regional production of K-firms
+std::vector<double> reg_Q2;                      // Regional production of C-firms
+std::vector<double> reg_Q1tot;                   // Regional copy of national Q1tot
+std::vector<double> reg_Q2tot;                   // Regional copy of national Q2tot
+std::vector<double> reg_H1;                      // Regional normalised Herfindahl index K-firms
+std::vector<double> reg_H2;                      // Regional normalised Herfindahl index C-firms
+std::vector<double> reg_GDP_r;                   // Regional real GDP
+std::vector<double> reg_GDP_r_lag;               // Regional lagged real GDP (previous period)
+std::vector<double> reg_Consumption_r;           // Regional total real consumption
+std::vector<double> reg_Consumption;             // Regional total nominal consumption
+std::vector<double> reg_Investment_r;            // Regional total real investment
 std::vector<double> reg_ReplacementInvestment_r; // Regional total real replacement investment
-std::vector<double> reg_Investment_n;     // Regional total nominal investment
-std::vector<double> reg_EnergyPayments;   // Regional energy payments from firms to energy sector
-std::vector<double> reg_Wages;            // Regional wage payments by firms
-std::vector<double> reg_K_gelag;          // Regional lagged green energy capacity
-std::vector<double> reg_K_delag;          // Regional lagged dirty energy capacity
-std::vector<double> reg_U;                // Regional unemployment rate
-std::vector<double> reg_Am;               // Regional mean productivity (weighted avg of K and C-firm productivity)
-std::vector<double> reg_Am1;              // Regional mean productivity of K-firms
-std::vector<double> reg_Am2;              // Regional mean productivity of C-firms
-std::vector<double> reg_Am_a;             // Regional mean productivity (alternative definition - weighted by labor demand)
-std::vector<double> reg_Am_en;            // Regional mean energy efficiency across K and C-firms
-std::vector<double> reg_Loans_2;          // Regional loans of C-firms
-std::vector<double> reg_CreditDemand_all; // Regional total credit demand (C-firms)
-std::vector<double> reg_CreditSupply_all; // Regional allocated credit supply (proportional to demand)
-std::vector<double> reg_Inventories;      // Regional nominal value of C-firms' inventories
-std::vector<double> reg_N;                // Regional real inventories
-std::vector<double> reg_GDP_n;            // Regional nominal GDP
-std::vector<double> reg_LS;               // Regional labor supply
-std::vector<double> reg_Qge;              // Regional quantity of green energy produced
-std::vector<double> reg_Q_ge;             // Regional green energy production (from demand-capacity logic)
-std::vector<double> reg_Q_de;             // Regional dirty energy production (from demand-capacity logic)
-std::vector<double> reg_D1_en;            // Regional K-firms energy demand
-std::vector<double> reg_D2_en;            // Regional C-firms energy demand
-std::vector<double> reg_D_en_TOT;         // Regional total energy demand
-std::vector<double> reg_Emiss1_TOT;       // Regional K-firms emissions
-std::vector<double> reg_Emiss2_TOT;       // Regional C-firms emissions
-std::vector<double> reg_Emiss_en;         // Regional energy sector emissions
-std::vector<double> reg_Emiss_TOT;        // Regional total emissions
-std::vector<double> reg_Cum_emissions;    // Regional cumulative emissions
-std::vector<double> reg_S1;               // Regional sales of K-firms
-std::vector<double> reg_S2;               // Regional sales of C-firms
-std::vector<double> reg_K;                // Regional capital stock
-std::vector<double> reg_Investment;       // Regional nominal investment
-std::vector<double> reg_EI;               // Regional expansion investment
-std::vector<double> reg_SI;               // Regional substitution investment
-std::vector<double> reg_Ld1;              // Regional labor demand K-firms
-std::vector<double> reg_Ld2;              // Regional labor demand C-firms
-std::vector<double> reg_Emiss1;           // Regional K-firms emissions (individual)
-std::vector<double> reg_Emiss2;           // Regional C-firms emissions (individual)
-std::vector<double> reg_Pi1;              // Regional profits K-firms
-std::vector<double> reg_Pi2;              // Regional profits C-firms
-std::vector<double> reg_Pitot1;           // Regional total profit of K-firms (aggregate Pi1)
-std::vector<double> reg_Pitot2;           // Regional total profit of C-firms (aggregate Pi2)
-std::vector<double> reg_Dividends_1;      // Regional dividends paid by K-firms
-std::vector<double> reg_Dividends_2;      // Regional dividends paid by C-firms
-std::vector<double> reg_Dividends_e;      // Regional dividends paid by energy sector
-std::vector<double> reg_Dividends_b;      // Regional dividends paid by banks
-std::vector<double> reg_NW_1;             // Regional net worth K-firms
-std::vector<double> reg_NW2;              // Regional net worth C-firms
-std::vector<double> reg_Deposits1;        // Regional deposits K-firms
-std::vector<double> reg_Deposits2;        // Regional deposits C-firms
-std::vector<double> reg_CapitalStock1;    // Regional capital stock K-firms
-std::vector<double> reg_CapitalStock2;    // Regional capital stock C-firms
-std::vector<double> reg_CapitalStock;     // Regional total capital stock (K+C firms)
-std::vector<double> reg_NW_h;             // Regional household net worth (allocated by GDP share)
+std::vector<double> reg_Investment_n;            // Regional total nominal investment
+std::vector<double> reg_EnergyPayments;          // Regional energy payments from firms to energy sector
+std::vector<double> reg_Wages;                   // Regional wage payments by firms
+std::vector<double> reg_K_gelag;                 // Regional lagged green energy capacity
+std::vector<double> reg_K_delag;                 // Regional lagged dirty energy capacity
+std::vector<double> reg_U;                       // Regional unemployment rate
+std::vector<double> reg_Am;                      // Regional mean productivity (weighted avg of K and C-firm productivity)
+std::vector<double> reg_Am1;                     // Regional mean productivity of K-firms
+std::vector<double> reg_Am2;                     // Regional mean productivity of C-firms
+std::vector<double> reg_Am_a;                    // Regional mean productivity (alternative definition - weighted by labor demand)
+std::vector<double> reg_Am_en;                   // Regional mean energy efficiency across K and C-firms
+std::vector<double> reg_Loans_2;                 // Regional loans of C-firms
+std::vector<double> reg_CreditDemand_all;        // Regional total credit demand (C-firms)
+std::vector<double> reg_CreditSupply_all;        // Regional allocated credit supply (proportional to demand)
+std::vector<double> reg_Inventories;             // Regional nominal value of C-firms' inventories
+std::vector<double> reg_N;                       // Regional real inventories
+std::vector<double> reg_GDP_n;                   // Regional nominal GDP
+std::vector<double> reg_LS;                      // Regional labor supply
+std::vector<double> LS_region_share;             // STATE: regional labour-supply share sigma_r (rolled from _next each period)
+std::vector<double> LS_region_share_next;        // STATE: next-period regional labour-supply share (written by migration)
+std::vector<double> reg_w;                       // Regional wage rate (income/benefit/migration-utility use; firms still pay national wage)
+std::vector<double> reg_w_past;                  // Lagged regional wage rate
+std::vector<double> reg_U_past;                  // Lagged regional unemployment rate (for regional Phillips curve)
+std::vector<double> reg_Am_past;                 // Lagged regional mean productivity (for regional Phillips curve)
+std::vector<double> reg_YD;                      // Regional household disposable income
+std::vector<double> reg_C;                       // Regional household consumption (accounting decomposition of national C)
+// Regional household deposits (true state) and migration liquidity (Phase 5B)
+std::vector<double> Dh_region_share;       // Initial regional household deposit shares (defaults to LS_region_share)
+std::vector<double> reg_Dh;                // STATE: regional household deposits (current)
+std::vector<double> reg_Dh_lag;            // STATE: regional household deposits (lagged)
+std::vector<double> reg_Dh_pre_migration;  // Regional household deposits after income/consumption, before migration
+std::vector<double> reg_Dh_post_migration; // Regional household deposits after migration expenditure + reconciliation
+std::vector<double> reg_ME_out;            // Regional migration expenditure outflow (origin-side)
+std::vector<double> reg_UN;                // Regional unemployed persons (count)
+std::vector<double> reg_U_rate;            // Regional unemployment rate (explicit, for liquidity)
+std::vector<double> reg_Benefits;          // Regional unemployment benefits paid
+std::vector<double> reg_Qge;               // Regional quantity of green energy produced
+std::vector<double> reg_Q_ge;              // Regional green energy production (from demand-capacity logic)
+std::vector<double> reg_Q_de;              // Regional dirty energy production (from demand-capacity logic)
+std::vector<double> reg_D1_en;             // Regional K-firms energy demand
+std::vector<double> reg_D2_en;             // Regional C-firms energy demand
+std::vector<double> reg_D_en_TOT;          // Regional total energy demand
+std::vector<double> reg_Emiss1_TOT;        // Regional K-firms emissions
+std::vector<double> reg_Emiss2_TOT;        // Regional C-firms emissions
+std::vector<double> reg_Emiss_en;          // Regional energy sector emissions
+std::vector<double> reg_Emiss_TOT;         // Regional total emissions
+std::vector<double> reg_Cum_emissions;     // Regional cumulative emissions
+std::vector<double> reg_S1;                // Regional sales of K-firms
+std::vector<double> reg_S2;                // Regional sales of C-firms
+std::vector<double> reg_K;                 // Regional capital stock
+std::vector<double> reg_Investment;        // Regional nominal investment
+std::vector<double> reg_EI;                // Regional expansion investment
+std::vector<double> reg_SI;                // Regional substitution investment
+std::vector<double> reg_Ld1;               // Regional labor demand K-firms
+std::vector<double> reg_Ld2;               // Regional labor demand C-firms
+std::vector<double> reg_Emiss1;            // Regional K-firms emissions (individual)
+std::vector<double> reg_Emiss2;            // Regional C-firms emissions (individual)
+std::vector<double> reg_Pi1;               // Regional profits K-firms
+std::vector<double> reg_Pi2;               // Regional profits C-firms
+std::vector<double> reg_Pitot1;            // Regional total profit of K-firms (aggregate Pi1)
+std::vector<double> reg_Pitot2;            // Regional total profit of C-firms (aggregate Pi2)
+std::vector<double> reg_Dividends_1;       // Regional dividends paid by K-firms
+std::vector<double> reg_Dividends_2;       // Regional dividends paid by C-firms
+std::vector<double> reg_Dividends_e;       // Regional dividends paid by energy sector
+std::vector<double> reg_Dividends_b;       // Regional dividends paid by banks
+std::vector<double> reg_NW_1;              // Regional net worth K-firms
+std::vector<double> reg_NW2;               // Regional net worth C-firms
+std::vector<double> reg_Deposits1;         // Regional deposits K-firms
+std::vector<double> reg_Deposits2;         // Regional deposits C-firms
+std::vector<double> reg_CapitalStock1;     // Regional capital stock K-firms
+std::vector<double> reg_CapitalStock2;     // Regional capital stock C-firms
+std::vector<double> reg_CapitalStock;      // Regional total capital stock (K+C firms)
+std::vector<double> reg_NW_h;              // Regional household net worth (allocated by GDP share)
 
 // Regional Government Block variables
-std::vector<double> TS_rg;               // Tax-sharing receipts per region
-std::vector<double> GT_base_rg;          // Base grant per region
-std::vector<double> GT_topup_rg;         // Top-up grant per region
-std::vector<double> GT_rg;               // Total grant per region (base + top-up)
-std::vector<double> REV_rg;              // Total regional revenue (tax-sharing + grants)
-std::vector<double> SP_rg;               // Social protection spending per region
-std::vector<double> EA_rg;               // Expenditure allocation per region
-std::vector<double> EXP_rg;              // Total regional expenditure (SP + EA)
-std::vector<double> K_pub_rg;            // Public capital stock per region
-double GRANTPOOL;                         // National grant pool (gamma_bar * Taxes)
-double REV_rg_total;                      // Sum of regional revenues
-double TR_rg_total;                       // Sum of regional grants
-double SP_total;                          // Sum of regional social protection
-double EA_total;                          // Sum of regional expenditure allocation
-double K_pub_total;                       // Sum of regional public capital stocks
-double K_pub_total_lag;                   // Lagged total public capital (for SFC check)
-double GovPurchases_1;                    // Government purchases credited to K-firms (for SFC)
+std::vector<double> TS_rg;       // Tax-sharing receipts per region
+std::vector<double> GT_base_rg;  // Base grant per region
+std::vector<double> GT_topup_rg; // Top-up grant per region
+std::vector<double> GT_rg;       // Total grant per region (base + top-up)
+std::vector<double> REV_rg;      // Total regional revenue (tax-sharing + grants)
+std::vector<double> SP_rg;       // Social protection spending per region
+std::vector<double> EA_rg;       // Expenditure allocation per region
+std::vector<double> EXP_rg;      // Total regional expenditure (SP + EA)
+std::vector<double> K_pub_rg;    // Public capital stock per region
+
+// Adaptation stock variables (used when flag_adaptation == 1)
+std::vector<double> K_adapt_rg;     // Adaptation stock per region (persistent physical stock)
+std::vector<double> K_adapt_rg_lag; // Lagged adaptation stock (used for Omega, avoids same-period feedback)
+std::vector<double> I_adapt_rg;     // Adaptation investment flow per region (reset each period)
+std::vector<double> Omega_adapt_rg; // Shock dampening factor per region [omega_floor, 1.0]
+double K_adapt_total;               // Sum of regional adaptation stocks
+double I_adapt_total;               // Sum of regional adaptation investment
+double K_adapt_total_lag;           // Lagged total adaptation stock (for SFC tracking)
+double Omega_adapt_national;        // GDP-weighted average Omega across regions (kept for excluded channels)
+
+// Channel-specific adaptation stocks and fragility thresholds (NC_adapt=6 active channels)
+// Channel indices: 0=machprod, 1=labprod, 2=eneff, 3=encapstock, 4=capstock, 5=invent
+int NC_adapt = 6;
+std::vector<std::vector<double>> K_adapt_c_rg;     // [NC_adapt][NR] channel-specific adaptation stock
+std::vector<std::vector<double>> K_adapt_c_rg_lag; // [NC_adapt][NR] lagged channel-specific stock (used in threshold formula)
+std::vector<std::vector<double>> I_adapt_c_rg;     // [NC_adapt][NR] channel-specific investment flow (reset each period)
+std::vector<std::vector<double>> Omega_c_rg;       // [NC_adapt][NR] effective channel Omega (diagnostic; reset to 1.0 each period)
+std::vector<std::vector<double>> h_thresh_c_rg;    // [NC_adapt][NR] protection threshold (computed in RG_BLOCK_FISCAL, used in SHOCKS)
+
+// Recovery expenditure state variables (active when flag_adaptation == 2 or 3)
+std::vector<double> I_Rec_rg;     // New recovery obligation per region (flow, reset each period)
+std::vector<double> B_rec_rg;     // Recovery backlog per region (persistent stock, carry-forward)
+std::vector<double> B_rec_rg_lag; // Lagged recovery backlog (previous period)
+std::vector<double> GRecPaid_rg;  // Recovery disbursement per region (flow)
+std::vector<double> TREC_rg;      // Central government backstop transfer per region (flow)
+std::vector<double> Saff_rg;      // Regional mean damage share this period (from shocks_capstock)
+std::vector<double> Saff_rg_lag;  // Lagged regional mean damage share (used for obligation computation)
+std::vector<double> n_aff_rg;     // Count of affected C-firms per region this period
+std::vector<double> n_aff_rg_lag; // Lagged count of affected C-firms (used for per-firm subsidy routing)
+RowVector sub_Rec;                // Per-firm recovery subsidy (size N2, reset each period)
+RowVector affected_indicator;     // 1 if firm's shock >= d_bar_rec this period (size N2)
+RowVector affected_indicator_lag; // Lagged affected indicator (size N2, carry-forwarded in SETVARS)
+double GRecPaid_total;            // National sum of GRecPaid_rg
+double TREC_total;                // National sum of TREC_rg
+double GovPurchases_Rec;          // K-firm revenue from recovery machine orders (for SFC)
+
+double GRANTPOOL;       // National grant pool (gamma_bar * Taxes)
+double REV_rg_total;    // Sum of regional revenues
+double TR_rg_total;     // Sum of regional grants (base + top-up)
+double GT_base_total;   // Sum of regional base grants
+double GT_topup_total;  // Sum of regional top-up grants
+double TS_rg_total;     // Sum of regional tax-share receipts
+double SP_total;        // Sum of regional social protection
+double EA_total;        // Sum of regional expenditure allocation
+double K_pub_total;     // Sum of regional public capital stocks
+double K_pub_total_lag; // Lagged total public capital (for SFC check)
+double GovPurchases_1;  // Government purchases credited to K-firms (unused; kept for SFC balance)
+double GovPurchases_2;  // Government purchases (EA) credited to C-firms for public stock (for SFC)
 
 // Climate
 RowVector Tmixed(2);             // Temperature in the mixed layer
@@ -669,8 +756,8 @@ double shock_pop;                // Shock to population of households
 double shock_cons;               // Shock to aggregate consumption demand
 RowVector X_a;                   // Location parameters of beta distribution for climate shocks
 RowVector X_b;                   // Scale parameters of beta distribution for climate shocks
-Matrix   X_a_reg;                // Regional disaster params (nshocks × NR)
-Matrix   X_b_reg;                // Regional disaster params (nshocks × NR)
+Matrix X_a_reg;                  // Regional disaster params (nshocks × NR)
+Matrix X_b_reg;                  // Regional disaster params (nshocks × NR)
 RowVector Loss_Capital;          // Nominal value of capital stock destroyed by climate shock
 RowVector Loss_Inventories;      // Nominal value of inventories destroyed by climate shock
 double t_CO2;                    // Carbon tax on firms
@@ -819,5 +906,46 @@ char errorfilename[64]; // Name of error file
 // Regional Output Filenames (vectors for dynamic regional file generation)
 // region_resultsexp_names: Filenames for regional shock experiment outputs (resultsexp_reg<region>_<run>_<seed>.txt)
 // region_ymc_names: Filenames for regional default mode outputs (ymc_<region>_<run>_<seed>.txt)
+
+// Mobility Diagnostics (per-period logging for validation)
+// [NR] vectors for regional aggregates, [NR][NR] matrices for origin-destination flows
+std::vector<double> diag_V_region;               // V_region[r] - regional utility
+std::vector<std::vector<double>> diag_MC_mig;    // MC_mig[o][d] - monetary moving costs
+std::vector<std::vector<double>> diag_CU_mig;    // CU_mig[o][d] - utility-equivalent moving costs
+std::vector<std::vector<double>> diag_pi_mig;    // pi_mig[o][d] - destination-choice probabilities
+std::vector<double> diag_pi_mig_row_sum;         // pi_mig_row_sum[o] = sum_d pi_mig[o][d]
+std::vector<double> diag_pi_stay;                // pi_stay[o] = pi_mig[o][o] - staying probability
+std::vector<std::vector<double>> diag_M_int_mig; // M_int_mig[o][d] - intended migration
+std::vector<double> diag_M_int_out;              // M_int_out[o] = sum_{d != o} M_int_mig[o][d]
+std::vector<std::vector<double>> diag_M_mig;     // M_mig[o][d] - actual migration
+std::vector<double> diag_M_out_region;           // M_out_region[o] = sum_{d != o} M_mig[o][d]
+std::vector<double> diag_M_in_region;            // M_in_region[d] = sum_{o != d} M_mig[o][d]
+std::vector<double> diag_M_mig_row_sum;          // M_mig_row_sum[o] = sum_d M_mig[o][d]
+std::vector<double> diag_lambda_liq_region;      // lambda_liq_region[o] - liquidity constraint multiplier
+std::vector<double> diag_Dh_U_region;            // Dh_U_region[o] = u_region[o] * Deposits_h_region[o]
+std::vector<double> diag_ME_int_region;          // ME_int_region[o] - intended migration expenditure
+double diag_total_intended_migration;            // total_intended_migration = sum_o sum_{d != o} M_int_mig[o][d]
+double diag_total_actual_migration;              // total_actual_migration = sum_o sum_{d != o} M_mig[o][d]
+double diag_migration_expenditure_total;         // migration_expenditure_total
+double diag_sum_M_out;                           // sum_M_out = sum_o M_out_region[o]
+double diag_sum_M_in;                            // sum_M_in = sum_d M_in_region[d]
+std::vector<double> diag_LS_region_share;        // LS_region_share[r]
+std::vector<double> diag_LS_region_share_next;   // LS_region_share_next[r]
+double diag_sum_LS_region_share;                 // sum_LS_region_share
+double diag_sum_LS_region_share_next;            // sum_LS_region_share_next
+// Migration SFC closure diagnostics (Phase 5B)
+double diag_sum_reg_Dh_post;                       // sum_r reg_Dh_post_migration[r]
+double diag_national_Deposits_h;                   // national Deposits_h(1) after migration closure
+double diag_regional_deposit_consistency_error;    // sum(reg_Dh_post) - national after-migration (pre-scaling)
+double diag_migration_expenditure_from_households; // sum_o reg_ME_out[o]
+double diag_migration_service_revenue_C_total;     // sum_j Rev_mig_C[j]
+double diag_migration_closure_residual;            // from_households - service_revenue_C_total
+double diag_reg_C_unallocated;                     // Consumption - sum(reg_C) when regionally infeasible
+std::vector<double> diag_reg_Dh_lag_used;          // reg_Dh_lag snapshot used by Phase 4 (pre-roll)
+double diag_household_bank_mirror_residual;        // Deposits_h(1) - sum_b Deposits_hb(1,b) after closure
+double diag_aggregate_bank_deposit_residual;       // sum(Dep_1+Dep_2+Dep_hb+Dep_eb) - sum_b Deposits(1,b)
+
+// Run identification
+std::string str_runname; // Run name passed via -r flag (used for output filenames)
 
 #endif

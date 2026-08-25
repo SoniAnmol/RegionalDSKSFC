@@ -10,7 +10,6 @@ int main(int argc, char *argv[])
       ->required()
       ->check(CLI::ExistingFile);
 
-  string str_runname;
   app.add_option("-r,--run", str_runname, "A name for the run (without spaces)")
       ->default_val("test");
 
@@ -72,13 +71,21 @@ int main(int argc, char *argv[])
     cout << "Finished parsing input file" << endl;
   }
 
+  std::cerr << "[DEBUG] main(): About to call SETPARAMS" << std::endl;
+  std::cerr.flush();
   SETPARAMS(inputs);
+  std::cerr << "[DEBUG] main(): Returned from SETPARAMS successfully" << std::endl;
+  std::cerr.flush();
   if (verbose)
   {
     cout << "Exiting function SETPARAMS" << endl;
   }
 
+  std::cerr << "[DEBUG] main(): About to call FOLDERS" << std::endl;
+  std::cerr.flush();
   FOLDERS(exec_dir);
+  std::cerr << "[DEBUG] main(): Returned from FOLDERS successfully" << std::endl;
+  std::cerr.flush();
   if (verbose)
   {
     cout << "Finished creating output folders" << endl;
@@ -171,13 +178,21 @@ int main(int argc, char *argv[])
     cout << "Finished creating output file names" << endl;
   }
 
+  std::cerr << "[DEBUG] main(): About to call RESIZE" << std::endl;
+  std::cerr.flush();
   RESIZE();
+  std::cerr << "[DEBUG] main(): Returned from RESIZE successfully" << std::endl;
+  std::cerr.flush();
   if (verbose)
   {
     cout << "Exiting function RESIZE" << endl;
   }
 
+  std::cerr << "[DEBUG] main(): About to call INITIALIZE" << std::endl;
+  std::cerr.flush();
   INITIALIZE(exseed);
+  std::cerr << "[DEBUG] main(): Returned from INITIALIZE successfully; T=" << T << std::endl;
+  std::cerr.flush();
   if (verbose)
   {
     cout << "Exiting function INITIALIZE; Entering simulation loop" << endl;
@@ -189,12 +204,61 @@ int main(int argc, char *argv[])
   alarm(T * 2);
 #endif
 
+  std::cerr << "[DEBUG] main(): About to enter simulation loop; t from 1 to " << T << std::endl;
+  std::cerr.flush();
+
   // enter loop over simulation periods
   for (t = 1; t <= T; t++)
   {
+    std::cerr << "[DEBUG] main(): Entered loop body for t=" << t << std::endl;
+    std::cerr.flush();
     if (verbose)
     {
       cout << "Entering simulation period " << t << endl;
+    }
+
+    // ===== Regional labour-supply-share roll (beginning of period t) =====
+    // Before any regional labour supply is computed this period:
+    //   1) normalise LS_region_share_next;
+    //   2) LS_region_share = LS_region_share_next.
+    // Migration (end of previous period) wrote LS_region_share_next only, so this
+    // is where last period's migration takes effect on current-period shares.
+    if (flag_regional_labor == 1 && NR > 0 &&
+        (int)LS_region_share.size() == NR && (int)LS_region_share_next.size() == NR)
+    {
+      double share_next_sum = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+      {
+        if (LS_region_share_next[rr] < 0.0)
+          LS_region_share_next[rr] = 0.0;
+        share_next_sum += LS_region_share_next[rr];
+      }
+      if (share_next_sum > 1e-12)
+      {
+        for (int rr = 0; rr < NR; rr++)
+          LS_region_share_next[rr] /= share_next_sum;
+      }
+      else
+      {
+        for (int rr = 0; rr < NR; rr++)
+          LS_region_share_next[rr] = 1.0 / NR;
+      }
+      for (int rr = 0; rr < NR; rr++)
+        LS_region_share[rr] = LS_region_share_next[rr];
+    }
+
+    // ===== Regional state lag snapshot (beginning of period t) =====
+    // Snapshot last period's regional wage/unemployment/productivity into the
+    // *_past lags before they are recomputed this period (regional Phillips curve).
+    if (flag_regional_labor == 1 && NR > 0 &&
+        (int)reg_w.size() == NR && (int)reg_U.size() == NR && (int)reg_Am.size() == NR)
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        reg_w_past[rr] = reg_w[rr];
+        reg_U_past[rr] = reg_U[rr];
+        reg_Am_past[rr] = reg_Am[rr];
+      }
     }
 
     SETVARS();
@@ -454,6 +518,13 @@ int main(int argc, char *argv[])
       cout << "Exiting function REGIONAL_CONSISTENCY_CHECK in period " << t << endl;
     }
 
+    // Compute migration and update next-period regional labor supply shares
+    MOBILITY_COMPUTATION();
+    if (verbose)
+    {
+      cout << "Exiting function MOBILITY_COMPUTATION in period " << t << endl;
+    }
+
     SAVE();
     if (verbose)
     {
@@ -503,143 +574,227 @@ int main(int argc, char *argv[])
 void SETPARAMS(const rapidjson::Document &inputs)
 {
   // Read the values of parameters, flags, initial values and one-off shocks from the document "inputs" and set the respective variables to those values
-  N1 = inputs["params"][0]["N1"].GetInt();
-  N1f = N1;
-  N2 = inputs["params"][0]["N2"].GetInt();
-  T = inputs["params"][0]["T"].GetInt();
-  varphi = inputs["params"][0]["varphi"].GetDouble();
-  nu = inputs["params"][0]["nu"].GetDouble();
-  xi = inputs["params"][0]["xi"].GetDouble();
-  o1 = inputs["params"][0]["o1"].GetDouble();
-  o2 = inputs["params"][0]["o2"].GetDouble();
-  uu11 = inputs["params"][0]["uu11"].GetDouble();
-  uu21 = inputs["params"][0]["uu21"].GetDouble();
-  uu12 = inputs["params"][0]["uu12"].GetDouble();
-  uu22 = inputs["params"][0]["uu22"].GetDouble();
-  uu31 = inputs["params"][0]["uu31"].GetDouble();
-  uu41 = inputs["params"][0]["uu41"].GetDouble();
-  uu32 = inputs["params"][0]["uu32"].GetDouble();
-  uu42 = inputs["params"][0]["uu42"].GetDouble();
-  uu51 = inputs["params"][0]["uu51"].GetDouble();
-  uu61 = inputs["params"][0]["uu61"].GetDouble();
-  uu52 = inputs["params"][0]["uu52"].GetDouble();
-  uu62 = inputs["params"][0]["uu62"].GetDouble();
-  uinf = inputs["params"][0]["uinf"].GetDouble();
-  usup = inputs["params"][0]["usup"].GetDouble();
-  b_a11 = inputs["params"][0]["b_a11"].GetDouble();
-  b_b11 = inputs["params"][0]["b_b11"].GetDouble();
-  b_a12 = inputs["params"][0]["b_a12"].GetDouble();
-  b_b12 = inputs["params"][0]["b_b12"].GetDouble();
-  b_a2 = inputs["params"][0]["b_a2"].GetDouble();
-  b_b2 = inputs["params"][0]["b_b2"].GetDouble();
-  b_a3 = inputs["params"][0]["b_a3"].GetDouble();
-  b_b3 = inputs["params"][0]["b_b3"].GetDouble();
-  mi1 = inputs["params"][0]["mi1"].GetDouble();
-  mi2 = inputs["params"][0]["mi2"].GetDouble();
-  Gamma = inputs["params"][0]["Gamma"].GetDouble();
-  chi = inputs["params"][0]["chi"].GetDouble();
-  omega1 = inputs["params"][0]["omega1"].GetDouble();
-  omega2 = inputs["params"][0]["omega2"].GetDouble();
-  psi1 = inputs["params"][0]["psi1"].GetDouble();
-  psi2 = inputs["params"][0]["psi2"].GetDouble();
-  psi3 = inputs["params"][0]["psi3"].GetDouble();
-  deltami2 = inputs["params"][0]["deltami2"].GetDouble();
-  w_min = inputs["params"][0]["w_min"].GetDouble();
-  pmin = inputs["params"][0]["pmin"].GetDouble();
-  theta = inputs["params"][0]["theta"].GetDouble();
-  u = inputs["params"][0]["u"].GetDouble();
-  alfa = inputs["params"][0]["alfa"].GetDouble();
-  b = inputs["params"][0]["b"].GetDouble();
-  dim_mach = inputs["params"][0]["dim_mach"].GetDouble();
-  agemax = inputs["params"][0]["agemax"].GetDouble();
-  a = inputs["params"][0]["a"].GetDouble();
-  credit_multiplier = inputs["params"][0]["credit_multiplier"].GetDouble();
-  beta_basel = inputs["params"][0]["beta_basel"].GetDouble();
-  bankmarkdown = inputs["params"][0]["bankmarkdown"].GetDouble();
-  centralbankmarkdown = inputs["params"][0]["centralbankmarkdown"].GetDouble();
-  d1 = inputs["params"][0]["d1"].GetDouble();
-  d2 = inputs["params"][0]["d2"].GetDouble();
-  db = inputs["params"][0]["db"].GetDouble();
-  repayment_share = inputs["params"][0]["repayment_share"].GetDouble();
-  bonds_share = inputs["params"][0]["bonds_share"].GetDouble();
-  pareto_a = inputs["params"][0]["pareto_a"].GetDouble();
-  pareto_k = inputs["params"][0]["pareto_k"].GetDouble();
-  pareto_p = inputs["params"][0]["pareto_p"].GetDouble();
-  d_cpi_target = inputs["params"][0]["d_cpi_target"].GetDouble();
-  ustar = inputs["params"][0]["ustar"].GetDouble();
-  w1sup = inputs["params"][0]["w1sup"].GetDouble();
-  w1inf = inputs["params"][0]["w1inf"].GetDouble();
-  w2sup = inputs["params"][0]["w2sup"].GetDouble();
-  w2inf = inputs["params"][0]["w2inf"].GetDouble();
-  k_const = inputs["params"][0]["k_const"].GetDouble();
-  aliqw = inputs["params"][0]["aliqw"].GetDouble();
-  taylor1 = inputs["params"][0]["taylor1"].GetDouble();
-  taylor2 = inputs["params"][0]["taylor2"].GetDouble();
-  bondsmarkdown = inputs["params"][0]["bondsmarkdown"].GetDouble();
-  mdw = inputs["params"][0]["mdw"].GetDouble();
-  phi2 = inputs["params"][0]["phi2"].GetDouble();
-  b1sup = inputs["params"][0]["b1sup"].GetDouble();
-  b1inf = inputs["params"][0]["b1inf"].GetDouble();
-  b2sup = inputs["params"][0]["b2sup"].GetDouble();
-  b2inf = inputs["params"][0]["b2inf"].GetDouble();
-  aliq = inputs["params"][0]["aliq"].GetDouble();
-  aliqb = inputs["params"][0]["aliqb"].GetDouble();
-  wu = inputs["params"][0]["wu"].GetDouble();
-  de = inputs["params"][0]["de"].GetDouble();
-  a1 = inputs["params"][0]["a1"].GetDouble();
-  a2 = inputs["params"][0]["a2"].GetDouble();
-  a3 = inputs["params"][0]["a3"].GetDouble();
-  u_low = inputs["params"][0]["u_low"].GetDouble();
-  f2_entry_min = inputs["params"][0]["f2_entry_min"].GetDouble();
-  kappa = inputs["params"][0]["kappa"].GetDouble();
-  taylor = inputs["params"][0]["taylor"].GetDouble();
-  omicron = inputs["params"][0]["omicron"].GetDouble();
-  I_max = inputs["params"][0]["I_max"].GetDouble();
-  persistence = inputs["params"][0]["persistence"].GetDouble();
-  omega3 = inputs["params"][0]["omega3"].GetDouble();
-  d_f = inputs["params"][0]["d_f"].GetDouble();
-  g_ls = inputs["params"][0]["g_ls"].GetDouble();
-  aliqe = inputs["params"][0]["aliqe"].GetDouble();
-  tre = inputs["params"][0]["tre"].GetDouble();
-  passthrough = inputs["params"][0]["passthrough"].GetDouble();
+  std::cerr << "[DEBUG] SETPARAMS: Starting parameter loading" << std::endl;
 
-  share_RD_en = inputs["climparams"][0]["share_RD_en"].GetDouble();
-  share_de_0 = inputs["climparams"][0]["share_de_0"].GetDouble();
-  payback_en = inputs["climparams"][0]["payback_en"].GetInt();
-  life_plant = inputs["climparams"][0]["life_plant"].GetInt();
-  exp_quota = inputs["climparams"][0]["exp_quota"].GetDouble();
-  o1_en = inputs["climparams"][0]["o1_en"].GetDouble();
-  uu1_en = inputs["climparams"][0]["uu1_en"].GetDouble();
-  uu2_en = inputs["climparams"][0]["uu2_en"].GetDouble();
-  exp_quota_param = inputs["params"][0]["exp_quota_param"].GetDouble();
-  ge_subsidy = inputs["params"][0]["ge_subsidy"].GetDouble();
+  // CRITICAL: Verify all top-level JSON arrays exist to prevent RapidJSON asserts later
+  if (!inputs.HasMember("params") || !inputs["params"].IsArray() || inputs["params"].Size() == 0)
+  {
+    std::cerr << "[ERROR] JSON missing 'params' array or it's empty. Cannot proceed." << std::endl;
+    return; // Exit gracefully instead of crashing
+  }
+  if (!inputs.HasMember("climparams"))
+  {
+    std::cerr << "[WARN] JSON missing 'climparams' - will use defaults" << std::endl;
+  }
+  if (!inputs.HasMember("flags"))
+  {
+    std::cerr << "[WARN] JSON missing 'flags' - will use defaults" << std::endl;
+  }
+
+  std::cerr << "[DEBUG] SETPARAMS: Found params array with " << inputs["params"].Size() << " elements" << std::endl;
+
+  // Helper lambda for safe parameter reading
+  auto getIntParam = [&inputs](const char *key, int default_val) -> int
+  {
+    std::cerr << "[DEBUG] getIntParam: checking for key '" << key << "'" << std::endl;
+    if (inputs["params"][0].HasMember(key))
+    {
+      std::cerr << "[DEBUG] getIntParam: key found, trying GetInt()" << std::endl;
+      return inputs["params"][0][key].GetInt();
+    }
+    std::cerr << "[DEBUG] getIntParam: key NOT found for '" << key << "'; using default " << default_val << std::endl;
+    return default_val;
+  };
+
+  auto getDoubleParam = [&inputs](const char *key, double default_val) -> double
+  {
+    std::cerr << "[DEBUG] getDoubleParam: checking for key '" << key << "'" << std::endl;
+    if (inputs["params"][0].HasMember(key))
+    {
+      std::cerr << "[DEBUG] getDoubleParam: key found, trying GetDouble()" << std::endl;
+      return inputs["params"][0][key].GetDouble();
+    }
+    std::cerr << "[DEBUG] getDoubleParam: key NOT found for '" << key << "'; using default " << default_val << std::endl;
+    return default_val;
+  };
+
+  // Now read ALL parameters with defensive access
+  N1 = getIntParam("N1", 21);
+  N1f = N1;
+  N2 = getIntParam("N2", 210);
+  T = getIntParam("T", 600);
+  varphi = getDoubleParam("varphi", 0.1);
+  nu = getDoubleParam("nu", 0.04);
+  xi = getDoubleParam("xi", 0.5);
+  o1 = getDoubleParam("o1", 0.3);
+  o2 = getDoubleParam("o2", 0.3);
+  uu11 = getDoubleParam("uu11", -0.015);
+  uu21 = getDoubleParam("uu21", 0.015);
+  uu12 = getDoubleParam("uu12", -0.015);
+  uu22 = getDoubleParam("uu22", 0.03);
+  uu31 = getDoubleParam("uu31", -0.01);
+  uu41 = getDoubleParam("uu41", 0.035);
+  uu32 = getDoubleParam("uu32", -0.01);
+  uu42 = getDoubleParam("uu42", 0.05);
+  uu51 = getDoubleParam("uu51", -0.01);
+  uu61 = getDoubleParam("uu61", 0.02);
+  uu52 = getDoubleParam("uu52", -0.005);
+  uu62 = getDoubleParam("uu62", 0.0025);
+  uinf = getDoubleParam("uinf", -0.15);
+  usup = getDoubleParam("usup", 0.15);
+  b_a11 = getDoubleParam("b_a11", 1.5);
+  b_b11 = getDoubleParam("b_b11", 3.0);
+  b_a12 = getDoubleParam("b_a12", 1.5);
+  b_b12 = getDoubleParam("b_b12", 3.0);
+  b_a2 = getDoubleParam("b_a2", 1.5);
+  b_b2 = getDoubleParam("b_b2", 3.0);
+  b_a3 = getDoubleParam("b_a3", 1.5);
+  b_b3 = getDoubleParam("b_b3", 3.0);
+  mi1 = getDoubleParam("mi1", 0.1);
+  mi2 = getDoubleParam("mi2", 0.2);
+  Gamma = getDoubleParam("Gamma", 0.32);
+  chi = getDoubleParam("chi", -1.39);
+  omega1 = getDoubleParam("omega1", 20.0);
+  omega2 = getDoubleParam("omega2", 1.0);
+  psi1 = getDoubleParam("psi1", 0.4);
+  psi2 = getDoubleParam("psi2", 1.0);
+  psi3 = getDoubleParam("psi3", 0.26);
+  deltami2 = getDoubleParam("deltami2", 0.01);
+  w_min = getDoubleParam("w_min", 1.0);
+  pmin = getDoubleParam("pmin", 0.01);
+  theta = getDoubleParam("theta", 1.0);
+  u = getDoubleParam("u", 0.8);
+  alfa = getDoubleParam("alfa", 0.16);
+  b = getDoubleParam("b", 160.0);
+  dim_mach = getDoubleParam("dim_mach", 40.0);
+  agemax = getDoubleParam("agemax", 50.0);
+  a = getDoubleParam("a", 0.4);
+  credit_multiplier = getDoubleParam("credit_multiplier", 1.5);
+  beta_basel = getDoubleParam("beta_basel", 0.08);
+  bankmarkdown = getDoubleParam("bankmarkdown", 0.02);
+  centralbankmarkdown = getDoubleParam("centralbankmarkdown", 0.02);
+  d1 = getDoubleParam("d1", 0.01);
+  d2 = getDoubleParam("d2", 0.01);
+  db = getDoubleParam("db", 0.01);
+  repayment_share = getDoubleParam("repayment_share", 0.8);
+  bonds_share = getDoubleParam("bonds_share", 0.2);
+  pareto_a = getDoubleParam("pareto_a", 1.5);
+  pareto_k = getDoubleParam("pareto_k", 50000.0);
+  pareto_p = getDoubleParam("pareto_p", 0.1);
+  d_cpi_target = getDoubleParam("d_cpi_target", 0.02);
+  ustar = getDoubleParam("ustar", 0.05);
+  w1sup = getDoubleParam("w1sup", 0.5);
+  w1inf = getDoubleParam("w1inf", -0.5);
+  w2sup = getDoubleParam("w2sup", 0.5);
+  w2inf = getDoubleParam("w2inf", -0.5);
+  k_const = getDoubleParam("k_const", 0.1);
+  aliqw = getDoubleParam("aliqw", 0.1);
+  taylor1 = getDoubleParam("taylor1", 1.5);
+  taylor2 = getDoubleParam("taylor2", 0.5);
+  bondsmarkdown = getDoubleParam("bondsmarkdown", 0.02);
+  mdw = getDoubleParam("mdw", 0.1);
+  phi2 = getDoubleParam("phi2", 0.1);
+  b1sup = getDoubleParam("b1sup", 0.5);
+  b1inf = getDoubleParam("b1inf", -0.5);
+  b2sup = getDoubleParam("b2sup", 0.5);
+  b2inf = getDoubleParam("b2inf", -0.5);
+  aliq = getDoubleParam("aliq", 0.1);
+  aliqb = getDoubleParam("aliqb", 0.1);
+  wu = getDoubleParam("wu", 0.1);
+  de = getDoubleParam("de", 0.05);
+  a1 = getDoubleParam("a1", 1.0);
+  a2 = getDoubleParam("a2", 1.0);
+  a3 = getDoubleParam("a3", 1.0);
+  u_low = getDoubleParam("u_low", 0.02);
+  f2_entry_min = getDoubleParam("f2_entry_min", 1000.0);
+  kappa = getDoubleParam("kappa", 0.5);
+  taylor = getDoubleParam("taylor", 1.5);
+  omicron = getDoubleParam("omicron", 0.1);
+  I_max = getDoubleParam("I_max", 100.0);
+  persistence = getDoubleParam("persistence", 0.8);
+  omega3 = getDoubleParam("omega3", 1.0);
+  d_f = getDoubleParam("d_f", 0.05);
+  g_ls = getDoubleParam("g_ls", 0.1);
+  aliqe = getDoubleParam("aliqe", 0.1);
+  tre = getDoubleParam("tre", 0.1);
+  passthrough = getDoubleParam("passthrough", 1.0);
+
+  // Helper lambdas for climparams and flags
+  auto getClimInt = [&inputs](const char *key, int default_val) -> int
+  {
+    if (inputs.HasMember("climparams") && inputs["climparams"].IsArray() && inputs["climparams"].Size() > 0 &&
+        inputs["climparams"][0].HasMember(key))
+    {
+      return inputs["climparams"][0][key].GetInt();
+    }
+    std::cerr << "[WARN] Missing climparams int '" << key << "'; using default " << default_val << std::endl;
+    return default_val;
+  };
+
+  auto getClimDouble = [&inputs](const char *key, double default_val) -> double
+  {
+    if (inputs.HasMember("climparams") && inputs["climparams"].IsArray() && inputs["climparams"].Size() > 0 &&
+        inputs["climparams"][0].HasMember(key))
+    {
+      return inputs["climparams"][0][key].GetDouble();
+    }
+    std::cerr << "[WARN] Missing climparams double '" << key << "'; using default " << default_val << std::endl;
+    return default_val;
+  };
+
+  auto getFlagInt = [&inputs](const char *key, int default_val) -> int
+  {
+    if (inputs.HasMember("flags") && inputs["flags"].IsArray() && inputs["flags"].Size() > 0 &&
+        inputs["flags"][0].HasMember(key))
+    {
+      return inputs["flags"][0][key].GetInt();
+    }
+    return default_val;
+  };
+
+  share_RD_en = getClimDouble("share_RD_en", 0.0);
+  share_de_0 = getClimDouble("share_de_0", 0.0);
+  payback_en = getClimInt("payback_en", 5);
+  life_plant = getClimInt("life_plant", 40);
+  exp_quota = getClimDouble("exp_quota", 0.0);
+  o1_en = getClimDouble("o1_en", 0.3);
+  uu1_en = getClimDouble("uu1_en", -0.015);
+  uu2_en = getClimDouble("uu2_en", 0.015);
+  exp_quota_param = getDoubleParam("exp_quota_param", 0.1);
+  ge_subsidy = getDoubleParam("ge_subsidy", 0.1);
 
   // Regional Government Block parameters
   gamma_bar = inputs["params"][0].HasMember("gamma_bar") ? inputs["params"][0]["gamma_bar"].GetDouble() : 0.0;
   delta_pub = inputs["params"][0].HasMember("delta_pub") ? inputs["params"][0]["delta_pub"].GetDouble() : 0.025;
 
-  t_start_climbox = inputs["climparams"][0]["t_start_climbox"].GetInt();
-  T_pre = inputs["climparams"][0]["T_pre"].GetDouble();
-  intercept_temp = inputs["climparams"][0]["intercept_temp"].GetDouble();
-  slope_temp = inputs["climparams"][0]["slope_temp"].GetDouble();
-  tc1 = inputs["climparams"][0]["tc1"].GetDouble();
-  tc2 = inputs["climparams"][0]["tc2"].GetDouble();
-  ndep = inputs["climparams"][0]["ndep"].GetInt();
+  // Adaptation parameters (backward-compatible defaults when flag_adaptation == 0)
+  flag_adaptation = inputs["flags"][0].HasMember("flag_adaptation") ? inputs["flags"][0]["flag_adaptation"].GetInt() : 0;
+  delta_adapt = inputs["params"][0].HasMember("delta_adapt") ? inputs["params"][0]["delta_adapt"].GetDouble() : 0.05;
+  phi_adapt = inputs["params"][0].HasMember("phi_adapt") ? inputs["params"][0]["phi_adapt"].GetDouble() : 1.0;
+  omega_floor_adapt = inputs["params"][0].HasMember("omega_floor_adapt") ? inputs["params"][0]["omega_floor_adapt"].GetDouble() : 0.05;
+
+  t_start_climbox = getClimInt("t_start_climbox", 0);
+  T_pre = getClimDouble("T_pre", 0.0);
+  intercept_temp = getClimDouble("intercept_temp", 0.0);
+  slope_temp = getClimDouble("slope_temp", 0.0);
+  tc1 = getClimDouble("tc1", 0.0);
+  tc2 = getClimDouble("tc2", 0.0);
+  ndep = getClimInt("ndep", 5);
   laydep.ReSize(ndep);
-  laydep(1) = inputs["climparams"][0]["laydep1"].GetDouble();
-  laydep(2) = inputs["climparams"][0]["laydep2"].GetDouble();
-  laydep(3) = inputs["climparams"][0]["laydep3"].GetDouble();
-  laydep(4) = inputs["climparams"][0]["laydep4"].GetDouble();
-  laydep(5) = inputs["climparams"][0]["laydep5"].GetDouble();
-  fertil = inputs["climparams"][0]["fertil"].GetDouble();
-  heatstress = inputs["climparams"][0]["heatstress"].GetDouble();
-  humtime = inputs["climparams"][0]["humtime"].GetDouble();
-  biotime = inputs["climparams"][0]["biotime"].GetDouble();
-  humfrac = inputs["climparams"][0]["humfrac"].GetDouble();
-  eddydif = inputs["climparams"][0]["eddydif"].GetDouble();
-  ConrefT = inputs["climparams"][0]["ConrefT"].GetDouble();
-  rev0 = inputs["climparams"][0]["rev0"].GetDouble();
-  revC = inputs["climparams"][0]["revC"].GetDouble();
+  laydep(1) = getClimDouble("laydep1", 0.0);
+  laydep(2) = getClimDouble("laydep2", 0.0);
+  laydep(3) = getClimDouble("laydep3", 0.0);
+  laydep(4) = getClimDouble("laydep4", 0.0);
+  laydep(5) = getClimDouble("laydep5", 0.0);
+  fertil = getClimDouble("fertil", 0.0);
+  heatstress = getClimDouble("heatstress", 0.0);
+  humtime = getClimDouble("humtime", 0.0);
+  biotime = getClimDouble("biotime", 0.0);
+  humfrac = getClimDouble("humfrac", 0.0);
+  eddydif = getClimDouble("eddydif", 0.0);
+  ConrefT = getClimDouble("ConrefT", 0.0);
+  rev0 = getClimDouble("rev0", 0.0);
+  revC = getClimDouble("revC", 0.0);
   niterclim = inputs["climparams"][0]["niterclim"].GetInt();
   forCO2 = inputs["climparams"][0]["forCO2"].GetDouble();
   otherforcefac = inputs["climparams"][0]["otherforcefac"].GetDouble();
@@ -674,53 +829,94 @@ void SETPARAMS(const rapidjson::Document &inputs)
     }
   }
 
-  nshocks = inputs["climshockparams"][0]["nshocks"].GetInt();
+  // Safely read nshocks from climshockparams
+  nshocks = 9; // Default to 9 shocks
+  if (inputs.HasMember("climshockparams") && inputs["climshockparams"].IsArray() &&
+      inputs["climshockparams"].Size() > 0 && inputs["climshockparams"][0].IsObject() &&
+      inputs["climshockparams"][0].HasMember("nshocks"))
+  {
+    nshocks = inputs["climshockparams"][0]["nshocks"].GetInt();
+  }
+  else
+  {
+    std::cerr << "[WARN] climshockparams or nshocks not found; defaulting to 9 shocks" << std::endl;
+  }
 
   // Scalar shock parameters - used when NR == 0
   // When NR > 0, these are ignored and regional arrays are used instead
   if (NR == 0)
   {
     a_0.ReSize(nshocks);
-    a_0(1) = inputs["climshockparams"][0]["a1_0"].GetDouble();
-    a_0(2) = inputs["climshockparams"][0]["a2_0"].GetDouble();
-    a_0(3) = inputs["climshockparams"][0]["a3_0"].GetDouble();
-    a_0(4) = inputs["climshockparams"][0]["a4_0"].GetDouble();
-    a_0(5) = inputs["climshockparams"][0]["a5_0"].GetDouble();
-    a_0(6) = inputs["climshockparams"][0]["a6_0"].GetDouble();
-    a_0(7) = inputs["climshockparams"][0]["a7_0"].GetDouble();
-    a_0(8) = inputs["climshockparams"][0]["a8_0"].GetDouble();
-    a_0(9) = inputs["climshockparams"][0]["a9_0"].GetDouble();
+    // Safely read a_0 parameters with fallback defaults
+    double a_defaults[] = {0.0, 0.003, 1.0, 0.75, 0.75, 1.0, 1.8, 1.0, 1.0, 0.75};
+    for (int i = 1; i <= nshocks && i < 10; i++)
+    {
+      std::string key = "a" + std::to_string(i) + "_0";
+      if (inputs.HasMember("climshockparams") && inputs["climshockparams"].IsArray() &&
+          inputs["climshockparams"].Size() > 0 && inputs["climshockparams"][0].IsObject() &&
+          inputs["climshockparams"][0].HasMember(key.c_str()))
+      {
+        a_0(i) = inputs["climshockparams"][0][key.c_str()].GetDouble();
+      }
+      else
+      {
+        a_0(i) = a_defaults[i];
+      }
+    }
+
     b_0.ReSize(nshocks);
-    b_0(1) = inputs["climshockparams"][0]["b1_0"].GetDouble();
-    b_0(2) = inputs["climshockparams"][0]["b2_0"].GetDouble();
-    b_0(3) = inputs["climshockparams"][0]["b3_0"].GetDouble();
-    b_0(4) = inputs["climshockparams"][0]["b4_0"].GetDouble();
-    b_0(5) = inputs["climshockparams"][0]["b5_0"].GetDouble();
-    b_0(6) = inputs["climshockparams"][0]["b6_0"].GetDouble();
-    b_0(7) = inputs["climshockparams"][0]["b7_0"].GetDouble();
-    b_0(8) = inputs["climshockparams"][0]["b8_0"].GetDouble();
-    b_0(9) = inputs["climshockparams"][0]["b9_0"].GetDouble();
+    // Safely read b_0 parameters with fallback defaults
+    double b_defaults[] = {0.0, 1350, 100, 150, 150, 100, 70, 100, 100, 150};
+    for (int i = 1; i <= nshocks && i < 10; i++)
+    {
+      std::string key = "b" + std::to_string(i) + "_0";
+      if (inputs.HasMember("climshockparams") && inputs["climshockparams"].IsArray() &&
+          inputs["climshockparams"].Size() > 0 && inputs["climshockparams"][0].IsObject() &&
+          inputs["climshockparams"][0].HasMember(key.c_str()))
+      {
+        b_0(i) = inputs["climshockparams"][0][key.c_str()].GetDouble();
+      }
+      else
+      {
+        b_0(i) = b_defaults[i];
+      }
+    }
 
     shockexponent1.ReSize(nshocks);
-    shockexponent1(1) = inputs["climshockparams"][0]["shockexponent1_1"].GetDouble();
-    shockexponent1(2) = inputs["climshockparams"][0]["shockexponent2_1"].GetDouble();
-    shockexponent1(3) = inputs["climshockparams"][0]["shockexponent3_1"].GetDouble();
-    shockexponent1(4) = inputs["climshockparams"][0]["shockexponent4_1"].GetDouble();
-    shockexponent1(5) = inputs["climshockparams"][0]["shockexponent5_1"].GetDouble();
-    shockexponent1(6) = inputs["climshockparams"][0]["shockexponent6_1"].GetDouble();
-    shockexponent1(7) = inputs["climshockparams"][0]["shockexponent7_1"].GetDouble();
-    shockexponent1(8) = inputs["climshockparams"][0]["shockexponent8_1"].GetDouble();
-    shockexponent1(9) = inputs["climshockparams"][0]["shockexponent9_1"].GetDouble();
+    // Safely read shockexponent1 parameters with fallback defaults
+    double exp1_defaults[] = {0.0, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25};
+    for (int i = 1; i <= nshocks && i < 10; i++)
+    {
+      std::string key = "shockexponent" + std::to_string(i) + "_1";
+      if (inputs.HasMember("climshockparams") && inputs["climshockparams"].IsArray() &&
+          inputs["climshockparams"].Size() > 0 && inputs["climshockparams"][0].IsObject() &&
+          inputs["climshockparams"][0].HasMember(key.c_str()))
+      {
+        shockexponent1(i) = inputs["climshockparams"][0][key.c_str()].GetDouble();
+      }
+      else
+      {
+        shockexponent1(i) = exp1_defaults[i];
+      }
+    }
+
     shockexponent2.ReSize(nshocks);
-    shockexponent2(1) = inputs["climshockparams"][0]["shockexponent1_2"].GetDouble();
-    shockexponent2(2) = inputs["climshockparams"][0]["shockexponent2_2"].GetDouble();
-    shockexponent2(3) = inputs["climshockparams"][0]["shockexponent3_2"].GetDouble();
-    shockexponent2(4) = inputs["climshockparams"][0]["shockexponent4_2"].GetDouble();
-    shockexponent2(5) = inputs["climshockparams"][0]["shockexponent5_2"].GetDouble();
-    shockexponent2(6) = inputs["climshockparams"][0]["shockexponent6_2"].GetDouble();
-    shockexponent2(7) = inputs["climshockparams"][0]["shockexponent7_2"].GetDouble();
-    shockexponent2(8) = inputs["climshockparams"][0]["shockexponent8_2"].GetDouble();
-    shockexponent2(9) = inputs["climshockparams"][0]["shockexponent9_2"].GetDouble();
+    // Safely read shockexponent2 parameters with fallback defaults
+    double exp2_defaults[] = {0.0, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5};
+    for (int i = 1; i <= nshocks && i < 10; i++)
+    {
+      std::string key = "shockexponent" + std::to_string(i) + "_2";
+      if (inputs.HasMember("climshockparams") && inputs["climshockparams"].IsArray() &&
+          inputs["climshockparams"].Size() > 0 && inputs["climshockparams"][0].IsObject() &&
+          inputs["climshockparams"][0].HasMember(key.c_str()))
+      {
+        shockexponent2(i) = inputs["climshockparams"][0][key.c_str()].GetDouble();
+      }
+      else
+      {
+        shockexponent2(i) = exp2_defaults[i];
+      }
+    }
   }
 
   // Regional shock parameters - NEW array format from climshockparams when NR > 0
@@ -742,14 +938,24 @@ void SETPARAMS(const rapidjson::Document &inputs)
       shockexponent2_regional[i].resize(NR);
     }
 
-    // Try to read regional arrays from climshockparams first (NEW format)
+    // Try to read regional arrays from climshockparams first
     bool use_new_format = false;
     std::string test_key = "a" + std::to_string(1) + "_0";
-    if (inputs["climshockparams"][0].HasMember(test_key.c_str()) &&
+
+    std::cerr << "[DEBUG] Starting shock parameter loading; NR=" << NR << ", nshocks=" << nshocks << std::endl;
+
+    // Check if climshockparams[0] exists and has the test key
+    if (inputs.HasMember("climshockparams") &&
+        inputs["climshockparams"].IsArray() &&
+        inputs["climshockparams"].Size() > 0 &&
+        inputs["climshockparams"][0].IsObject() &&
+        inputs["climshockparams"][0].HasMember(test_key.c_str()) &&
         inputs["climshockparams"][0][test_key.c_str()].IsArray())
     {
       use_new_format = true;
-      cout << "Reading regional shock parameters from climshockparams arrays (NEW format)" << endl;
+      cout << "Reading regional shock parameters from climshockparams arrays" << endl;
+
+      std::cerr << "[DEBUG] Using new format; processing " << nshocks << " shocks" << std::endl;
 
       // Read a_0, b_0, and exponents from climshockparams as arrays
       for (int i = 1; i <= nshocks; i++)
@@ -759,18 +965,37 @@ void SETPARAMS(const rapidjson::Document &inputs)
         std::string exp1_key = "shockexponent" + std::to_string(i) + "_1";
         std::string exp2_key = "shockexponent" + std::to_string(i) + "_2";
 
-        for (int rr = 0; rr < NR; rr++)
+        // Safely check each array before accessing elements
+        if (inputs["climshockparams"][0].HasMember(a_key.c_str()) && inputs["climshockparams"][0][a_key.c_str()].IsArray() &&
+            inputs["climshockparams"][0].HasMember(b_key.c_str()) && inputs["climshockparams"][0][b_key.c_str()].IsArray() &&
+            inputs["climshockparams"][0].HasMember(exp1_key.c_str()) && inputs["climshockparams"][0][exp1_key.c_str()].IsArray() &&
+            inputs["climshockparams"][0].HasMember(exp2_key.c_str()) && inputs["climshockparams"][0][exp2_key.c_str()].IsArray())
         {
-          a_0_regional[i - 1][rr] = inputs["climshockparams"][0][a_key.c_str()][rr].GetDouble();
-          b_0_regional[i - 1][rr] = inputs["climshockparams"][0][b_key.c_str()][rr].GetDouble();
-          shockexponent1_regional[i - 1][rr] = inputs["climshockparams"][0][exp1_key.c_str()][rr].GetDouble();
-          shockexponent2_regional[i - 1][rr] = inputs["climshockparams"][0][exp2_key.c_str()][rr].GetDouble();
+          for (int rr = 0; rr < NR; rr++)
+          {
+            // Check array bounds before accessing
+            if ((int)inputs["climshockparams"][0][a_key.c_str()].Size() > rr)
+              a_0_regional[i - 1][rr] = inputs["climshockparams"][0][a_key.c_str()][rr].GetDouble();
+            if ((int)inputs["climshockparams"][0][b_key.c_str()].Size() > rr)
+              b_0_regional[i - 1][rr] = inputs["climshockparams"][0][b_key.c_str()][rr].GetDouble();
+            if ((int)inputs["climshockparams"][0][exp1_key.c_str()].Size() > rr)
+              shockexponent1_regional[i - 1][rr] = inputs["climshockparams"][0][exp1_key.c_str()][rr].GetDouble();
+            if ((int)inputs["climshockparams"][0][exp2_key.c_str()].Size() > rr)
+              shockexponent2_regional[i - 1][rr] = inputs["climshockparams"][0][exp2_key.c_str()][rr].GetDouble();
+          }
+        }
+        else
+        {
+          // Warn but don't abort - use defaults
+          std::cerr << "[WARN] Shock " << i << " arrays incomplete in climshockparams; using defaults" << std::endl;
         }
       }
+      std::cerr << "[DEBUG] New format processing complete" << std::endl;
     }
     else
     {
       // Fallback to LEGACY format from regions block
+      std::cerr << "[DEBUG] Using legacy format from regions block" << std::endl;
       cout << "Reading regional shock parameters from regions block (LEGACY format)" << endl;
 
       // Read single arrays per region from regions block and apply to all shocks
@@ -778,19 +1003,30 @@ void SETPARAMS(const rapidjson::Document &inputs)
       {
         for (int rr = 0; rr < NR; rr++)
         {
-          a_0_regional[i][rr] = inputs["regions"]["a_0_regional"][rr].GetDouble();
-          b_0_regional[i][rr] = inputs["regions"]["b_0_regional"][rr].GetDouble();
-          shockexponent1_regional[i][rr] = inputs["regions"]["shockexponent1_regional"][rr].GetDouble();
-          shockexponent2_regional[i][rr] = inputs["regions"]["shockexponent2_regional"][rr].GetDouble();
+          // Defensive checks on all array accesses
+          if (inputs.HasMember("regions") && inputs["regions"].IsObject())
+          {
+            if (inputs["regions"].HasMember("a_0_regional") && inputs["regions"]["a_0_regional"].IsArray() &&
+                (int)inputs["regions"]["a_0_regional"].Size() > rr)
+              a_0_regional[i][rr] = inputs["regions"]["a_0_regional"][rr].GetDouble();
+            if (inputs["regions"].HasMember("b_0_regional") && inputs["regions"]["b_0_regional"].IsArray() &&
+                (int)inputs["regions"]["b_0_regional"].Size() > rr)
+              b_0_regional[i][rr] = inputs["regions"]["b_0_regional"][rr].GetDouble();
+            if (inputs["regions"].HasMember("shockexponent1_regional") && inputs["regions"]["shockexponent1_regional"].IsArray() &&
+                (int)inputs["regions"]["shockexponent1_regional"].Size() > rr)
+              shockexponent1_regional[i][rr] = inputs["regions"]["shockexponent1_regional"][rr].GetDouble();
+            if (inputs["regions"].HasMember("shockexponent2_regional") && inputs["regions"]["shockexponent2_regional"].IsArray() &&
+                (int)inputs["regions"]["shockexponent2_regional"].Size() > rr)
+              shockexponent2_regional[i][rr] = inputs["regions"]["shockexponent2_regional"][rr].GetDouble();
+          }
         }
       }
+      std::cerr << "[DEBUG] Legacy format processing complete" << std::endl;
     }
+    std::cerr << "[DEBUG] Shock parameter loading finished successfully" << std::endl;
+    std::cerr.flush();
 
-    // Also populate legacy flat vectors for backward compatibility with existing code
-    a_0_reg.ReSize(nshocks * NR);
-    b_0_reg.ReSize(nshocks * NR);
-    shockexponent1_reg.ReSize(nshocks * NR);
-    shockexponent2_reg.ReSize(nshocks * NR);
+
 
     for (int i = 1; i <= nshocks; i++)
     {
@@ -808,26 +1044,255 @@ void SETPARAMS(const rapidjson::Document &inputs)
     tau_share_rg.resize(NR, 1.0 / NR);
     omega_rg.resize(NR, 1.0 / NR);
     wu_rg.resize(NR, wu);
-    if (inputs["regions"].HasMember("tau_share_rg"))
+    if (inputs["regions"].HasMember("tau_share_rg") && inputs["regions"]["tau_share_rg"].IsArray())
     {
       for (int rr = 0; rr < NR; rr++)
       {
-        tau_share_rg[rr] = inputs["regions"]["tau_share_rg"][rr].GetDouble();
+        if ((int)inputs["regions"]["tau_share_rg"].Size() > rr)
+          tau_share_rg[rr] = inputs["regions"]["tau_share_rg"][rr].GetDouble();
       }
     }
-    if (inputs["regions"].HasMember("omega_rg"))
+    if (inputs["regions"].HasMember("omega_rg") && inputs["regions"]["omega_rg"].IsArray())
     {
       for (int rr = 0; rr < NR; rr++)
       {
-        omega_rg[rr] = inputs["regions"]["omega_rg"][rr].GetDouble();
+        if ((int)inputs["regions"]["omega_rg"].Size() > rr)
+          omega_rg[rr] = inputs["regions"]["omega_rg"][rr].GetDouble();
       }
     }
-    if (inputs["regions"].HasMember("wu_rg"))
+    if (inputs["regions"].HasMember("wu_rg") && inputs["regions"]["wu_rg"].IsArray())
     {
       for (int rr = 0; rr < NR; rr++)
       {
-        wu_rg[rr] = inputs["regions"]["wu_rg"][rr].GetDouble();
+        if ((int)inputs["regions"]["wu_rg"].Size() > rr)
+          wu_rg[rr] = inputs["regions"]["wu_rg"][rr].GetDouble();
       }
+    }
+
+    // Regional labour-supply shares sigma_r (state variable LS_region_share).
+    // Validation contract:
+    //   missing                     -> uniform 1/NR
+    //   present but length != NR     -> hard error
+    //   contains negatives           -> clamp to zero and warn
+    //   sum <= eps after clamping    -> hard error
+    //   otherwise                    -> normalise to sum 1
+    LS_region_share.assign(NR, 1.0 / NR);
+    LS_region_share_next.assign(NR, 1.0 / NR);
+    if (inputs["regions"].HasMember("LS_region_share"))
+    {
+      if (!inputs["regions"]["LS_region_share"].IsArray())
+      {
+        std::cerr << "[ERROR] regions.LS_region_share must be an array of length NR=" << NR << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      const int ls_len = (int)inputs["regions"]["LS_region_share"].Size();
+      if (ls_len != NR)
+      {
+        std::cerr << "[ERROR] regions.LS_region_share length (" << ls_len
+                  << ") != NR (" << NR << ")" << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      std::vector<double> sigma_in(NR, 0.0);
+      bool had_negative = false;
+      for (int rr = 0; rr < NR; rr++)
+      {
+        double v = inputs["regions"]["LS_region_share"][rr].GetDouble();
+        if (v < 0.0)
+        {
+          had_negative = true;
+          v = 0.0; // clamp negatives to zero
+        }
+        sigma_in[rr] = v;
+      }
+      if (had_negative)
+      {
+        std::cerr << "[WARN] regions.LS_region_share contained negative entries; clamped to zero." << std::endl;
+      }
+      double sigma_sum = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+      {
+        sigma_sum += sigma_in[rr];
+      }
+      const double sigma_eps = 1e-12;
+      if (sigma_sum <= sigma_eps)
+      {
+        std::cerr << "[ERROR] regions.LS_region_share sums to <= 0 after clamping; cannot normalise." << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      for (int rr = 0; rr < NR; rr++)
+      {
+        LS_region_share[rr] = sigma_in[rr] / sigma_sum; // normalise to sum 1
+        LS_region_share_next[rr] = LS_region_share[rr]; // initialise next-period share equal
+      }
+    }
+    if (verbose)
+    {
+      double chk = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+        chk += LS_region_share[rr];
+      std::cerr << "[DEBUG] LS_region_share normalised, sum=" << chk << std::endl;
+    }
+
+    // Regional household deposit shares (regions.Dh_region_share).
+    // Validation contract mirrors LS_region_share:
+    //   missing                     -> default to LS_region_share
+    //   present but length != NR     -> hard error
+    //   contains negatives           -> clamp to zero and warn
+    //   sum <= eps after clamping    -> hard error
+    //   otherwise                    -> normalise to sum 1
+    Dh_region_share.assign(NR, 0.0);
+    for (int rr = 0; rr < NR; rr++)
+    {
+      Dh_region_share[rr] = LS_region_share[rr]; // default = labour-supply shares
+    }
+    if (inputs["regions"].HasMember("Dh_region_share"))
+    {
+      if (!inputs["regions"]["Dh_region_share"].IsArray())
+      {
+        std::cerr << "[ERROR] regions.Dh_region_share must be an array of length NR=" << NR << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      const int dh_len = (int)inputs["regions"]["Dh_region_share"].Size();
+      if (dh_len != NR)
+      {
+        std::cerr << "[ERROR] regions.Dh_region_share length (" << dh_len
+                  << ") != NR (" << NR << ")" << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      std::vector<double> dh_in(NR, 0.0);
+      bool dh_had_negative = false;
+      for (int rr = 0; rr < NR; rr++)
+      {
+        double v = inputs["regions"]["Dh_region_share"][rr].GetDouble();
+        if (v < 0.0)
+        {
+          dh_had_negative = true;
+          v = 0.0; // clamp negatives to zero
+        }
+        dh_in[rr] = v;
+      }
+      if (dh_had_negative)
+      {
+        std::cerr << "[WARN] regions.Dh_region_share contained negative entries; clamped to zero." << std::endl;
+      }
+      double dh_sum = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+      {
+        dh_sum += dh_in[rr];
+      }
+      const double dh_eps = 1e-12;
+      if (dh_sum <= dh_eps)
+      {
+        std::cerr << "[ERROR] regions.Dh_region_share sums to <= 0 after clamping; cannot normalise." << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      for (int rr = 0; rr < NR; rr++)
+      {
+        Dh_region_share[rr] = dh_in[rr] / dh_sum; // normalise to sum 1
+      }
+    }
+
+    // Per-region adaptation investment rate (iota_adapt_rg, share of regional GDP)
+    iota_adapt_rg.resize(NR, 0.0);
+    if (inputs["regions"].HasMember("iota_adapt_rg") && inputs["regions"]["iota_adapt_rg"].IsArray())
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        if ((int)inputs["regions"]["iota_adapt_rg"].Size() > rr)
+          iota_adapt_rg[rr] = inputs["regions"]["iota_adapt_rg"][rr].GetDouble();
+      }
+    }
+
+    // Recovery expenditure parameters (backward-compatible defaults: recovery off)
+    psi_rec_rg.resize(NR, 0.0);
+    if (inputs["regions"].HasMember("psi_rec_rg") && inputs["regions"]["psi_rec_rg"].IsArray())
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        if ((int)inputs["regions"]["psi_rec_rg"].Size() > rr)
+          psi_rec_rg[rr] = inputs["regions"]["psi_rec_rg"][rr].GetDouble();
+      }
+    }
+    s_bar_rec_rg.resize(NR, 0.05);
+    if (inputs["regions"].HasMember("s_bar_rec_rg") && inputs["regions"]["s_bar_rec_rg"].IsArray())
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        if ((int)inputs["regions"]["s_bar_rec_rg"].Size() > rr)
+          s_bar_rec_rg[rr] = inputs["regions"]["s_bar_rec_rg"][rr].GetDouble();
+      }
+    }
+    delta_imp_rg.resize(NR, 0.25);
+    if (inputs["regions"].HasMember("delta_imp_rg") && inputs["regions"]["delta_imp_rg"].IsArray())
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        if ((int)inputs["regions"]["delta_imp_rg"].Size() > rr)
+          delta_imp_rg[rr] = inputs["regions"]["delta_imp_rg"][rr].GetDouble();
+      }
+    }
+  }
+  d_bar_rec = inputs["regions"].HasMember("d_bar_rec") ? inputs["regions"]["d_bar_rec"].GetDouble() : 0.0;
+
+  // Channel-specific fragility curve parameters (NC_adapt=6 channels, all backward-compatible with defaults)
+  // Channel 0=machprod, 1=labprod, 2=eneff, 3=encapstock, 4=capstock, 5=invent
+  // Category B default thresholds: hbar=0.70, kappa=1.0, alpha=1.0
+  // Category A default thresholds: hbar=0.90, kappa=1.0, alpha=0.7 (encapstock,capstock), alpha=1.0 (invent)
+  {
+    const std::vector<double> hbar_defaults = {0.70, 0.70, 0.70, 0.90, 0.90, 0.90};
+    const std::vector<double> kappa_defaults = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+    const std::vector<double> alpha_defaults = {1.0, 1.0, 1.0, 0.7, 0.7, 1.0};
+    const std::string hbar_keys[] = {"hbar_machprod_rg", "hbar_labprod_rg", "hbar_eneff_rg",
+                                     "hbar_encapstock_rg", "hbar_capstock_rg", "hbar_invent_rg"};
+    const std::string kappa_keys[] = {"kappa_machprod_rg", "kappa_labprod_rg", "kappa_eneff_rg",
+                                      "kappa_encapstock_rg", "kappa_capstock_rg", "kappa_invent_rg"};
+    const std::string alpha_keys[] = {"alpha_machprod_rg", "alpha_labprod_rg", "alpha_eneff_rg",
+                                      "alpha_encapstock_rg", "alpha_capstock_rg", "alpha_invent_rg"};
+    hbar_c_rg.resize(NC_adapt, std::vector<double>(NR, 0.0));
+    kappa_c_rg.resize(NC_adapt, std::vector<double>(NR, 0.0));
+    alpha_c_rg.resize(NC_adapt, std::vector<double>(NR, 0.0));
+    for (int cc = 0; cc < NC_adapt; cc++)
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        hbar_c_rg[cc][rr] = hbar_defaults[cc];
+        kappa_c_rg[cc][rr] = kappa_defaults[cc];
+        alpha_c_rg[cc][rr] = alpha_defaults[cc];
+      }
+      if (inputs["regions"].HasMember(hbar_keys[cc].c_str()) && inputs["regions"][hbar_keys[cc].c_str()].IsArray())
+        for (int rr = 0; rr < NR; rr++)
+          if ((int)inputs["regions"][hbar_keys[cc].c_str()].Size() > rr)
+            hbar_c_rg[cc][rr] = inputs["regions"][hbar_keys[cc].c_str()][rr].GetDouble();
+      if (inputs["regions"].HasMember(kappa_keys[cc].c_str()) && inputs["regions"][kappa_keys[cc].c_str()].IsArray())
+        for (int rr = 0; rr < NR; rr++)
+          if ((int)inputs["regions"][kappa_keys[cc].c_str()].Size() > rr)
+            kappa_c_rg[cc][rr] = inputs["regions"][kappa_keys[cc].c_str()][rr].GetDouble();
+      if (inputs["regions"].HasMember(alpha_keys[cc].c_str()) && inputs["regions"][alpha_keys[cc].c_str()].IsArray())
+        for (int rr = 0; rr < NR; rr++)
+          if ((int)inputs["regions"][alpha_keys[cc].c_str()].Size() > rr)
+            alpha_c_rg[cc][rr] = inputs["regions"][alpha_keys[cc].c_str()][rr].GetDouble();
+    }
+
+    // Budget allocation shares phi_alloc_c_rg [NC_adapt][NR] (default: equal split = 1/NC_adapt)
+    phi_alloc_c_rg.resize(NC_adapt, std::vector<double>(NR, 1.0 / NC_adapt));
+    if (inputs["regions"].HasMember("phi_alloc_c_rg") && inputs["regions"]["phi_alloc_c_rg"].IsArray())
+    {
+      const auto &arr = inputs["regions"]["phi_alloc_c_rg"];
+      for (int cc = 0; cc < NC_adapt && cc < (int)arr.Size(); cc++)
+        if (arr[cc].IsArray())
+          for (int rr = 0; rr < NR && rr < (int)arr[cc].Size(); rr++)
+            phi_alloc_c_rg[cc][rr] = arr[cc][rr].GetDouble();
+    }
+
+    // Per-channel depreciation rate delta_adapt_c_rg [NC_adapt][NR] (default: 0.05)
+    delta_adapt_c_rg.resize(NC_adapt, std::vector<double>(NR, 0.05));
+    if (inputs["regions"].HasMember("delta_adapt_c_rg") && inputs["regions"]["delta_adapt_c_rg"].IsArray())
+    {
+      const auto &arr = inputs["regions"]["delta_adapt_c_rg"];
+      for (int cc = 0; cc < NC_adapt && cc < (int)arr.Size(); cc++)
+        if (arr[cc].IsArray())
+          for (int rr = 0; rr < NR && rr < (int)arr[cc].Size(); rr++)
+            delta_adapt_c_rg[cc][rr] = arr[cc][rr].GetDouble();
     }
   }
 
@@ -933,6 +1398,85 @@ void SETPARAMS(const rapidjson::Document &inputs)
   flag_uniformshocks = inputs["flags"][0]["flag_uniformshocks"].GetInt();
   flag_desc = inputs["flags"][0]["flag_desc"].GetInt();
 
+  // Mobility parameters
+  // Fixed moving cost and distance-based moving cost (utility equivalent)
+  mu_F_mig = getDoubleParam("mu_F_mig", 4);
+
+  // Regional mobility flag (1=on, 0=off)
+  // Use defensive lambda for reading from flags array
+  auto getFlagIntMobility = [&inputs](const char *key, int default_val) -> int
+  {
+    if (inputs.HasMember("flags") && inputs["flags"].IsArray() && inputs["flags"].Size() > 0 &&
+        inputs["flags"][0].IsObject() && inputs["flags"][0].HasMember(key))
+    {
+      return inputs["flags"][0][key].GetInt();
+    }
+    return default_val;
+  };
+  flag_regional_mobility = getFlagIntMobility("flag_regional_mobility", 0);
+
+  // Regional labour market flags (1=on, 0=off)
+  flag_regional_labor = getFlagIntMobility("flag_regional_labor", 0);
+  flag_ls_distribution = getFlagIntMobility("flag_ls_distribution", 0);
+
+  // Regional purchasing-preference (home-bias) mechanism.
+  // flag_regional_bias: 0 = baseline (no regional preference); 1 = perceived non-regional price penalty.
+  // tau_regional: proportional PERCEIVED non-regional purchasing-cost wedge (>= 0). This affects supplier
+  // evaluation only; actual payments always use posted prices p1/p2. No financial flow is created by it.
+  flag_regional_bias = getFlagIntMobility("flag_regional_bias", 0);
+  if (flag_regional_bias != 0 && flag_regional_bias != 1)
+  {
+    ofstream Errors(errorfilename, ios::app);
+    std::cerr << "[WARN] flag_regional_bias invalid (" << flag_regional_bias << "); clamping to 0" << std::endl;
+    Errors << "[WARN] flag_regional_bias invalid (" << flag_regional_bias << "); clamping to 0" << std::endl;
+    Errors.close();
+    flag_regional_bias = 0;
+  }
+  tau_regional = getDoubleParam("tau_regional", 0.0);
+  if (tau_regional < 0.0)
+  {
+    ofstream Errors(errorfilename, ios::app);
+    std::cerr << "[WARN] tau_regional negative (" << tau_regional << "); clamping to 0.0" << std::endl;
+    Errors << "[WARN] tau_regional negative (" << tau_regional << "); clamping to 0.0" << std::endl;
+    Errors.close();
+    tau_regional = 0.0;
+  }
+  if (verbose)
+  {
+    std::cerr << "[DEBUG] Regional bias loaded: flag_regional_bias=" << flag_regional_bias
+              << ", tau_regional=" << tau_regional << std::endl;
+  }
+
+  // Regional wage-setting parameters (active when flag_regional_labor == 1)
+  chi_w = getDoubleParam("chi_w", 1.0);         // 1.0 -> fully national wage growth (baseline-preserving default)
+  dwage_max = getDoubleParam("dwage_max", 0.5); // symmetric bound on per-period regional wage growth
+
+  // Mobility utility parameters
+  beta_w_mig = getDoubleParam("beta_w_mig", 1.0);       // Log-wage coefficient
+  beta_u_mig = getDoubleParam("beta_u_mig", 1.0);       // Unemployment cost (absolute value)
+  beta_prot_mig = getDoubleParam("beta_prot_mig", 0.0); // Protection capital coefficient
+  beta_pub_mig = getDoubleParam("beta_pub_mig", 0.0);   // Public capital coefficient
+  u_min_mig = getDoubleParam("u_min_mig", 0.001);       // Minimum unemployment for clamping
+  tau_mig = getDoubleParam("tau_mig", 2);
+  K_tau_mig = getDoubleParam("K_tau_mig", 2);
+  N_tau_quantiles_mig = getDoubleParam("N_tau_quantiles_mig", 50);
+  p_move_mig = getDoubleParam("p_move_mig", 0.004); // Propensity to move to another region with better wages & lower unemployment
+  if (p_move_mig < 0.0)
+  {
+    ofstream Errors(errorfilename, ios::app);
+    std::cerr << "[WARN] p_move_mig negative (" << p_move_mig << "); clamping to 0.0" << std::endl;
+    Errors << "[WARN] p_move_mig negative (" << p_move_mig << "); clamping to 0.0" << std::endl;
+    Errors.close();
+    p_move_mig = 0.0;
+  }
+
+  if (verbose)
+  {
+    std::cerr << "[DEBUG] Mobility parameters loaded: mu_F_mig=" << mu_F_mig
+              << ", beta_w_mig=" << beta_w_mig << ", beta_u_mig=" << beta_u_mig
+              << ", p_move_mig=" << p_move_mig << std::endl;
+  }
+
   shocks_cfirms.ReSize(N2);
   shocks_kfirms.ReSize(N1);
   for (i = 1; i <= N1; i++)
@@ -980,6 +1524,12 @@ void RESIZE(void)
   D2.ReSize(2, N2);
   De.ReSize(N2);
   f2.ReSize(3, N2);
+  // Regional home-bias market-share structures: NR matrices mirroring national f2 (3 x N2).
+  if (NR > 0)
+  {
+    f2_reg.assign(NR, Matrix(3, N2));
+    reg_cons_share.assign(NR, 1.0 / NR);
+  }
   E2.ReSize(N2);
   c2.ReSize(N2);
   c2p.ReSize(N2);
@@ -1140,6 +1690,7 @@ void RESIZE(void)
   Emiss1.ReSize(N1);
   Injection_1.ReSize(N1);
   Balances_1.ReSize(N1);
+  KfirmGovCredit.ReSize(N1);
   baddebt_1.ReSize(N1);
   exiting_1.ReSize(N1);
   c1p.ReSize(N1);
@@ -1304,6 +1855,8 @@ void RESIZE(void)
     reg_Q2.assign(NR, 0.0);
     reg_Q1tot.assign(NR, 0.0);
     reg_Q2tot.assign(NR, 0.0);
+    reg_H1.assign(NR, 0.0);
+    reg_H2.assign(NR, 0.0);
     reg_GDP_r.assign(NR, 0.0);
     reg_GDP_r_lag.assign(NR, 0.0);
     reg_Consumption_r.assign(NR, 0.0);
@@ -1370,6 +1923,40 @@ void RESIZE(void)
     reg_CapitalStock.assign(NR, 0.0);
     reg_NW_h.assign(NR, 0.0);
 
+    // Regional labour-market state (flag_regional_labor)
+    reg_w.assign(NR, w0);
+    reg_w_past.assign(NR, w0);
+    reg_U_past.assign(NR, 0.0);
+    reg_Am_past.assign(NR, 0.0);
+    reg_YD.assign(NR, 0.0);
+    reg_C.assign(NR, 0.0);
+    reg_Dh.assign(NR, 0.0);
+    reg_Dh_lag.assign(NR, 0.0);
+    reg_Dh_pre_migration.assign(NR, 0.0);
+    reg_Dh_post_migration.assign(NR, 0.0);
+    reg_ME_out.assign(NR, 0.0);
+    reg_UN.assign(NR, 0.0);
+    reg_U_rate.assign(NR, 0.0);
+    reg_Benefits.assign(NR, 0.0);
+    diag_reg_Dh_lag_used.assign(NR, 0.0);
+    if (flag_regional_labor == 1 && (int)LS_region_share.size() == NR && LS > 0)
+    {
+      for (int rr = 0; rr < NR; rr++)
+        reg_LS[rr] = LS * LS_region_share[rr];
+    }
+
+    // Inter-regional trade accumulators
+    reg_mach_buy_local.assign(NR, 0.0);
+    reg_mach_buy_import.assign(NR, 0.0);
+    reg_mach_sell_local.assign(NR, 0.0);
+    reg_mach_sell_export.assign(NR, 0.0);
+    reg_cons_buy_local.assign(NR, 0.0);
+    reg_cons_buy_import.assign(NR, 0.0);
+    reg_cons_sell_local.assign(NR, 0.0);
+    reg_cons_sell_export.assign(NR, 0.0);
+    reg_mach_buy_from.assign(NR, std::vector<double>(NR, 0.0));
+    reg_cons_buy_from.assign(NR, std::vector<double>(NR, 0.0));
+
     // Regional Government Block
     TS_rg.assign(NR, 0.0);
     GT_base_rg.assign(NR, 0.0);
@@ -1380,8 +1967,38 @@ void RESIZE(void)
     EA_rg.assign(NR, 0.0);
     EXP_rg.assign(NR, 0.0);
     K_pub_rg.assign(NR, 0.0);
+    K_adapt_rg.assign(NR, 0.0);
+    K_adapt_rg_lag.assign(NR, 0.0);
+    I_adapt_rg.assign(NR, 0.0);
+    Omega_adapt_rg.assign(NR, 1.0); // 1.0 = no dampening (flag_adaptation == 0 default)
+
+    // Channel-specific fragility stocks (NC_adapt x NR)
+    K_adapt_c_rg.assign(NC_adapt, std::vector<double>(NR, 0.0));
+    K_adapt_c_rg_lag.assign(NC_adapt, std::vector<double>(NR, 0.0));
+    I_adapt_c_rg.assign(NC_adapt, std::vector<double>(NR, 0.0));
+    Omega_c_rg.assign(NC_adapt, std::vector<double>(NR, 1.0));    // 1.0 = no dampening
+    h_thresh_c_rg.assign(NC_adapt, std::vector<double>(NR, 0.0)); // 0.0 = no threshold protection
+
+    // Recovery expenditure vectors (NR-sized, zero-initialised)
+    I_Rec_rg.assign(NR, 0.0);
+    B_rec_rg.assign(NR, 0.0);
+    B_rec_rg_lag.assign(NR, 0.0);
+    GRecPaid_rg.assign(NR, 0.0);
+    TREC_rg.assign(NR, 0.0);
+    Saff_rg.assign(NR, 0.0);
+    Saff_rg_lag.assign(NR, 0.0);
+    n_aff_rg.assign(NR, 0.0);
+    n_aff_rg_lag.assign(NR, 0.0);
     // tau_share_rg, omega_rg, wu_rg are set in SETPARAMS from JSON; do not overwrite here
   }
+
+  // Recovery per-firm RowVectors (N2-sized)
+  sub_Rec.ReSize(N2);
+  sub_Rec = 0.0;
+  affected_indicator.ReSize(N2);
+  affected_indicator = 0.0;
+  affected_indicator_lag.ReSize(N2);
+  affected_indicator_lag = 0.0;
 }
 
 void INITIALIZE(int Exseed)
@@ -1397,20 +2014,108 @@ void INITIALIZE(int Exseed)
   {
     auto assign_regions_by_share = [&](std::vector<int> &targets, const RowVector &shares, int total)
     {
+      if (total <= 0 || NR <= 0)
+      {
+        return;
+      }
+
+      if ((int)targets.size() < total)
+      {
+        targets.resize(total, 1);
+      }
+
+      std::vector<double> normalized_shares(NR + 1, 0.0);
+      double share_sum = 0.0;
+      for (int r = 1; r <= NR; ++r)
+      {
+        normalized_shares[r] = max(0.0, shares(r));
+        share_sum += normalized_shares[r];
+      }
+
+      if (share_sum > 0.0)
+      {
+        for (int r = 1; r <= NR; ++r)
+        {
+          normalized_shares[r] /= share_sum;
+        }
+      }
+      else
+      {
+        for (int r = 1; r <= NR; ++r)
+        {
+          normalized_shares[r] = 1.0 / NR;
+        }
+      }
+
+      struct remainder_item
+      {
+        int region;
+        double remainder;
+        double tie_break;
+      };
+
+      std::vector<int> quotas(NR + 1, 0);
+      std::vector<remainder_item> remainder_rank;
+      remainder_rank.reserve(NR);
+
+      int assigned = 0;
+      for (int r = 1; r <= NR; ++r)
+      {
+        double exact = normalized_shares[r] * total;
+        int base_quota = int(floor(exact));
+        quotas[r] = base_quota;
+        assigned += base_quota;
+
+        remainder_item item;
+        item.region = r;
+        item.remainder = exact - base_quota;
+        item.tie_break = ran1(p_seed);
+        remainder_rank.push_back(item);
+      }
+
+      int residual = total - assigned;
+      if (residual > 0)
+      {
+        // Tolerance for comparing fractional remainders, measured in FIRM units.
+        // Two regions whose remainders differ by less than one-thousandth of a
+        // firm are treated as tied: such differences are numerical / JSON input
+        // rounding noise (e.g. shares written as 0.333333 vs 0.333334), not a
+        // meaningful allocation preference. Tied regions fall through to the
+        // random ran1 tie_break so the residual firm is assigned randomly rather
+        // than deterministically to the region carrying the rounding crumb.
+        // Genuinely heterogeneous shares produce remainder gaps far larger than
+        // this tolerance and are therefore unaffected.
+        constexpr double REMAINDER_TIE_TOL = 1e-3;
+        sort(remainder_rank.begin(), remainder_rank.end(), [](const remainder_item &a, const remainder_item &b)
+             {
+               if (fabs(a.remainder - b.remainder) > REMAINDER_TIE_TOL)
+               {
+                 return a.remainder > b.remainder;
+               }
+               return a.tie_break > b.tie_break; });
+
+        for (int idx = 0; idx < residual; ++idx)
+        {
+          quotas[remainder_rank[idx % NR].region] += 1;
+        }
+      }
+
       int filled = 0;
       for (int r = 1; r <= NR; ++r)
       {
-        int quota = (r == NR) ? total - filled : int(round(shares(r) * total));
-        for (int idx = 0; idx < quota && filled < total; ++idx)
+        for (int idx = 0; idx < quotas[r] && filled < total; ++idx)
         {
           targets[filled] = r;
           ++filled;
         }
       }
-      while (filled < total)
+
+      // Fisher-Yates shuffle so contiguous region blocks do not map to a fixed
+      // RNG stream or firm-index order.
+      for (int idx = total - 1; idx > 0; --idx)
       {
-        targets[filled] = NR;
-        ++filled;
+        int swap_idx = int(ran1(p_seed) * (idx + 1));
+        std::swap(targets[idx], targets[swap_idx]);
       }
     };
 
@@ -1429,6 +2134,8 @@ void INITIALIZE(int Exseed)
     reg_Q2.assign(NR, 0.0);
     reg_Q1tot.assign(NR, 0.0);
     reg_Q2tot.assign(NR, 0.0);
+    reg_H1.assign(NR, 0.0);
+    reg_H2.assign(NR, 0.0);
     reg_GDP_r.assign(NR, 0.0);
     reg_GDP_r_lag.assign(NR, 0.0);
     reg_Consumption_r.assign(NR, 0.0);
@@ -1497,6 +2204,40 @@ void INITIALIZE(int Exseed)
     reg_CapitalStock2.assign(NR, 0.0);
     reg_CapitalStock.assign(NR, 0.0);
     reg_NW_h.assign(NR, 0.0);
+
+    // Regional labour-market state (flag_regional_labor)
+    reg_w.assign(NR, w0);
+    reg_w_past.assign(NR, w0);
+    reg_U_past.assign(NR, 0.0);
+    reg_Am_past.assign(NR, 0.0);
+    reg_YD.assign(NR, 0.0);
+    reg_C.assign(NR, 0.0);
+    reg_Dh.assign(NR, 0.0);
+    reg_Dh_lag.assign(NR, 0.0);
+    reg_Dh_pre_migration.assign(NR, 0.0);
+    reg_Dh_post_migration.assign(NR, 0.0);
+    reg_ME_out.assign(NR, 0.0);
+    reg_UN.assign(NR, 0.0);
+    reg_U_rate.assign(NR, 0.0);
+    reg_Benefits.assign(NR, 0.0);
+    diag_reg_Dh_lag_used.assign(NR, 0.0);
+    if (flag_regional_labor == 1 && (int)LS_region_share.size() == NR && LS > 0)
+    {
+      for (int rr = 0; rr < NR; rr++)
+        reg_LS[rr] = LS * LS_region_share[rr];
+    }
+
+    // Inter-regional trade accumulators
+    reg_mach_buy_local.assign(NR, 0.0);
+    reg_mach_buy_import.assign(NR, 0.0);
+    reg_mach_sell_local.assign(NR, 0.0);
+    reg_mach_sell_export.assign(NR, 0.0);
+    reg_cons_buy_local.assign(NR, 0.0);
+    reg_cons_buy_import.assign(NR, 0.0);
+    reg_cons_sell_local.assign(NR, 0.0);
+    reg_cons_sell_export.assign(NR, 0.0);
+    reg_mach_buy_from.assign(NR, std::vector<double>(NR, 0.0));
+    reg_cons_buy_from.assign(NR, std::vector<double>(NR, 0.0));
   }
 
   INTFILE();
@@ -1612,6 +2353,18 @@ void INITIALIZE(int Exseed)
   NW_gov = -GB;
   NW_cb = GB_cb - Reserves;
   NW_e = Deposits_e;
+
+  // Initialise true regional household deposits from Dh_region_share (Phase 5B).
+  // Done here because Deposits_h is first set above (Deposits_h = D_h0).
+  if (flag_regional_labor == 1 && NR > 0 &&
+      (int)Dh_region_share.size() == NR && (int)reg_Dh.size() == NR)
+  {
+    for (int rr = 0; rr < NR; rr++)
+    {
+      reg_Dh[rr] = Dh_region_share[rr] * Deposits_h(1);
+      reg_Dh_lag[rr] = reg_Dh[rr];
+    }
+  }
   r = pow((1 + r_base), 0.25) - 1;
   if (d_cpi_target < 0.02)
   {
@@ -1722,6 +2475,14 @@ void INITIALIZE(int Exseed)
   E2 = 1;
   f1 = 1 / N1r;
   f2 = 1 / N2r;
+  // Seed every regional market-share row from the national f2 (uniform 1/N2r).
+  if (NR > 0)
+  {
+    for (int rr = 0; rr < NR; rr++)
+    {
+      f2_reg[rr] = 1.0 / N2r;
+    }
+  }
   t0 = 1;
   Fragility = 0;
 
@@ -1803,6 +2564,36 @@ void INITIALIZE(int Exseed)
   RD.Row(2) = nu * S1;
   t = 0;
   TECHANGEND();
+
+  // Initialize mobility diagnostics vectors
+  if (NR > 0)
+  {
+    diag_V_region.assign(NR, 0.0);
+    diag_MC_mig.assign(NR, std::vector<double>(NR, 0.0));
+    diag_CU_mig.assign(NR, std::vector<double>(NR, 0.0));
+    diag_pi_mig.assign(NR, std::vector<double>(NR, 0.0));
+    diag_pi_mig_row_sum.assign(NR, 0.0);
+    diag_pi_stay.assign(NR, 0.0);
+    diag_M_int_mig.assign(NR, std::vector<double>(NR, 0.0));
+    diag_M_int_out.assign(NR, 0.0);
+    diag_M_mig.assign(NR, std::vector<double>(NR, 0.0));
+    diag_M_out_region.assign(NR, 0.0);
+    diag_M_in_region.assign(NR, 0.0);
+    diag_M_mig_row_sum.assign(NR, 0.0);
+    diag_lambda_liq_region.assign(NR, 1.0);
+    diag_Dh_U_region.assign(NR, 0.0);
+    diag_ME_int_region.assign(NR, 0.0);
+    diag_LS_region_share.assign(NR, 1.0 / NR);
+    diag_LS_region_share_next.assign(NR, 1.0 / NR);
+
+    diag_total_intended_migration = 0.0;
+    diag_total_actual_migration = 0.0;
+    diag_migration_expenditure_total = 0.0;
+    diag_sum_M_out = 0.0;
+    diag_sum_M_in = 0.0;
+    diag_sum_LS_region_share = 1.0;
+    diag_sum_LS_region_share_next = 1.0;
+  }
 }
 
 void SETVARS(void)
@@ -1903,7 +2694,7 @@ void SETVARS(void)
   Taxes_e_shock = 0;
   Taxes_f_shock = 0;
   Wages = 0;
-  Deposits_recovered_1 = 0;
+  KfirmGovCredit = 0;
   Deposits_recovered_2 = 0;
   EntryCosts = 0;
   BankTransfer = 0;
@@ -1925,11 +2716,35 @@ void SETVARS(void)
   GRANTPOOL = 0;
   REV_rg_total = 0;
   TR_rg_total = 0;
+  GT_base_total = 0;
+  GT_topup_total = 0;
+  TS_rg_total = 0;
   SP_total = 0;
   EA_total = 0;
   K_pub_total_lag = K_pub_total;
   K_pub_total = 0;
+  K_adapt_total_lag = K_adapt_total;
+  K_adapt_total = 0;
+  I_adapt_total = 0;
+  Omega_adapt_national = 1.0;
   GovPurchases_1 = 0;
+  GovPurchases_2 = 0;
+
+  // Recovery national aggregates reset each period
+  GRecPaid_total = 0.0;
+  TREC_total = 0.0;
+  GovPurchases_Rec = 0.0;
+
+  // Recovery per-firm: carry affected_indicator_lag from last period's indicator, then reset
+  if (NR > 0)
+  {
+    for (int jj = 1; jj <= N2; jj++)
+    {
+      affected_indicator_lag(jj) = affected_indicator(jj);
+      affected_indicator(jj) = 0.0;
+      sub_Rec(jj) = 0.0;
+    }
+  }
 
   Divtot_1 = 0;
   Divtot_2 = 0;
@@ -1979,6 +2794,19 @@ void SETVARS(void)
       reg_SI[rr] = 0;
       reg_Ld1[rr] = 0;
       reg_Ld2[rr] = 0;
+      reg_mach_buy_local[rr] = 0;
+      reg_mach_buy_import[rr] = 0;
+      reg_mach_sell_local[rr] = 0;
+      reg_mach_sell_export[rr] = 0;
+      reg_cons_buy_local[rr] = 0;
+      reg_cons_buy_import[rr] = 0;
+      reg_cons_sell_local[rr] = 0;
+      reg_cons_sell_export[rr] = 0;
+      for (int ss = 0; ss < NR; ++ss)
+      {
+        reg_mach_buy_from[rr][ss] = 0;
+        reg_cons_buy_from[rr][ss] = 0;
+      }
       reg_Emiss1[rr] = 0;
       reg_Emiss2[rr] = 0;
       reg_Pi1[rr] = 0;
@@ -2020,6 +2848,31 @@ void SETVARS(void)
       SP_rg[rr] = 0;
       EA_rg[rr] = 0;
       EXP_rg[rr] = 0;
+      // Adaptation: lag carry-forward (before new stock is computed in RG_BLOCK_FISCAL)
+      // K_adapt_rg[rr] and K_adapt_rg_lag[rr] are persistent stocks — NOT reset
+      K_adapt_rg_lag[rr] = K_adapt_rg[rr];
+      I_adapt_rg[rr] = 0.0;
+      Omega_adapt_rg[rr] = 1.0; // reset to no-dampening; recomputed in RG_BLOCK_FISCAL
+
+      // Channel-specific adaptation: lag carry-forward and flow resets
+      for (int cc = 0; cc < NC_adapt; cc++)
+      {
+        K_adapt_c_rg_lag[cc][rr] = K_adapt_c_rg[cc][rr];
+        I_adapt_c_rg[cc][rr] = 0.0;
+        Omega_c_rg[cc][rr] = 1.0;    // reset; recomputed in SHOCKS()
+        h_thresh_c_rg[cc][rr] = 0.0; // reset; recomputed in RG_BLOCK_FISCAL
+      }
+
+      // Recovery: lag carry-forward for backlog and damage indicators
+      B_rec_rg_lag[rr] = B_rec_rg[rr];
+      Saff_rg_lag[rr] = Saff_rg[rr];
+      n_aff_rg_lag[rr] = n_aff_rg[rr];
+      // Reset recovery flows
+      I_Rec_rg[rr] = 0.0;
+      GRecPaid_rg[rr] = 0.0;
+      TREC_rg[rr] = 0.0;
+      Saff_rg[rr] = 0.0;
+      n_aff_rg[rr] = 0.0;
     }
   }
 
@@ -2261,6 +3114,820 @@ void MACH(void)
   Errors.close();
 }
 
+void MOBILITY_COMPUTATION(void)
+{
+  if (NR <= 0 || flag_regional_mobility == 0)
+  {
+    // Mobility disabled: no migration
+    for (int r = 0; r < NR; ++r)
+    {
+      diag_total_intended_migration = 0.0;
+      diag_total_actual_migration = 0.0;
+      diag_migration_expenditure_total = 0.0;
+      diag_sum_M_out = 0.0;
+      diag_sum_M_in = 0.0;
+      diag_LS_region_share[r] = (LS > 0) ? reg_LS[r] / LS : 1.0 / NR;
+      diag_LS_region_share_next[r] = diag_LS_region_share[r];
+    }
+    diag_sum_LS_region_share = 0.0;
+    diag_sum_LS_region_share_next = 0.0;
+    for (int r = 0; r < NR; ++r)
+    {
+      diag_sum_LS_region_share += diag_LS_region_share[r];
+      diag_sum_LS_region_share_next += diag_LS_region_share_next[r];
+    }
+
+    // Phase 5B: no migration expenditure; regional deposits carry over unchanged.
+    diag_migration_expenditure_from_households = 0.0;
+    diag_migration_service_revenue_C_total = 0.0;
+    diag_migration_closure_residual = 0.0;
+    diag_regional_deposit_consistency_error = 0.0;
+    diag_sum_reg_Dh_post = 0.0;
+    diag_national_Deposits_h = Deposits_h(1);
+    diag_household_bank_mirror_residual = 0.0;
+    diag_aggregate_bank_deposit_residual = 0.0;
+    if (flag_regional_labor == 1 && (int)reg_Dh.size() == NR)
+    {
+      for (int r = 0; r < NR; ++r)
+      {
+        reg_ME_out[r] = 0.0;
+        reg_Dh_post_migration[r] = reg_Dh_pre_migration[r];
+        reg_Dh[r] = reg_Dh_post_migration[r];
+        reg_Dh_lag[r] = reg_Dh[r];
+        diag_sum_reg_Dh_post += reg_Dh_post_migration[r];
+      }
+    }
+    return;
+  }
+
+  // ========== ZERO OUT DIAGNOSTIC VECTORS AT PERIOD START ==========
+  for (int o = 0; o < NR; ++o)
+  {
+    diag_V_region[o] = 0.0;
+    diag_M_int_out[o] = 0.0;
+    diag_M_out_region[o] = 0.0;
+    diag_M_mig_row_sum[o] = 0.0;
+    diag_pi_mig_row_sum[o] = 0.0;
+    diag_pi_stay[o] = 0.0;
+    diag_lambda_liq_region[o] = 1.0;
+    diag_Dh_U_region[o] = 0.0;
+    diag_ME_int_region[o] = 0.0;
+    for (int d = 0; d < NR; ++d)
+    {
+      diag_MC_mig[o][d] = 0.0;
+      diag_CU_mig[o][d] = 0.0;
+      diag_pi_mig[o][d] = 0.0;
+      diag_M_int_mig[o][d] = 0.0;
+      diag_M_mig[o][d] = 0.0;
+    }
+  }
+  for (int d = 0; d < NR; ++d)
+  {
+    diag_M_in_region[d] = 0.0;
+  }
+
+  diag_total_intended_migration = 0.0;
+  diag_total_actual_migration = 0.0;
+  diag_migration_expenditure_total = 0.0;
+  diag_sum_M_out = 0.0;
+  diag_sum_M_in = 0.0;
+
+  // ========== Compute unemployed pool per region ==========
+  std::vector<double> UN_region(NR, 0.0); // Unemployed search pool
+  for (int o = 0; o < NR; ++o)
+  {
+    double L_region_o = reg_Ld1[o] + reg_Ld2[o]; // Employment = labor demand
+    UN_region[o] = max(0.0, reg_LS[o] - L_region_o);
+  }
+
+  // ========== Compute regional utility V_region[r] ==========
+  // V_r = beta_w * ln(omega_r) - beta_u * ln(max(u_r, u_min)) + beta_prot * K_prot_r + beta_pub * K_pub_r
+  // omega_r = real wage = nominal_wage / CPI
+
+  for (int r = 0; r < NR; ++r)
+  {
+    // Regional real wage when regional labour market is active, else national proxy
+    double wage_r = (flag_regional_labor == 1 && (int)reg_w.size() == NR) ? reg_w[r] : w(1);
+    double omega_r = (cpi(1) > 0) ? wage_r / cpi(1) : wage_r;
+    double u_r = reg_U[r];
+
+    // Log-wage utility (beta_w_mig > 0)
+    double v_wage = (omega_r > 0) ? beta_w_mig * log(omega_r) : 0.0;
+
+    // Unemployment disutility (beta_u_mig > 0 means lower unemployment is better)
+    double u_clamp = max(u_r, u_min_mig);
+    double v_unemp = -beta_u_mig * log(u_clamp); // Negative because higher unemployment = worse
+
+    diag_V_region[r] = v_wage + v_unemp;
+  }
+
+  // ========== Compute monetary moving costs MC_mig[o][d] ==========
+  for (int o = 0; o < NR; ++o)
+  {
+    double w_o_lag = (flag_regional_labor == 1 && (int)reg_w.size() == NR) ? reg_w[o] : w(2);
+
+    double u_o_lag = ((int)reg_U_rate.size() == NR) ? reg_U_rate[o] : reg_U[o];
+
+    w_o_lag = std::max(0.0, w_o_lag);
+    u_o_lag = std::max(0.0, std::min(1.0, u_o_lag));
+
+    double annual_expected_wage_o = 4.0 * w_o_lag * (1.0 - u_o_lag);
+
+    for (int d = 0; d < NR; ++d)
+    {
+      if (o == d)
+      {
+        diag_MC_mig[o][d] = 0.0;
+      }
+      else
+      {
+        diag_MC_mig[o][d] = mu_F_mig * annual_expected_wage_o;
+      }
+    }
+  }
+
+  const int N_tau_quantiles_mig = 50;
+
+  const double k_tau_shape =
+      (std::isfinite(K_tau_mig) && K_tau_mig > 0.0)
+          ? K_tau_mig
+          : 2.0;
+
+  const double tau_mean_mig =
+      (std::isfinite(tau_mig) && tau_mig >= 0.0)
+          ? tau_mig
+          : 0.0;
+
+  const double theta_tau_mig =
+      (k_tau_shape > 0.0)
+          ? tau_mean_mig / k_tau_shape
+          : 0.0;
+
+  // Regularized lower incomplete gamma function P(a,x).
+  // This gives the CDF of Gamma(shape = a, scale = 1).
+  auto regularized_gamma_p = [](double a, double x) -> double
+  {
+    const int ITMAX = 200;
+    const double EPS = 3.0e-14;
+    const double FPMIN = 1.0e-300;
+
+    if (!(a > 0.0) || !std::isfinite(a))
+    {
+      return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    if (x <= 0.0)
+    {
+      return 0.0;
+    }
+
+    if (!std::isfinite(x))
+    {
+      return 1.0;
+    }
+
+    const double gln = std::lgamma(a);
+
+    // Series representation for x < a + 1
+    if (x < a + 1.0)
+    {
+      double ap = a;
+      double del = 1.0 / a;
+      double sum = del;
+
+      for (int n = 1; n <= ITMAX; ++n)
+      {
+        ap += 1.0;
+        del *= x / ap;
+        sum += del;
+
+        if (std::fabs(del) < std::fabs(sum) * EPS)
+        {
+          break;
+        }
+      }
+
+      double result = sum * std::exp(-x + a * std::log(x) - gln);
+      return std::max(0.0, std::min(1.0, result));
+    }
+
+    // Continued fraction representation for Q(a,x), then P = 1 - Q
+    double b = x + 1.0 - a;
+    double c = 1.0 / FPMIN;
+    double d = 1.0 / std::max(std::fabs(b), FPMIN);
+
+    if (b < 0.0 && std::fabs(b) < FPMIN)
+    {
+      d = -1.0 / FPMIN;
+    }
+
+    double h = d;
+
+    for (int i = 1; i <= ITMAX; ++i)
+    {
+      const double an = -static_cast<double>(i) * (static_cast<double>(i) - a);
+
+      b += 2.0;
+
+      d = an * d + b;
+      if (std::fabs(d) < FPMIN)
+      {
+        d = FPMIN;
+      }
+
+      c = b + an / c;
+      if (std::fabs(c) < FPMIN)
+      {
+        c = FPMIN;
+      }
+
+      d = 1.0 / d;
+
+      const double del = d * c;
+      h *= del;
+
+      if (std::fabs(del - 1.0) < EPS)
+      {
+        break;
+      }
+    }
+
+    const double q = std::exp(-x + a * std::log(x) - gln) * h;
+    const double result = 1.0 - q;
+
+    return std::max(0.0, std::min(1.0, result));
+  };
+
+  // Inverse CDF for Gamma(shape = a, scale = 1), computed by bisection.
+  // Gamma(shape = a, scale = theta) quantile is theta times this value.
+  auto gamma_unit_quantile = [&](double q, double a) -> double
+  {
+    const double eps_q = 1.0e-12;
+
+    q = std::max(eps_q, std::min(1.0 - eps_q, q));
+
+    double lo = 0.0;
+    double hi = std::max(1.0, a);
+
+    while (regularized_gamma_p(a, hi) < q)
+    {
+      hi *= 2.0;
+
+      if (hi > 1.0e8)
+      {
+        break;
+      }
+    }
+
+    for (int it = 0; it < 100; ++it)
+    {
+      const double mid = 0.5 * (lo + hi);
+
+      if (regularized_gamma_p(a, mid) < q)
+      {
+        lo = mid;
+      }
+      else
+      {
+        hi = mid;
+      }
+    }
+
+    return 0.5 * (lo + hi);
+  };
+
+  // Build deterministic threshold quantiles.
+  std::vector<double> tau_quantiles_mig(N_tau_quantiles_mig, 0.0);
+
+  for (int j = 0; j < N_tau_quantiles_mig; ++j)
+  {
+    const double q_j =
+        (static_cast<double>(j) + 0.5) /
+        static_cast<double>(N_tau_quantiles_mig);
+
+    if (tau_mean_mig <= 0.0 || theta_tau_mig <= 0.0)
+    {
+      tau_quantiles_mig[j] = 0.0;
+    }
+    else
+    {
+      tau_quantiles_mig[j] =
+          theta_tau_mig * gamma_unit_quantile(q_j, k_tau_shape);
+    }
+  }
+
+  const double tau_weight_mig =
+      1.0 / static_cast<double>(N_tau_quantiles_mig);
+
+  for (int o = 0; o < NR; ++o)
+  {
+    // Reset row.
+    for (int d = 0; d < NR; ++d)
+    {
+      diag_pi_mig[o][d] = 0.0;
+    }
+
+    diag_pi_mig_row_sum[o] = 0.0;
+    diag_pi_stay[o] = 1.0;
+
+    const double V_o = diag_V_region[o];
+
+    // If origin attractiveness is invalid, force staying.
+    if (!std::isfinite(V_o))
+    {
+      diag_pi_mig[o][o] = 1.0;
+      diag_pi_mig_row_sum[o] = 1.0;
+      diag_pi_stay[o] = 1.0;
+      continue;
+    }
+
+    // Average destination-choice probabilities across threshold quantiles.
+    for (int j = 0; j < N_tau_quantiles_mig; ++j)
+    {
+      const double tau_j = tau_quantiles_mig[j];
+
+      // Staying is always feasible.
+      double max_exp_arg = V_o;
+
+      // First pass: find max V among feasible alternatives for log-sum-exp.
+      for (int d = 0; d < NR; ++d)
+      {
+        if (d == o)
+        {
+          continue;
+        }
+
+        const double V_d = diag_V_region[d];
+
+        if (!std::isfinite(V_d))
+        {
+          continue;
+        }
+
+        const double delta_V = V_d - V_o;
+
+        if (delta_V > tau_j)
+        {
+          max_exp_arg = std::max(max_exp_arg, V_d);
+        }
+      }
+
+      // Second pass: compute denominator over feasible set.
+      double sum_exp = std::exp(V_o - max_exp_arg); // stay alternative
+
+      for (int d = 0; d < NR; ++d)
+      {
+        if (d == o)
+        {
+          continue;
+        }
+
+        const double V_d = diag_V_region[d];
+
+        if (!std::isfinite(V_d))
+        {
+          continue;
+        }
+
+        const double delta_V = V_d - V_o;
+
+        if (delta_V > tau_j)
+        {
+          sum_exp += std::exp(V_d - max_exp_arg);
+        }
+      }
+
+      if (!(sum_exp > 0.0) || !std::isfinite(sum_exp))
+      {
+        // Fallback for this threshold quantile: stay at origin.
+        diag_pi_mig[o][o] += tau_weight_mig;
+        continue;
+      }
+
+      // Stay probability for this threshold quantile.
+      diag_pi_mig[o][o] +=
+          tau_weight_mig *
+          std::exp(V_o - max_exp_arg) /
+          sum_exp;
+
+      // Destination probabilities for this threshold quantile.
+      for (int d = 0; d < NR; ++d)
+      {
+        if (d == o)
+        {
+          continue;
+        }
+
+        const double V_d = diag_V_region[d];
+
+        if (!std::isfinite(V_d))
+        {
+          continue;
+        }
+
+        const double delta_V = V_d - V_o;
+
+        if (delta_V > tau_j)
+        {
+          diag_pi_mig[o][d] +=
+              tau_weight_mig *
+              std::exp(V_d - max_exp_arg) /
+              sum_exp;
+        }
+      }
+    }
+
+    // Diagnostics and numerical normalization.
+    diag_pi_mig_row_sum[o] = 0.0;
+
+    for (int d = 0; d < NR; ++d)
+    {
+      if (!std::isfinite(diag_pi_mig[o][d]) || diag_pi_mig[o][d] < 0.0)
+      {
+        diag_pi_mig[o][d] = 0.0;
+      }
+
+      diag_pi_mig_row_sum[o] += diag_pi_mig[o][d];
+    }
+
+    if (diag_pi_mig_row_sum[o] > 0.0 && std::isfinite(diag_pi_mig_row_sum[o]))
+    {
+      for (int d = 0; d < NR; ++d)
+      {
+        diag_pi_mig[o][d] /= diag_pi_mig_row_sum[o];
+      }
+    }
+    else
+    {
+      // Full fallback: stay at origin.
+      for (int d = 0; d < NR; ++d)
+      {
+        diag_pi_mig[o][d] = 0.0;
+      }
+
+      diag_pi_mig[o][o] = 1.0;
+    }
+
+    // Final diagnostics.
+    diag_pi_mig_row_sum[o] = 0.0;
+
+    for (int d = 0; d < NR; ++d)
+    {
+      diag_pi_mig_row_sum[o] += diag_pi_mig[o][d];
+    }
+
+    diag_pi_stay[o] = diag_pi_mig[o][o];
+  }
+
+  // ========== Compute intended migration M_int_mig[o][d] ==========
+  // M^int_{o,d} = UN_o * pi_{o,d}  for d != o
+  double total_intent = 0.0;
+  for (int o = 0; o < NR; ++o)
+  {
+    diag_M_int_out[o] = 0.0;
+    for (int d = 0; d < NR; ++d)
+    {
+      if (d != o)
+      {
+        diag_M_int_mig[o][d] = UN_region[o] * diag_pi_mig[o][d];
+        total_intent += diag_M_int_mig[o][d];
+        diag_M_int_out[o] += diag_M_int_mig[o][d];
+      }
+    }
+  }
+  diag_total_intended_migration = total_intent;
+
+  // ========== Compute intended migration expenditure ==========
+  // ME^int_o = sum_{d != o} MC_{o,d} * M^int_{o,d}
+  for (int o = 0; o < NR; ++o)
+  {
+    diag_ME_int_region[o] = 0.0;
+    for (int d = 0; d < NR; ++d)
+    {
+      if (d != o)
+      {
+        diag_ME_int_region[o] += diag_MC_mig[o][d] * diag_M_int_mig[o][d];
+      }
+    }
+  }
+
+  // ========== Compute liquidity scaling lambda_liq_region[o] ==========
+  // D^{h,U}_o = u_o * Dh_pre_migration_o (unemployment-weighted regional household deposits)
+  // lambda^liq_o = min(1, D^{h,U}_o / ME^int_o) if ME^int_o > 0 else 1
+  // Phase 5B: liquidity is based on TRUE regional household deposits before migration
+  // (reg_Dh_pre_migration), not national/GDP-allocated deposits.
+  for (int o = 0; o < NR; ++o)
+  {
+    double Dh_o = ((int)reg_Dh_pre_migration.size() == NR) ? reg_Dh_pre_migration[o] : reg_NW_h[o];
+    double u_rate_o = ((int)reg_U_rate.size() == NR) ? reg_U_rate[o] : reg_U[o];
+    double Dh_U_o = max(0.0, u_rate_o * Dh_o); // Unemployment-weighted, clamped >= 0
+    diag_Dh_U_region[o] = Dh_U_o;
+
+    if (diag_ME_int_region[o] > 1e-10)
+    {
+      diag_lambda_liq_region[o] = min(1.0, Dh_U_o / diag_ME_int_region[o]);
+    }
+    else
+    {
+      diag_lambda_liq_region[o] = 1.0; // No migration cost, no constraint
+    }
+
+    // Clamp lambda to [0, 1] as a safety guard
+    diag_lambda_liq_region[o] = max(0.0, min(1.0, diag_lambda_liq_region[o]));
+  }
+
+  // ========== Compute actual migration M_mig[o][d] ==========
+  // M_{o,d} = lambda^liq_o * M^int_{o,d}
+  double total_actual = 0.0;
+  for (int o = 0; o < NR; ++o)
+  {
+    diag_M_out_region[o] = 0.0;
+    for (int d = 0; d < NR; ++d)
+    {
+      if (d != o)
+      {
+        diag_M_mig[o][d] = diag_lambda_liq_region[o] * diag_M_int_mig[o][d];
+        total_actual += diag_M_mig[o][d];
+        diag_M_out_region[o] += diag_M_mig[o][d];
+      }
+      else
+      {
+        diag_M_mig[o][d] = 0.0; // Stayers handled separately
+      }
+    }
+  }
+  diag_total_actual_migration = total_actual;
+
+  // ========== Compute residual stayers M_mig[o][o] ==========
+  // M_{o,o} = UN_o - sum_{d != o} M_{o,d}
+  for (int o = 0; o < NR; ++o)
+  {
+    double outflow = diag_M_out_region[o];
+    double stayers = UN_region[o] - outflow;
+    diag_M_mig[o][o] = max(0.0, stayers); // Clamp to zero
+    diag_M_mig_row_sum[o] = diag_M_mig[o][o];
+    for (int d = 0; d < NR; ++d)
+    {
+      if (d != o)
+      {
+        diag_M_mig_row_sum[o] += diag_M_mig[o][d];
+      }
+    }
+  }
+
+  // ========== Compute inflows ==========
+  // M^in_d = sum_{o != d} M_{o,d}
+  for (int d = 0; d < NR; ++d)
+  {
+    diag_M_in_region[d] = 0.0;
+    for (int o = 0; o < NR; ++o)
+    {
+      if (o != d)
+      {
+        diag_M_in_region[d] += diag_M_mig[o][d];
+      }
+    }
+  }
+
+  diag_sum_M_out = 0.0;
+  diag_sum_M_in = 0.0;
+  for (int r = 0; r < NR; ++r)
+  {
+    diag_sum_M_out += diag_M_out_region[r];
+    diag_sum_M_in += diag_M_in_region[r];
+  }
+
+  // ========== Update next-period regional labor supply shares ==========
+  // LS_tilde_{r,t+1} = LS_{r,t} - M^out_r + M^in_r
+  // s^LS_{r,t+1} = LS_tilde_{r,t+1} / sum_q LS_tilde_{q,t+1}
+  std::vector<double> LS_next(NR, 0.0);
+  double total_LS_next = 0.0;
+  for (int r = 0; r < NR; ++r)
+  {
+    LS_next[r] = reg_LS[r] - diag_M_out_region[r] + diag_M_in_region[r];
+    LS_next[r] = max(0.0, LS_next[r]); // Clamp to zero
+    total_LS_next += LS_next[r];
+  }
+
+  // Compute shares
+  diag_sum_LS_region_share = 0.0;
+  diag_sum_LS_region_share_next = 0.0;
+  for (int r = 0; r < NR; ++r)
+  {
+    diag_LS_region_share[r] = (LS > 0) ? reg_LS[r] / LS : 1.0 / NR;
+    if (total_LS_next > 0)
+    {
+      diag_LS_region_share_next[r] = LS_next[r] / total_LS_next;
+    }
+    else
+    {
+      diag_LS_region_share_next[r] = 1.0 / NR; // Fallback
+    }
+    diag_sum_LS_region_share += diag_LS_region_share[r];
+    diag_sum_LS_region_share_next += diag_LS_region_share_next[r];
+  }
+
+  // ===== write authoritative next-period labour-supply shares =====
+  // Migration writes LS_region_share_next ONLY; the roll into LS_region_share
+  // happens at the start of next period, so current-period outcomes are
+  // unaffected. National labour conservation: sum_r LS_region_share_next = 1.
+  // (Deposit deduction / SFC payment closure is Phase 5B, postponed.)
+  if (flag_regional_labor == 1 && (int)LS_region_share_next.size() == NR)
+  {
+    for (int r = 0; r < NR; ++r)
+    {
+      LS_region_share_next[r] = (total_LS_next > 0) ? LS_next[r] / total_LS_next : 1.0 / NR;
+    }
+  }
+
+  // ========== Diagnostic migration expenditure ==========
+  // ME_t = sum_o sum_{d != o} MC_{o,d} * M_{o,d}
+  diag_migration_expenditure_total = 0.0;
+  for (int o = 0; o < NR; ++o)
+  {
+    for (int d = 0; d < NR; ++d)
+    {
+      if (d != o)
+      {
+        diag_migration_expenditure_total += diag_MC_mig[o][d] * diag_M_mig[o][d];
+      }
+    }
+  }
+
+  // ==========Migration expenditure SFC closure ==========
+  // Monetary moving costs leave origin-region households and arrive at C-firms as
+  // a separate migration-service revenue flow (allocated by national lagged C-firm
+  // market shares). This runs AFTER SFC_CHECK and AFTER actual migration is known,
+  // and mutates only current-period (1)-index stocks (Deposits_h, NW_h, Deposits_2,
+  // NW_2) plus the regional household deposit state (reg_Dh). It does NOT touch
+  // ordinary Consumption, Q2, or inventories.
+  diag_migration_expenditure_from_households = 0.0;
+  diag_migration_service_revenue_C_total = 0.0;
+  diag_migration_closure_residual = 0.0;
+  diag_regional_deposit_consistency_error = 0.0;
+  diag_sum_reg_Dh_post = 0.0;
+  diag_national_Deposits_h = Deposits_h(1);
+  diag_household_bank_mirror_residual = 0.0;
+  diag_aggregate_bank_deposit_residual = 0.0;
+
+  if (flag_regional_labor == 1 && NR > 0 &&
+      (int)reg_Dh_pre_migration.size() == NR && (int)reg_Dh_post_migration.size() == NR &&
+      (int)reg_ME_out.size() == NR)
+  {
+    // per-origin migration expenditure (actual migration only)
+    double ME_t = 0.0;
+    for (int o = 0; o < NR; ++o)
+    {
+      if ((int)diag_reg_Dh_lag_used.size() == NR)
+        diag_reg_Dh_lag_used[o] = reg_Dh_lag[o]; // snapshot lag
+      double me_out_o = 0.0;
+      for (int d = 0; d < NR; ++d)
+      {
+        if (d != o)
+          me_out_o += diag_MC_mig[o][d] * diag_M_mig[o][d];
+      }
+      if (me_out_o < 0.0)
+        me_out_o = 0.0;
+      reg_ME_out[o] = me_out_o;
+      ME_t += me_out_o;
+    }
+    diag_migration_expenditure_from_households = ME_t;
+
+    // post-migration regional deposits (liquidity scaling makes this >= 0)
+    for (int o = 0; o < NR; ++o)
+    {
+      double dh_post = reg_Dh_pre_migration[o] - reg_ME_out[o];
+      double tol_o = 1e-6 * (std::fabs(reg_Dh_pre_migration[o]) + 1.0);
+      if (dh_post < 0.0)
+      {
+        if (dh_post < -tol_o)
+        {
+          std::cerr << "[ERROR] reg_Dh_post_migration materially negative in region " << o
+                    << " (period " << t << "): " << dh_post << std::endl;
+        }
+        dh_post = 0.0; // clamp tiny numerical negatives
+      }
+      reg_Dh_post_migration[o] = dh_post;
+    }
+
+    // deduct total migration expenditure from national household deposits
+    Deposits_h(1) -= ME_t;
+    NW_h(1) = Deposits_h(1);
+    double Deposits_h_after_migration = Deposits_h(1);
+
+    // Mirror the household deduction onto the bank books. Household
+    // deposits held at bank b (Deposits_hb) and the bank's total deposit
+    // liability (Deposits) must fall by the same amount, otherwise the
+    // bank-layer mirror identities break (CHECKSUMS/DEPOSITCHECK/ADJUSTSTOCKS).
+    // Allocate the payment across banks in proportion to existing household
+    // deposit holdings, which also preserves DepositShare_h.
+    double hh_bank_total = Deposits_hb.Row(1).Sum();
+    double hh_mirror_change = 0.0;
+    for (int b = 1; b <= NB; ++b)
+    {
+      double hh_bank_payment_b = (hh_bank_total > 1e-12)
+                                     ? (ME_t * Deposits_hb(1, b) / hh_bank_total)
+                                     : (NB > 0 ? ME_t / NB : 0.0);
+      Deposits_hb(1, b) -= hh_bank_payment_b;
+      Deposits(1, b) -= hh_bank_payment_b;
+      if (Deposits_hb(1, b) < 0.0)
+      {
+        double tol_b = 1e-6 * (std::fabs(hh_bank_payment_b) + 1.0);
+        if (Deposits_hb(1, b) < -tol_b)
+        {
+          std::cerr << "[ERROR] Deposits_hb materially negative at bank " << b
+                    << " (period " << t << "): " << Deposits_hb(1, b) << std::endl;
+        }
+        Deposits_hb(1, b) = 0.0; // clamp tiny numerical negatives
+      }
+      hh_mirror_change -= hh_bank_payment_b;
+    }
+
+    // reconcile regional household deposits to the national SFC stock
+    double sum_reg_Dh_post = 0.0;
+    for (int o = 0; o < NR; ++o)
+      sum_reg_Dh_post += reg_Dh_post_migration[o];
+    diag_regional_deposit_consistency_error = sum_reg_Dh_post - Deposits_h_after_migration;
+
+    const double dh_eps = 1e-12;
+    if (sum_reg_Dh_post > dh_eps)
+    {
+      double scale = Deposits_h_after_migration / sum_reg_Dh_post;
+      for (int o = 0; o < NR; ++o)
+        reg_Dh_post_migration[o] *= scale;
+    }
+    else
+    {
+      for (int o = 0; o < NR; ++o)
+      {
+        double sh = ((int)LS_region_share.size() == NR) ? LS_region_share[o] : 1.0 / NR;
+        reg_Dh_post_migration[o] = sh * Deposits_h_after_migration;
+      }
+    }
+
+    // allocate ME_t to C-firms by national lagged C-firm market shares
+    //   share_C_j = S2(2,j) / sum_k S2(2,k)   (S2(2,*) is lagged nominal sales)
+    double sales_denom = 0.0;
+    for (int j = 1; j <= N2; ++j)
+      sales_denom += S2(2, j);
+
+    double svc_total = 0.0;
+    double firm_mirror_change = 0.0;
+    for (int j = 1; j <= N2; ++j)
+    {
+      double share_C_j = (sales_denom > 1e-12) ? (S2(2, j) / sales_denom)
+                                               : (N2 > 0 ? 1.0 / N2 : 0.0);
+      double rev_j = share_C_j * ME_t;
+      if (rev_j < 0.0)
+        rev_j = 0.0;
+      // Credit C-firm deposits and net worth (migration-service revenue, separate
+      // from ordinary C-good sales). Pi2 is a reporting accumulator (reset next period).
+      Deposits_2(1, j) += rev_j;
+      NW_2(1, j) += rev_j;
+      Pi2(j) += rev_j;
+      svc_total += rev_j;
+      // Mirror the firm receipt onto its bank's deposit book so the per-bank
+      // firm-deposit identity (Deposits = Deposits_hb + Deposits_eb + firm deposits)
+      // is preserved. Firm j banks at the unique bank b with BankMatch_2(j,b)==1.
+      for (int b = 1; b <= NB; ++b)
+      {
+        if (BankMatch_2(j, b) == 1)
+        {
+          Deposits(1, b) += rev_j;
+          firm_mirror_change += rev_j;
+          break;
+        }
+      }
+    }
+    diag_migration_service_revenue_C_total = svc_total;
+    diag_migration_closure_residual = diag_migration_expenditure_from_households - svc_total;
+
+    // Bank-mirror consistency diagnostics (should be ~0 after the closure).
+    diag_household_bank_mirror_residual = Deposits_h(1) - Deposits_hb.Row(1).Sum();
+    diag_aggregate_bank_deposit_residual =
+        (Deposits_1.Row(1).Sum() + Deposits_2.Row(1).Sum() +
+         Deposits_hb.Row(1).Sum() + Deposits_eb.Row(1).Sum()) -
+        Deposits.Row(1).Sum();
+    (void)hh_mirror_change;
+    (void)firm_mirror_change;
+
+    // end-of-period roll of regional household deposit state
+    sum_reg_Dh_post = 0.0;
+    for (int o = 0; o < NR; ++o)
+    {
+      reg_Dh[o] = reg_Dh_post_migration[o];
+      reg_Dh_lag[o] = reg_Dh[o];
+      sum_reg_Dh_post += reg_Dh_post_migration[o];
+    }
+    diag_sum_reg_Dh_post = sum_reg_Dh_post;
+    diag_national_Deposits_h = Deposits_h(1);
+  }
+
+  // LS_region_share_next will be rolled into LS_region_share at the
+  // beginning of next period, before regional labor supply is computed.
+  // This ensures no retroactive changes to current-period outcomes.
+}
+
 void BROCHURE(void)
 {
   ofstream Errors(errorfilename, ios::app);
@@ -2309,7 +3976,20 @@ void BROCHURE(void)
     {
       if (A1(i) > 0)
       {
-        if (Match(j, i) == 1 && p1(i) + (w(2) / A1(i) + c_en(2) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b < p1(indforn) + (w(2) / A1(indforn) + c_en(2) / A1_en(indforn) + t_CO2 * A1_ef(indforn) / A1_en(indforn)) * b)
+        // Apply a perceived non-regional purchasing-cost wedge to the machine PRICE only.
+        // This affects supplier evaluation; the selected C-firm still pays the posted price p1.
+        // The operating-cost term (labour/energy/carbon)*b is a physical property of the
+        // machine and is never wedged. When the mechanism is inactive the effective prices
+        // equal the posted prices, so the comparison reproduces the baseline exactly.
+        double p1_cand = p1(i);
+        double p1_inc = p1(indforn);
+        if (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0)
+        {
+          int buyer_region = region_firm_assignment_C[j - 1];
+          p1_cand = perceivedRegionalPrice(p1(i), buyer_region, region_firm_assignment_K[i - 1], flag_regional_bias, tau_regional);
+          p1_inc = perceivedRegionalPrice(p1(indforn), buyer_region, region_firm_assignment_K[indforn - 1], flag_regional_bias, tau_regional);
+        }
+        if (Match(j, i) == 1 && p1_cand + (w(2) / A1(i) + c_en(2) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b < p1_inc + (w(2) / A1(indforn) + c_en(2) / A1_en(indforn) + t_CO2 * A1_ef(indforn) / A1_en(indforn)) * b)
         {
           indforn = i;
         }
@@ -2992,7 +4672,7 @@ void PRODMACH(void)
     }
   }
 
-  if ((flag_outputshocks == 1))
+  if (flag_outputshocks == 1)
   {
     for (i = 1; i <= N1; i++)
     {
@@ -3016,7 +4696,7 @@ void PRODMACH(void)
     }
   }
 
-  if ((flag_outputshocks == 2))
+  if (flag_outputshocks == 2)
   {
     loss = Q1.Sum() * shocks_output1(1);
     while (loss > 0)
@@ -3051,7 +4731,7 @@ void PRODMACH(void)
     }
   }
 
-  if ((flag_outputshocks == 3))
+  if (flag_outputshocks == 3)
   {
     loss = Q1.Sum() * shocks_output1(1);
     while (loss > 0)
@@ -3579,6 +5259,9 @@ void ADJUSTEMISSENLAB(void)
         }
       }
 
+      if (tmin == 0)
+        break; // No machine found for firm j; cannot fulfil remaining labour demand
+
       if ((g_c3[tmin - 1][imin - 1][jmin - 1] * dim_mach / A(tmin, imin)) > Ldtemp)
       {
         nmachprod += ceil(Ldtemp * A(tmin, imin) / dim_mach);
@@ -3846,6 +5529,27 @@ void PAY_LAB_INV(void)
         }
       }
     }
+
+    // Split the (actually paid) machine purchase into intra-regional and cross-regional flows
+    if (NR > 0 && Investment_2(j) > 0)
+    {
+      int rb = region_firm_assignment_C[j - 1];
+      int rs = region_firm_assignment_K[indforn - 1];
+      if (rb >= 1 && rb <= NR && rs >= 1 && rs <= NR)
+      {
+        reg_mach_buy_from[rb - 1][rs - 1] += Investment_2(j);
+        if (rb == rs)
+        {
+          reg_mach_buy_local[rb - 1] += Investment_2(j);
+          reg_mach_sell_local[rs - 1] += Investment_2(j);
+        }
+        else
+        {
+          reg_mach_buy_import[rb - 1] += Investment_2(j);
+          reg_mach_sell_export[rs - 1] += Investment_2(j);
+        }
+      }
+    }
   }
 
   // K-firms pay wages
@@ -4025,20 +5729,195 @@ void COMPET2(void)
     exit(EXIT_FAILURE);
   }
 
-  for (j = 1; j <= N2; j++)
-  {
-    f2(1, j) = f2(2, j) * ((2 * omega3) / (1 + exp((-chi) * ((E2(j) - Em2(1)) / Em2(1)))) + (1 - omega3));
+  // Regional home-bias is active only when the flag is on, the wedge is materially
+  // positive, and the model is regionalised. Otherwise the original national
+  // quasi-replicator update below runs unchanged (exact baseline nesting).
+  bool regional_active = (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0);
 
-    if (f2(1, j) <= (1 / (N2r * 500)))
+  if (!regional_active)
+  {
+    // ----- BASELINE: national quasi-replicator (unchanged) -----
+    for (j = 1; j <= N2; j++)
     {
-      f2(1, j) = 0;
-      f2(2, j) = 0;
-      f2(3, j) = 0;
-      if (exiting_2(j) == 0 && exit_payments2(j) == 0 && exit_marketshare2(j) == 0)
+      f2(1, j) = f2(2, j) * ((2 * omega3) / (1 + exp((-chi) * ((E2(j) - Em2(1)) / Em2(1)))) + (1 - omega3));
+
+      if (f2(1, j) <= (1 / (N2r * 500)))
       {
-        exit_marketshare2(j) = 1;
-        if (NR > 0)
+        f2(1, j) = 0;
+        f2(2, j) = 0;
+        f2(3, j) = 0;
+        if (exiting_2(j) == 0 && exit_payments2(j) == 0 && exit_marketshare2(j) == 0)
         {
+          exit_marketshare2(j) = 1;
+          if (NR > 0)
+          {
+            int rr = region_firm_assignment_C[j - 1];
+            if (rr >= 1 && rr <= NR)
+            {
+              reg_exit_marketshare2[rr - 1] += 1.0;
+            }
+          }
+        }
+      }
+      ftot(1) += f2(1, j);
+      ftot(2) += f2(2, j);
+      ftot(3) += f2(3, j);
+    }
+  }
+  else
+  {
+    // ----- REGIONAL HOME-BIAS: buyer-region-specific quasi-replicator -----
+    // Households in region r perceive an effective price for C-firm c that is inflated
+    // by tau_regional when c is located in another region. Each region runs its own
+    // replicator on its own market-share row f2_reg[r], using the existing unweighted
+    // average-price convention but computed per buyer region from effective prices.
+    // The national f2(1,c) is then the consumption-budget-weighted aggregate of the
+    // regional rows; national exit/markup/timing continue to use national f2.
+
+    // Regional consumption-budget weights s_r: primary reg_Dh, then population share
+    // (LS_region_share), then equal shares. Weights are sanitised and normalised.
+    {
+      double sumDh = 0.0;
+      bool dh_ok = ((int)reg_Dh.size() == NR);
+      if (dh_ok)
+      {
+        for (int rr = 0; rr < NR; rr++)
+        {
+          double v = reg_Dh[rr];
+          if (!std::isfinite(v) || v < 0.0)
+          {
+            dh_ok = false;
+            break;
+          }
+          sumDh += v;
+        }
+      }
+      if (dh_ok && sumDh > 0.0)
+      {
+        for (int rr = 0; rr < NR; rr++)
+          reg_cons_share[rr] = reg_Dh[rr] / sumDh;
+      }
+      else
+      {
+        double sumLs = 0.0;
+        bool ls_ok = ((int)LS_region_share.size() == NR);
+        if (ls_ok)
+        {
+          for (int rr = 0; rr < NR; rr++)
+          {
+            double v = LS_region_share[rr];
+            if (!std::isfinite(v) || v < 0.0)
+            {
+              ls_ok = false;
+              break;
+            }
+            sumLs += v;
+          }
+        }
+        if (ls_ok && sumLs > 0.0)
+        {
+          for (int rr = 0; rr < NR; rr++)
+            reg_cons_share[rr] = LS_region_share[rr] / sumLs;
+        }
+        else
+        {
+          for (int rr = 0; rr < NR; rr++)
+            reg_cons_share[rr] = 1.0 / NR;
+        }
+      }
+    }
+
+    // Region-specific replicator: update each f2_reg[r] current row (row 1) from its lag (row 2).
+    for (int rr = 0; rr < NR; rr++)
+    {
+      int region_id = rr + 1; // buyer region (1-based)
+
+      // Region-specific unweighted mean effective price (same convention as national p2m).
+      double p2m_r = 0.0;
+      for (j = 1; j <= N2; j++)
+      {
+        p2m_r += perceivedRegionalPrice(p2(j), region_id, region_firm_assignment_C[j - 1], flag_regional_bias, tau_regional);
+      }
+      p2m_r /= N2r;
+      if (!(p2m_r > 0.0))
+        p2m_r = (p2m > 0.0) ? p2m : 1.0; // guard: fall back to national mean
+
+      // Normalise the region lag row and compute the region weighted-average competitiveness.
+      double ftot2_r = 0.0;
+      for (j = 1; j <= N2; j++)
+        ftot2_r += f2_reg[rr](2, j);
+
+      double Em2_r = 0.0;
+      if (ftot2_r > 0.0)
+      {
+        for (j = 1; j <= N2; j++)
+        {
+          f2_reg[rr](2, j) /= ftot2_r;
+          double pe = perceivedRegionalPrice(p2(j), region_id, region_firm_assignment_C[j - 1], flag_regional_bias, tau_regional);
+          double E2rc;
+          if (omega1 <= 1)
+            E2rc = -omega1 * pe / p2m_r - omega2 * l2(j) / l2m;
+          else
+            E2rc = -pow(pe / p2m_r, omega1) - pow(l2(j) / l2m, omega2);
+          Em2_r += E2rc * f2_reg[rr](2, j);
+        }
+      }
+      else
+      {
+        // Degenerate region row: reseed uniform lag so the replicator can proceed.
+        for (j = 1; j <= N2; j++)
+          f2_reg[rr](2, j) = 1.0 / N2r;
+        for (j = 1; j <= N2; j++)
+        {
+          double pe = perceivedRegionalPrice(p2(j), region_id, region_firm_assignment_C[j - 1], flag_regional_bias, tau_regional);
+          double E2rc;
+          if (omega1 <= 1)
+            E2rc = -omega1 * pe / p2m_r - omega2 * l2(j) / l2m;
+          else
+            E2rc = -pow(pe / p2m_r, omega1) - pow(l2(j) / l2m, omega2);
+          Em2_r += E2rc * f2_reg[rr](2, j);
+        }
+      }
+      if (Em2_r == 0.0)
+        Em2_r = (Em2(1) != 0.0) ? Em2(1) : 1.0; // guard divisor
+
+      // Update region current row.
+      for (j = 1; j <= N2; j++)
+      {
+        double pe = perceivedRegionalPrice(p2(j), region_id, region_firm_assignment_C[j - 1], flag_regional_bias, tau_regional);
+        double E2rc;
+        if (omega1 <= 1)
+          E2rc = -omega1 * pe / p2m_r - omega2 * l2(j) / l2m;
+        else
+          E2rc = -pow(pe / p2m_r, omega1) - pow(l2(j) / l2m, omega2);
+        f2_reg[rr](1, j) = f2_reg[rr](2, j) * ((2 * omega3) / (1 + exp((-chi) * ((E2rc - Em2_r) / Em2_r))) + (1 - omega3));
+      }
+    }
+
+    // National f2(1,c) = consumption-budget-weighted aggregate of regional rows.
+    // Exit/normalisation below then run on national f2 exactly as in the baseline;
+    // an exiting firm is zeroed across every regional row.
+    for (j = 1; j <= N2; j++)
+    {
+      double agg = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+        agg += reg_cons_share[rr] * f2_reg[rr](1, j);
+      f2(1, j) = agg;
+
+      if (f2(1, j) <= (1 / (N2r * 500)))
+      {
+        f2(1, j) = 0;
+        f2(2, j) = 0;
+        f2(3, j) = 0;
+        for (int rr = 0; rr < NR; rr++)
+        {
+          f2_reg[rr](1, j) = 0;
+          f2_reg[rr](2, j) = 0;
+          f2_reg[rr](3, j) = 0;
+        }
+        if (exiting_2(j) == 0 && exit_payments2(j) == 0 && exit_marketshare2(j) == 0)
+        {
+          exit_marketshare2(j) = 1;
           int rr = region_firm_assignment_C[j - 1];
           if (rr >= 1 && rr <= NR)
           {
@@ -4046,10 +5925,10 @@ void COMPET2(void)
           }
         }
       }
+      ftot(1) += f2(1, j);
+      ftot(2) += f2(2, j);
+      ftot(3) += f2(3, j);
     }
-    ftot(1) += f2(1, j);
-    ftot(2) += f2(2, j);
-    ftot(3) += f2(3, j);
   }
 
   if (ftot(1) == 0 || ftot(2) == 0 || ftot(3) == 0)
@@ -4064,6 +5943,23 @@ void COMPET2(void)
     f2(1, j) /= ftot(1);
     f2(2, j) /= ftot(2);
     f2(3, j) /= ftot(3);
+  }
+
+  // Renormalise each regional current row over surviving firms so that region-specific
+  // budgets are distributed across a proper probability vector during allocation.
+  if (regional_active)
+  {
+    for (int rr = 0; rr < NR; rr++)
+    {
+      double s1 = 0.0;
+      for (j = 1; j <= N2; j++)
+        s1 += f2_reg[rr](1, j);
+      if (s1 > 0.0)
+      {
+        for (j = 1; j <= N2; j++)
+          f2_reg[rr](1, j) /= s1;
+      }
+    }
   }
 
   Errors.close();
@@ -4846,66 +6742,275 @@ void ALLOC(void)
 
   for (j = 1; j <= N2; j++)
   {
-    f_temp2(j) = f2(1, j);
-    ftot(1) += f_temp2(j);
     Q2temp(j) = Q2(j) + N(2, j);
   }
 
-  // Consumption demand is distributed among C-firms based on market shares
-  while (Cres >= 1 && ftot(1) > 0)
+  bool regional_active = (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0);
+
+  if (!regional_active)
   {
-    Cresbis = Cres;
+    // ----- BASELINE: single national consumption market (unchanged) -----
     for (j = 1; j <= N2; j++)
     {
-      if (f_temp2(j) > 0)
+      f_temp2(j) = f2(1, j);
+      ftot(1) += f_temp2(j);
+    }
+
+    // Consumption demand is distributed among C-firms based on market shares
+    while (Cres >= 1 && ftot(1) > 0)
+    {
+      Cresbis = Cres;
+      for (j = 1; j <= N2; j++)
       {
-        D_temp2(j) = Cres / cpi_temp * f_temp2(j);
-
-        if (n == 1)
+        if (f_temp2(j) > 0)
         {
-          D2(1, j) += D_temp2(j);
-        }
+          D_temp2(j) = Cres / cpi_temp * f_temp2(j);
 
-        if (D_temp2(j) <= Q2temp(j))
-        {
-          if (n > 1)
+          if (n == 1)
           {
             D2(1, j) += D_temp2(j);
           }
-          S2(1, j) += p2(j) * D_temp2(j);
-          Cresbis -= D_temp2(j) * p2(j);
-          if (n == 1)
+
+          if (D_temp2(j) <= Q2temp(j))
           {
-            l2(j) = 1;
+            if (n > 1)
+            {
+              D2(1, j) += D_temp2(j);
+            }
+            S2(1, j) += p2(j) * D_temp2(j);
+            Cresbis -= D_temp2(j) * p2(j);
+            if (n == 1)
+            {
+              l2(j) = 1;
+            }
+            Q2temp(j) -= D_temp2(j);
           }
-          Q2temp(j) -= D_temp2(j);
+          else
+          {
+            if (n > 1)
+            {
+              D2(1, j) += Q2temp(j);
+            }
+            S2(1, j) += p2(j) * Q2temp(j);
+            Cresbis -= Q2temp(j) * p2(j);
+            f_temp2(j) = 0;
+            if (n == 1)
+            {
+              l2(j) = 1 + (D_temp2(j) - Q2temp(j));
+            }
+            Q2temp(j) = 0;
+          }
+        }
+      }
+      ftot(1) = f_temp2.Sum();
+      f_temp2 /= ftot(1);
+      Cres = Cresbis;
+      cpi_temp = 0;
+      for (j = 1; j <= N2; j++)
+      {
+        cpi_temp += p2(j) * f_temp2(j);
+      }
+      n++;
+    }
+  }
+  else
+  {
+    // ----- REGIONAL HOME-BIAS ALLOCATION -----
+    // Each region r receives a nominal consumption budget Cons * s_r and spends it on
+    // C-firms according to its own ex ante share row f2_reg[r]. Firms hold a single
+    // physical inventory Q2temp shared across regions; when a firm's inventory binds,
+    // its available output is rationed pro rata across the regions' desired demands
+    // (proportional, no region priority). The downstream-observable aggregates
+    // S2 (nominal revenue), D2 (real demand) and l2 (unmet-demand index) are
+    // accumulated exactly as in the baseline single-market loop.
+    std::vector<double> Cres_r(NR, 0.0);
+    std::vector<double> cpi_r(NR, 0.0);
+    std::vector<std::vector<double>> g(NR, std::vector<double>(N2 + 1, 0.0));        // region ex ante shares (firm 1..N2)
+    std::vector<std::vector<double>> realized(NR, std::vector<double>(N2 + 1, 0.0)); // realized real purchases
+
+    for (int rr = 0; rr < NR; rr++)
+    {
+      Cres_r[rr] = Cons * reg_cons_share[rr];
+      if (Cres_r[rr] < 0.0)
+        Cres_r[rr] = 0.0;
+      double gsum = 0.0;
+      for (j = 1; j <= N2; j++)
+      {
+        double gv = f2_reg[rr](1, j);
+        if (!std::isfinite(gv) || gv < 0.0)
+          gv = 0.0;
+        g[rr][j] = gv;
+        gsum += gv;
+      }
+      cpi_r[rr] = 0.0;
+      if (gsum > 0.0)
+      {
+        for (j = 1; j <= N2; j++)
+          cpi_r[rr] += p2(j) * (g[rr][j] / gsum);
+      }
+      if (!(cpi_r[rr] > 0.0))
+        cpi_r[rr] = cpi_temp; // guard: fall back to national CPI
+    }
+
+    // Any region still has budget to spend and at least one available supplier?
+    auto anyActive = [&]() -> bool
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        if (Cres_r[rr] >= 1.0)
+        {
+          double gs = 0.0;
+          for (int jj = 1; jj <= N2; jj++)
+            gs += g[rr][jj];
+          if (gs > 0.0)
+            return true;
+        }
+      }
+      return false;
+    };
+
+    while (anyActive())
+    {
+      std::vector<double> Cresbis_r = Cres_r;
+      // Desired real demand per region per firm, computed from start-of-pass budgets/CPIs.
+      std::vector<std::vector<double>> Xd(NR, std::vector<double>(N2 + 1, 0.0));
+      for (int rr = 0; rr < NR; rr++)
+      {
+        double gsum = 0.0;
+        for (j = 1; j <= N2; j++)
+          gsum += g[rr][j];
+        if (Cres_r[rr] >= 1.0 && gsum > 0.0 && cpi_r[rr] > 0.0)
+        {
+          for (j = 1; j <= N2; j++)
+          {
+            double gnorm = g[rr][j] / gsum;
+            Xd[rr][j] = Cres_r[rr] / cpi_r[rr] * gnorm;
+          }
+        }
+      }
+
+      for (j = 1; j <= N2; j++)
+      {
+        double Xd_j = 0.0;
+        for (int rr = 0; rr < NR; rr++)
+          Xd_j += Xd[rr][j];
+        if (Xd_j <= 0.0)
+          continue;
+
+        if (n == 1)
+        {
+          D2(1, j) += Xd_j;
+          l2(j) = (Xd_j <= Q2temp(j)) ? 1.0 : 1.0 + (Xd_j - Q2temp(j));
+        }
+
+        if (Xd_j <= Q2temp(j))
+        {
+          if (n > 1)
+            D2(1, j) += Xd_j;
+          for (int rr = 0; rr < NR; rr++)
+          {
+            double q = Xd[rr][j];
+            if (q <= 0.0)
+              continue;
+            S2(1, j) += p2(j) * q;
+            Cresbis_r[rr] -= q * p2(j);
+            realized[rr][j] += q;
+          }
+          Q2temp(j) -= Xd_j;
         }
         else
         {
+          double ratio = (Xd_j > 0.0) ? (Q2temp(j) / Xd_j) : 0.0;
           if (n > 1)
-          {
             D2(1, j) += Q2temp(j);
-          }
-          S2(1, j) += p2(j) * Q2temp(j);
-          Cresbis -= Q2temp(j) * p2(j);
-          f_temp2(j) = 0;
-          if (n == 1)
+          for (int rr = 0; rr < NR; rr++)
           {
-            l2(j) = 1 + (D_temp2(j) - Q2temp(j));
+            double q = Xd[rr][j] * ratio;
+            if (q <= 0.0)
+              continue;
+            S2(1, j) += p2(j) * q;
+            Cresbis_r[rr] -= q * p2(j);
+            realized[rr][j] += q;
           }
-          Q2temp(j) = 0;
+          for (int rr = 0; rr < NR; rr++)
+            g[rr][j] = 0.0;
+          Q2temp(j) = 0.0;
+        }
+      }
+
+      // Update per-region residual budgets and CPIs for the next pass.
+      for (int rr = 0; rr < NR; rr++)
+      {
+        Cres_r[rr] = Cresbis_r[rr];
+        if (Cres_r[rr] < 0.0)
+          Cres_r[rr] = 0.0;
+        double gsum = 0.0;
+        for (j = 1; j <= N2; j++)
+          gsum += g[rr][j];
+        cpi_r[rr] = 0.0;
+        if (gsum > 0.0)
+        {
+          for (j = 1; j <= N2; j++)
+            cpi_r[rr] += p2(j) * (g[rr][j] / gsum);
+        }
+        else
+        {
+          Cres_r[rr] = 0.0;
+        }
+        if (!(cpi_r[rr] > 0.0) && Cres_r[rr] > 0.0)
+          cpi_r[rr] = cpi_temp;
+      }
+      n++;
+    }
+
+    // Split realized consumption purchases into intra-regional and cross-regional flows (nominal value).
+    for (int rr = 0; rr < NR; rr++)
+    {
+      int region_id = rr + 1;
+      for (j = 1; j <= N2; j++)
+      {
+        double val = realized[rr][j] * p2(j);
+        if (val <= 0.0)
+          continue;
+        int rs = region_firm_assignment_C[j - 1];
+        if (rs >= 1 && rs <= NR)
+          reg_cons_buy_from[rr][rs - 1] += val;
+        if (region_firm_assignment_C[j - 1] == region_id)
+        {
+          reg_cons_buy_local[rr] += val;
+          reg_cons_sell_local[rr] += val;
+        }
+        else
+        {
+          reg_cons_buy_import[rr] += val;
+          if (rs >= 1 && rs <= NR)
+            reg_cons_sell_export[rs - 1] += val;
         }
       }
     }
-    ftot(1) = f_temp2.Sum();
-    f_temp2 /= ftot(1);
-    Cres = Cresbis;
-    cpi_temp = 0;
-    for (j = 1; j <= N2; j++)
+
+    // Demand-side regional diagnostic: local-purchase share and average applied wedge.
+    if (verbose)
     {
-      cpi_temp += p2(j) * f_temp2(j);
+      double tot_real = 0.0, local_real = 0.0, wedge_num = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+      {
+        int region_id = rr + 1;
+        for (j = 1; j <= N2; j++)
+        {
+          double q = realized[rr][j];
+          if (q <= 0.0)
+            continue;
+          tot_real += q;
+          if (region_firm_assignment_C[j - 1] == region_id)
+            local_real += q;
+          else
+            wedge_num += q * tau_regional;
+        }
+      }
+      diag_hh_local_cons_share = (tot_real > 0.0) ? (local_real / tot_real) : 0.0;
+      diag_wedge_cmarket = (tot_real > 0.0) ? (wedge_num / tot_real) : 0.0;
     }
-    n++;
   }
 
   // Nominal consumption is calculated
@@ -5807,6 +7912,43 @@ void ENTRYEXIT(void)
     f2(1, j) /= ftot(1);
     f2(2, j) /= ftot(2);
     f2(3, j) /= ftot(3);
+  }
+
+  // Mirror the (normalised) national C-firm shares of entrant firms into every regional
+  // market-share row, then renormalise each regional row so it remains a valid share vector.
+  if (NR > 0)
+  {
+    for (j = 1; j <= N2; j++)
+    {
+      if (exiting_2(j) == 1)
+      {
+        for (int rr = 0; rr < NR; rr++)
+        {
+          f2_reg[rr](1, j) = f2(1, j);
+          f2_reg[rr](2, j) = f2(2, j);
+          f2_reg[rr](3, j) = f2(3, j);
+        }
+      }
+    }
+    for (int rr = 0; rr < NR; rr++)
+    {
+      double s1 = 0.0, s2 = 0.0, s3 = 0.0;
+      for (j = 1; j <= N2; j++)
+      {
+        s1 += f2_reg[rr](1, j);
+        s2 += f2_reg[rr](2, j);
+        s3 += f2_reg[rr](3, j);
+      }
+      if (s1 > 0.0)
+        for (j = 1; j <= N2; j++)
+          f2_reg[rr](1, j) /= s1;
+      if (s2 > 0.0)
+        for (j = 1; j <= N2; j++)
+          f2_reg[rr](2, j) /= s2;
+      if (s3 > 0.0)
+        for (j = 1; j <= N2; j++)
+          f2_reg[rr](3, j) /= s3;
+    }
   }
 
   // Update C-firm K-firm network
@@ -6803,7 +8945,7 @@ void SFC_CHECK(void)
   // Calculate the sectoral balances
   Balance_h = Wages + Benefits + InterestDeposits_h + Dividends(1) + TransferFuel - Taxes_h - Consumption - FirmTransfers;
   Balance_1 = Sales1.Sum() + InterestDeposits_1.Sum() + FirmTransfers_1 + GovPurchases_1 - Wages_1.Sum() - EnergyPayments_1.Sum() - Dividends_1.Sum() - Taxes_1.Sum() - Taxes_CO2_1.Sum();
-  Balance_2 = Sales2.Sum() + InterestDeposits_2.Sum() + FirmTransfers_2 - Wages_2.Sum() - Investment_2.Sum() - LoanInterest_2.Sum() - EnergyPayments_2.Sum() - Dividends_2.Sum() - Taxes_2.Sum() - Taxes_CO2_2.Sum();
+  Balance_2 = Sales2.Sum() + InterestDeposits_2.Sum() + FirmTransfers_2 - Wages_2.Sum() - Investment_2.Sum() - LoanInterest_2.Sum() - EnergyPayments_2.Sum() - Dividends_2.Sum() - Taxes_2.Sum() - Taxes_CO2_2.Sum() + GovPurchases_2;
   Balance_b = LoanInterest.Sum() + InterestBonds_b.Sum() + InterestReserves_b.Sum() + Bailout_b.Row(1).Sum() + BankTransfer - InterestDeposits.Sum() - Taxes_b.Sum() - InterestAdvances_b.Sum() - Dividends_b.Sum();
   Balance_e = EnergyPayments + InterestDeposits_e + Subsidy_Exp - Wages_en - Dividends_e - Taxes_CO2_e - FuelCost - Taxes_e_shock;
   Balance_cb = InterestBonds_cb + InterestAdvances - InterestReserves - TransferCB;
@@ -6841,16 +8983,9 @@ void SFC_CHECK(void)
   // Compare stock and flow measures of K-firm net worth
   for (i = 1; i <= N1; i++)
   {
-    // Compute per-firm EA credit (must match RG_BLOCK_FISCAL routing)
-    double ea_firm_i = 0.0;
-    if (NR > 0 && gamma_bar > 0.0)
-    {
-      int rr = region_firm_assignment_K[i - 1]; // 1-based region index
-      if (rr >= 1 && rr <= NR && reg_N1[rr - 1] > 0 && EA_rg[rr - 1] > 0.0)
-      {
-        ea_firm_i = EA_rg[rr - 1] / reg_N1[rr - 1];
-      }
-    }
+    // Per-firm govt investment credit recorded during RG_BLOCK_FISCAL disbursement
+    // (public-capital EA within region + adaptation I_adapt over perceived-national shares).
+    double ea_firm_i = (NR > 0) ? KfirmGovCredit(i) : 0.0;
     Balances_1(i) = Sales1(i) + InterestDeposits_1(i) - Wages_1(i) - EnergyPayments_1(i) - Dividends_1(i) - Taxes_1(i) - Taxes_CO2_1(i) + ea_firm_i;
     NW_1(1, i) = Deposits_1(1, i);
     NW_1_c(i) = NW_1(2, i) + Balances_1(i) + baddebt_1(i) + Injection_1(i);
@@ -6866,7 +9001,7 @@ void SFC_CHECK(void)
   for (i = 1; i <= N2; i++)
   {
     NW_2(1, i) = CapitalStock(1, i) + deltaCapitalStock(1, i) + Inventories(1, i) + Deposits_2(1, i) - Loans_2(1, i);
-    NW_2_c(i) = NW_2(2, i) + Pi2(i) + baddebt_2(i) + Injection_2(i) - Dividends_2(i) - Taxes_2(i) - Taxes_CO2_2(i) - Loss_Capital(i) - Loss_Inventories(i);
+    NW_2_c(i) = NW_2(2, i) + Pi2(i) + baddebt_2(i) + Injection_2(i) - Dividends_2(i) - Taxes_2(i) - Taxes_CO2_2(i) - Loss_Capital(i) - Loss_Inventories(i) + sub_Rec(i);
   }
   deviation = fabs((NW_2_c.Sum() - NW_2.Row(1).Sum()) / NW_2_c.Sum());
   if (deviation > regionalaccountingtolerance)
@@ -6888,6 +9023,20 @@ void SFC_CHECK(void)
   // Compare stock and flow measures of CB net worth
   NW_cb(1) = GB_cb(1) + Advances(1) - Reserves(1) - Deposits_fuel_cb(1);
   NW_cb_c = NW_cb(2) + Balance_cb + Adjustment_cb;
+  if (t >= 100 && t <= 104)
+  {
+    double gap = NW_cb(1) - NW_cb_c;
+    double dfuel = Deposits_fuel_cb(1) - Deposits_fuel_cb(2);
+    Errors << "[CBDBG t=" << t << "] gap=" << gap
+           << " dNW_cb=" << (NW_cb(1) - NW_cb(2))
+           << " Balance_cb=" << Balance_cb
+           << " Adjustment_cb=" << Adjustment_cb
+           << " dDeposits_fuel_cb=" << dfuel
+           << " dGB_cb=" << (GB_cb(1) - GB_cb(2))
+           << " dAdvances=" << (Advances(1) - Advances(2))
+           << " dReserves=" << (Reserves(1) - Reserves(2))
+           << " NW_cb1=" << NW_cb(1) << " GDP_n=" << GDP_n(1) << std::endl;
+  }
   deviation = fabs((NW_cb(1) - NW_cb_c) / NW_cb_c);
   if (deviation > tolerance && fabs(NW_cb(1) / GDP_n(1)) > tolerance && fabs(NW_cb_c / GDP_n(1)) > tolerance)
   {
@@ -7420,9 +9569,19 @@ void UPDATE(void)
     DebtService_2(2, j) = DebtService_2(1, j);
     f2(3, j) = f2(2, j);
     f2(2, j) = f2(1, j);
+    // Advance the lag rows of every regional market-share matrix in lock-step with f2.
+    if (NR > 0)
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        f2_reg[rr](3, j) = f2_reg[rr](2, j);
+        f2_reg[rr](2, j) = f2_reg[rr](1, j);
+      }
+    }
     D2(2, j) = D2(1, j);
     N(2, j) = N(1, j);
     Inventories(2, j) = Inventories(1, j);
+
     EI(2, j) = EI(1, j);
     deltaCapitalStock(2, j) = deltaCapitalStock(1, j);
     S2(2, j) = S2(1, j);
@@ -7901,7 +10060,37 @@ void SAVE(void)
       target.width(60);
       target << n_exit2; // 75
       target.width(60);
-      target << Deficit << endl; // 76
+      target << Deficit; // 76
+      target.width(60);
+      target << GRecPaid_total; // 77
+      target.width(60);
+      target << REV_rg_total; // 78 Regional Revenue
+      target.width(60);
+      target << (SP_total + GRecPaid_total + EA_total); // 79 Regional Expenditure
+      target.width(60);
+      target << TR_rg_total; // 80: TR_rg_total (Total Transfer CG to Regional Govt)
+      target.width(60);
+      target << TS_rg_total; // 81: TS_rg_total (Total Tax Share Transfer to Regional Govt)
+      target.width(60);
+      target << SP_total; // 82: SP_total (Total Social Protection)
+      target.width(60);
+      target << K_adapt_total; // 83: K_adapt_total (Total Protection stock)
+      target.width(60);
+      target << I_adapt_total; // 84: I_adapt_total (Total Planned Adaptation flow)
+      target.width(60);
+      target << EA_total; // 85: EA_total (Total Economic Affairs)
+      target.width(60);
+      target << GT_base_total; // 86: GT_base_total (Total Base Grant CG to RegGov)
+      target.width(60);
+      target << GT_topup_total; // 87: GT_topup_total (Total Top-up Grant CG to RegGov)
+      target.width(60);
+      target << Q1tot; // 88: Q1tot (Total K-firm output in model)
+      target.width(60);
+      target << Q2tot; // 89: Q2tot (Total C-firm output in model)
+      target.width(60);
+      target << H1; // 90: H1 (Normalised Herfindahl index K-firms)
+      target.width(60);
+      target << H2 << endl; // 91: H2 (Normalised Herfindahl index C-firms)
     };
 
     write_resultsexp_row(inv_res);
@@ -8033,8 +10222,8 @@ void SAVE(void)
         target.width(60);
         target << ((reg_CreditSupply_all[region - 1] > 0) ? (reg_CreditDemand_all[region - 1] / reg_CreditSupply_all[region - 1]) : 0); // 22
         target.width(60);
-        target << reg_NW_1[region - 1]; // 23
-        // target << ((reg_GDP_n[region - 1] > 0) ? (reg_NW_1[region - 1] / (reg_GDP_n[region - 1] * 4)) : 0); // 23
+        // target << reg_NW_1[region - 1]; // 23
+        target << ((reg_GDP_n[region - 1] > 0) ? (reg_NW_1[region - 1] / (reg_GDP_n[region - 1] * 4)) : 0); // 23
         target.width(60);
         target << reg_Am2[region - 1]; // 24
         target.width(60);
@@ -8084,7 +10273,72 @@ void SAVE(void)
         target << ((reg_GDP_r_lag[region - 1] > 0) ? (pow(reg_GDP_r[region - 1] / reg_GDP_r_lag[region - 1], 4) - 1) : 0); // 46
         target.width(60);
         target << reg_n_exit2[region - 1]; // 47
-        target << endl;
+        target.width(60);
+        target << K_adapt_rg[region - 1]; // 48
+        target.width(60);
+        target << I_adapt_rg[region - 1]; // 49
+        target.width(60);
+        target << Omega_adapt_rg[region - 1]; // 50
+        target.width(60);
+        target << GRecPaid_rg[region - 1]; // 51: GRecPaid_rg (Recovery disbursement)
+        target.width(60);
+        target << Saff_rg[region - 1]; // 52: Saff_rg (Mean damage share)
+        target.width(60);
+        target << REV_rg[region - 1]; // 53: Regional Govt. Revenue
+        target.width(60);
+        target << EXP_rg[region - 1]; // 54: Regional Govt. Expenditure
+        target.width(60);
+        target << GT_rg[region - 1]; // 55: GT_rg (Transfer from CG to Region)
+        target.width(60);
+        target << TS_rg[region - 1]; // 56: TS_rg (Tax Share Transfer to Region)
+        target.width(60);
+        target << SP_rg[region - 1]; // 57: SP_rg (Regional Social Protection)
+        target.width(60);
+        target << EA_rg[region - 1]; // 58: EA_rg (Regional Economic Affairs)
+        target.width(60);
+        target << GT_base_rg[region - 1]; // 59: GT_base_rg (Base Grant from CG)
+        target.width(60);
+        target << GT_topup_rg[region - 1]; // 60: GT_topup_rg (Top-up Grant from CG)
+        target.width(60);
+        target << reg_Q1tot[region - 1]; // 61: reg_Q1tot (Regional K-firm output)
+        target.width(60);
+        target << reg_Q2tot[region - 1]; // 62: reg_Q2tot (Regional C-firm output)
+        target.width(60);
+        target << reg_H1[region - 1]; // 63: reg_H1 (Regional normalised Herfindahl index K-firms)
+        target.width(60);
+        target << reg_H2[region - 1]; // 64: reg_H2 (Regional normalised Herfindahl index C-firms)
+        target.width(60);
+        target << reg_w[region - 1]; // 65: reg_w (Regional wage rate; income/benefit/migration use)
+        target.width(60);
+        target << reg_YD[region - 1]; // 66: reg_YD (Regional disposable income, decomposition)
+        target.width(60);
+        target << reg_C[region - 1]; // 67: reg_C (Regional consumption, decomposition)
+        {
+          int rgi = region - 1;
+          double mb = reg_mach_buy_local[rgi] + reg_mach_buy_import[rgi];
+          double ms = reg_mach_sell_local[rgi] + reg_mach_sell_export[rgi];
+          double cb = reg_cons_buy_local[rgi] + reg_cons_buy_import[rgi];
+          double cs = reg_cons_sell_local[rgi] + reg_cons_sell_export[rgi];
+          target.width(60);
+          target << ((mb > 0.0) ? reg_mach_buy_import[rgi] / mb : 0.0); // 68: mach_import_share
+          target.width(60);
+          target << ((ms > 0.0) ? reg_mach_sell_export[rgi] / ms : 0.0); // 69: mach_export_share
+          target.width(60);
+          target << ((cb > 0.0) ? reg_cons_buy_import[rgi] / cb : 0.0); // 70: cons_import_share
+          target.width(60);
+          target << ((cs > 0.0) ? reg_cons_sell_export[rgi] / cs : 0.0); // 71: cons_export_share
+          for (int ss = 0; ss < NR; ss++)
+          {
+            target.width(60);
+            target << reg_mach_buy_from[rgi][ss]; // 72..: mach_buy_from_R(ss+1)
+          }
+          for (int ss = 0; ss < NR; ss++)
+          {
+            target.width(60);
+            target << reg_cons_buy_from[rgi][ss]; // ..: cons_buy_from_R(ss+1)
+          }
+          target << endl;
+        }
       };
 
       for (int rr = 1; rr <= NR; ++rr)
@@ -8474,7 +10728,59 @@ void SAVE(void)
         target.width(60);
         target << EXP_rg[region - 1]; // 29: EXP_rg (Regional total expenditure)
         target.width(60);
-        target << K_pub_rg[region - 1] << endl; // 30: K_pub_rg (Regional public capital)
+        target << K_pub_rg[region - 1]; // 30: K_pub_rg (Regional public capital)
+        target.width(60);
+        target << GT_rg[region - 1]; // 31: GT_rg (Transfer from CG to Region)
+        target.width(60);
+        target << TS_rg[region - 1]; // 32: TS_rg (Tax Share Transfer to Region)
+        target.width(60);
+        target << GRecPaid_rg[region - 1]; // 33: GRecPaid_rg (Regional Recovery)
+        target.width(60);
+        target << K_adapt_rg[region - 1]; // 34: K_adapt_rg (Regional Protection stock)
+        target.width(60);
+        target << I_adapt_rg[region - 1]; // 35: I_adapt_rg (Regional Planned Adaptation flow)
+        target.width(60);
+        target << GT_base_rg[region - 1]; // 36: GT_base_rg (Base Grant from CG)
+        target.width(60);
+        target << GT_topup_rg[region - 1]; // 37: GT_topup_rg (Top-up Grant from CG)
+        target.width(60);
+        target << reg_H1[region - 1]; // 40: H1 ( Herfindahl index K-firms)
+        target.width(60);
+        target << reg_H2[region - 1]; // 41: H2 ( Herfindahl index C-firms)
+        target.width(60);
+        target << reg_w[region - 1]; // 42: reg_w (Regional wage rate; income/benefit/migration use)
+        target.width(60);
+        target << reg_YD[region - 1]; // 43: reg_YD (Regional disposable income, decomposition)
+        target.width(60);
+        target << reg_C[region - 1]; // 44: reg_C (Regional consumption, decomposition)
+        target.width(60);
+        target << ((LS > 0) ? reg_LS[region - 1] / LS : 0.0); // 45: LS_region_share (sigma_r)
+        {
+          int rgi = region - 1;
+          double mb = reg_mach_buy_local[rgi] + reg_mach_buy_import[rgi];
+          double ms = reg_mach_sell_local[rgi] + reg_mach_sell_export[rgi];
+          double cb = reg_cons_buy_local[rgi] + reg_cons_buy_import[rgi];
+          double cs = reg_cons_sell_local[rgi] + reg_cons_sell_export[rgi];
+          target.width(60);
+          target << ((mb > 0.0) ? reg_mach_buy_import[rgi] / mb : 0.0); // 44: mach_import_share
+          target.width(60);
+          target << ((ms > 0.0) ? reg_mach_sell_export[rgi] / ms : 0.0); // 45: mach_export_share
+          target.width(60);
+          target << ((cb > 0.0) ? reg_cons_buy_import[rgi] / cb : 0.0); // 46: cons_import_share
+          target.width(60);
+          target << ((cs > 0.0) ? reg_cons_sell_export[rgi] / cs : 0.0); // 47: cons_export_share
+          for (int ss = 0; ss < NR; ss++)
+          {
+            target.width(60);
+            target << reg_mach_buy_from[rgi][ss]; // 48..: mach_buy_from_R(ss+1)
+          }
+          for (int ss = 0; ss < NR; ss++)
+          {
+            target.width(60);
+            target << reg_cons_buy_from[rgi][ss]; // ..: cons_buy_from_R(ss+1)
+          }
+          target << endl;
+        }
       };
 
       for (int rr = 1; rr <= NR; ++rr)
@@ -8595,7 +10901,15 @@ void SAVE(void)
     inv_ymc.width(60);
     inv_ymc << EA_total; // 52
     inv_ymc.width(60);
-    inv_ymc << K_pub_total << endl; // 53
+    inv_ymc << K_pub_total; // 53
+    inv_ymc.width(60);
+    inv_ymc << GT_base_total; // 54
+    inv_ymc.width(60);
+    inv_ymc << GT_topup_total; // 55
+    inv_ymc.width(60);
+    inv_ymc << H1; // 56
+    inv_ymc.width(60);
+    inv_ymc << H2 << endl; // 57
     inv_ymc.close();
   }
 }
@@ -8681,12 +10995,8 @@ void FOLDERS(char *path)
   }
   outstr += "output";
   std::string errstr = outstr + "/errors";
-  char out_dir[outstr.length()];
-  char err_dir[errstr.length()];
-  strcpy(out_dir, outstr.c_str());
-  strcpy(err_dir, errstr.c_str());
-  const int out_fol = make_directory(out_dir);
-  const int err_fol = make_directory(err_dir);
+  const int out_fol = make_directory(outstr.c_str());
+  const int err_fol = make_directory(errstr.c_str());
 }
 
 void GENFILEOUTPUT1(char *path, const char *s1, char runname[], char const *seednumber)
