@@ -924,6 +924,19 @@ void SETPARAMS(const rapidjson::Document &inputs)
   // These preserve shock-type differentiation at the regional level
   if (NR > 0)
   {
+    // Resize legacy flattened regional shock vectors.
+    // Each shock channel contains one value per region.
+    const int n_regional_shock_params = nshocks * NR;
+
+    a_0_reg.ReSize(n_regional_shock_params);
+    b_0_reg.ReSize(n_regional_shock_params);
+    shockexponent1_reg.ReSize(n_regional_shock_params);
+    shockexponent2_reg.ReSize(n_regional_shock_params);
+
+    a_0_reg = 0.0;
+    b_0_reg = 0.0;
+    shockexponent1_reg = 0.0;
+    shockexponent2_reg = 0.0;
     // Allocate 2D arrays [shock][region]
     a_0_regional.resize(nshocks);
     b_0_regional.resize(nshocks);
@@ -1025,8 +1038,6 @@ void SETPARAMS(const rapidjson::Document &inputs)
     }
     std::cerr << "[DEBUG] Shock parameter loading finished successfully" << std::endl;
     std::cerr.flush();
-
-
 
     for (int i = 1; i <= nshocks; i++)
     {
@@ -1842,6 +1853,8 @@ void RESIZE(void)
   {
     region_firm_assignment_K.assign(N1, 0);
     region_firm_assignment_C.assign(N2, 0);
+    region_firm_assignment_K_next.assign(N1, 0);
+    region_firm_assignment_C_next.assign(N2, 0);
     region_labor_supply.assign(NR, 0.0);
     region_unemployment.assign(NR, 0.0);
     region_dirty_capacity.assign(NR, 0.0);
@@ -2121,6 +2134,8 @@ void INITIALIZE(int Exseed)
 
     assign_regions_by_share(region_firm_assignment_K, region_K_shares, N1);
     assign_regions_by_share(region_firm_assignment_C, region_C_shares, N2);
+    region_firm_assignment_K_next = region_firm_assignment_K;
+    region_firm_assignment_C_next = region_firm_assignment_C;
     region_labor_supply.assign(NR, 0.0);
     region_unemployment.assign(NR, 0.0);
     region_dirty_capacity.assign(NR, 0.0);

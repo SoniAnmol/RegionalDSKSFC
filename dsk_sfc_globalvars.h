@@ -567,6 +567,8 @@ RowVector ge_growth_probability;                      // Probabilities for alloc
 RowVector de_growth_probability;                      // Probabilities for allocating new dirty capacity by region
 std::vector<int> region_firm_assignment_K;            // Region index for each K-firm (1-based regions)
 std::vector<int> region_firm_assignment_C;            // Region index for each C-firm (1-based regions)
+std::vector<int> region_firm_assignment_K_next;       // Next-period region index for each K-firm
+std::vector<int> region_firm_assignment_C_next;       // Next-period region index for each C-firm
 std::vector<double> region_labor_supply;              // Regional labour supply levels
 std::vector<double> region_unemployment;              // Regional unemployment levels (deprecated: use reg_U)
 std::vector<std::string> region_resultsexp_names;     // Filenames for regional resultsexp outputs
