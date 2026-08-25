@@ -582,8 +582,10 @@ bool profit_expectations_initialized_reloc;
 std::vector<double> market_potential_K_reloc; // Nominal machine demand per K-firm in region
 std::vector<double> market_potential_C_reloc; // Nominal consumption budget per C-firm in region
 
-std::vector<double> market_signal_K_reloc; // Log relative K-sector market opportunity
-std::vector<double> market_signal_C_reloc; // Log relative C-sector market opportunity
+std::vector<double> market_signal_K_reloc;       // Log relative K-sector market opportunity
+std::vector<double> market_signal_C_reloc;       // Log relative C-sector market opportunity
+std::vector<double> attractiveness_econ_K_reloc; // Preliminary economic attractiveness for K firm relocation
+std::vector<double> attractiveness_econ_C_reloc; // Preliminary economic attractiveness for C firm relocation
 
 std::vector<double> region_labor_supply;              // Regional labour supply levels
 std::vector<double> region_unemployment;              // Regional unemployment levels (deprecated: use reg_U)

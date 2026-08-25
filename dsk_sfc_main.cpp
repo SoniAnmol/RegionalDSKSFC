@@ -1458,6 +1458,25 @@ void SETPARAMS(const rapidjson::Document &inputs)
     lambda_profit_reloc = 0.25;
   }
 
+  // Firm-relocation market-opportunity weights.
+  // Units: profit-margin equivalent per unit of log relative market opportunity.
+  beta_market_K_reloc = getDoubleParam("beta_market_K_reloc", 0.10);
+  beta_market_C_reloc = getDoubleParam("beta_market_C_reloc", 0.10);
+
+  if (beta_market_K_reloc < 0.0)
+  {
+    std::cerr << "[WARN] beta_market_K_reloc must be >= 0; resetting to 0.10"
+              << std::endl;
+    beta_market_K_reloc = 0.10;
+  }
+
+  if (beta_market_C_reloc < 0.0)
+  {
+    std::cerr << "[WARN] beta_market_C_reloc must be >= 0; resetting to 0.10"
+              << std::endl;
+    beta_market_C_reloc = 0.10;
+  }
+
   // Regional labour mobility flag (1=on, 0=off)
   // Use defensive lambda for reading from flags array
   auto getFlagIntMobility = [&inputs](const char *key, int default_val) -> int
@@ -1924,6 +1943,8 @@ void RESIZE(void)
     market_potential_C_reloc.assign(NR, 0.0);
     market_signal_K_reloc.assign(NR, 0.0);
     market_signal_C_reloc.assign(NR, 0.0);
+    attractiveness_econ_K_reloc.assign(NR, 0.0);
+    attractiveness_econ_C_reloc.assign(NR, 0.0);
     region_labor_supply.assign(NR, 0.0);
     region_unemployment.assign(NR, 0.0);
     region_dirty_capacity.assign(NR, 0.0);

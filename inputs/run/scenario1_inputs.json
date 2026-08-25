@@ -116,7 +116,9 @@
       "tau_mig": 2,
       "chi_w": 0.5,
       "freq_firm_reloc": 4,
-      "lambda_profit_reloc": 0.25
+      "lambda_profit_reloc": 0.25,
+      "beta_market_K_reloc": 0.10,
+      "beta_market_C_reloc": 0.10
     }
   ],
   "climparams": [

@@ -23,6 +23,10 @@ extern std::vector<double> market_potential_C_reloc;
 extern std::vector<double> market_signal_K_reloc;
 extern std::vector<double> market_signal_C_reloc;
 
+// Preliminary regional economic attractiveness
+extern std::vector<double> attractiveness_econ_K_reloc;
+extern std::vector<double> attractiveness_econ_C_reloc;
+
 // Regional realised sector aggregates
 extern std::vector<double> reg_S1;
 extern std::vector<double> reg_S2;
@@ -39,6 +43,8 @@ extern bool profit_expectations_initialized_reloc;
 
 // Parameters
 extern double lambda_profit_reloc;
+extern double beta_market_K_reloc;
+extern double beta_market_C_reloc;
 
 // Firm regional relocation
 void FIRM_RELOCATION_COMPUTATION(void);

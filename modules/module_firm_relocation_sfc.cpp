@@ -173,6 +173,25 @@ void FIRM_RELOCATION_COMPUTATION(void)
             market_signal_K_reloc[rr] = 0.0;
         }
     }
+    // ------------------------------------------------------------
+    // Preliminary regional economic attractiveness
+    // ------------------------------------------------------------
+    //
+    // Profitability enters with coefficient 1.
+    // Sector-specific market opportunity shifts regional attractiveness.
+    //
+    // Climate risk is intentionally excluded at this stage and will
+    // enter as a separate negative component later.
 
+    for (int rr = 0; rr < NR; rr++)
+    {
+        attractiveness_econ_K_reloc[rr] =
+            rho_K_reloc_exp[rr] +
+            beta_market_K_reloc * market_signal_K_reloc[rr];
+
+        attractiveness_econ_C_reloc[rr] =
+            rho_C_reloc_exp[rr] +
+            beta_market_C_reloc * market_signal_C_reloc[rr];
+    }
     // No relocation decision is made in this step.
 }
