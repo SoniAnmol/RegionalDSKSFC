@@ -1424,6 +1424,14 @@ void SETPARAMS(const rapidjson::Document &inputs)
   // Mobility parameters
   // Fixed moving cost and distance-based moving cost (utility equivalent)
   mu_F_mig = getDoubleParam("mu_F_mig", 4);
+  // Quarterly baseline: 4 periods = once per year.
+  freq_firm_reloc = getIntParam("freq_firm_reloc", 4);
+  if (freq_firm_reloc < 1)
+  {
+    std::cerr << "[WARN] freq_firm_reloc must be >= 1; resetting to 4"
+              << std::endl;
+    freq_firm_reloc = 4;
+  }
 
   // Regional mobility flag (1=on, 0=off)
   // Use defensive lambda for reading from flags array
@@ -1436,7 +1444,22 @@ void SETPARAMS(const rapidjson::Document &inputs)
     }
     return default_val;
   };
+
+  // Labour inter-regional relocation flag
   flag_regional_mobility = getFlagIntMobility("flag_regional_mobility", 0);
+
+  // Firm inter-regional relocation flag
+  flag_firm_relocation = getFlagIntMobility("flag_firm_relocation", 0);
+
+  if (flag_firm_relocation != 0 && flag_firm_relocation != 1)
+  {
+    std::cerr << "[WARN] flag_firm_relocation invalid ("
+              << flag_firm_relocation
+              << "); resetting to 0"
+              << std::endl;
+
+    flag_firm_relocation = 0;
+  }
 
   // Regional labour market flags (1=on, 0=off)
   flag_regional_labor = getFlagIntMobility("flag_regional_labor", 0);

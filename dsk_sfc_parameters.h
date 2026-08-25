@@ -200,8 +200,8 @@ std::vector<std::vector<double>> phi_alloc_c_rg;   // [NC_adapt][NR] investment 
 std::vector<std::vector<double>> delta_adapt_c_rg; // [NC_adapt][NR] per-channel depreciation rate (default 0.05)
 
 // Mobility parameters
-double mu_F_mig;            // Fixed moving cost (origin-wage units, not utility-equivalent)
-int flag_regional_mobility; // Flag to enable/disable regional mobility (1=on, 0=off)
+int freq_firm_reloc;        // Frequency, in model periods, at which firms reconsider relocation
+double mu_F_mig;            // Fixed moving cost for households (origin-wage units, not utility-equivalent)
 
 // Mobility utility parameters
 double beta_w_mig;    // Log-wage coefficient in regional utility (default 1.0)

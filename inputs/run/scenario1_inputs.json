@@ -114,7 +114,8 @@
       "mu_F_mig": 4,
       "p_move_mig": 0.0053,
       "tau_mig": 2,
-      "chi_w": 0.5
+      "chi_w": 0.5,
+      "freq_firm_reloc": 4
     }
   ],
   "climparams": [
@@ -470,6 +471,7 @@
       "flag_uniformshocks": 1,
       "flag_desc": 0,
       "flag_regional_mobility": 1,
+      "flag_firm_relocation": 0,
       "flag_regional_labor": 1,
       "flag_ls_distribution": 0,
       "flag_regional_bias": 0

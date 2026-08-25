@@ -149,10 +149,18 @@ int flag_ls_distribution; // Reserved switch for the regional labour-supply-shar
                           // = 0 [BASELINE] use LS_region_share as provided/normalised
                           // = 1 reserved for future alternative share-distribution schemes
 
+int flag_regional_mobility; // Flag to enable/disable regional mobility
+                            // 1=on
+                            // 0=off
+
 int flag_regional_bias; // Switches the regional purchasing-preference (home-bias) mechanism on or off
                         // = 0 [BASELINE] off: buyers perceive posted prices; national market allocation
                         // = 1 on: non-regional suppliers receive a perceived effective-price penalty
                         //         (households -> C-firms; C-firms -> K-firms). Perceived prices only;
                         //         actual payments, revenues and stock-flow accounting are unchanged.
+
+int flag_firm_relocation; // Switches firm regional relocation on or off
+                          // = 0 [BASELINE] off: firm regional locations remain fixed
+                          // = 1 on: K- and C-firms may reconsider their region
 
 #endif
