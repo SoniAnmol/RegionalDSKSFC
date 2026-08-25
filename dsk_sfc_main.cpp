@@ -217,6 +217,18 @@ int main(int argc, char *argv[])
       cout << "Entering simulation period " << t << endl;
     }
 
+    // ===== Firm regional-location roll (beginning of period t) =====
+    // Relocation decisions made at the end of t-1 are stored in the *_next vectors. They become the firms' effective locations at the start of t.
+    if (NR > 0 &&
+        (int)region_firm_assignment_K.size() == N1 &&
+        (int)region_firm_assignment_K_next.size() == N1 &&
+        (int)region_firm_assignment_C.size() == N2 &&
+        (int)region_firm_assignment_C_next.size() == N2)
+    {
+      region_firm_assignment_K = region_firm_assignment_K_next;
+      region_firm_assignment_C = region_firm_assignment_C_next;
+    }
+
     // ===== Regional labour-supply-share roll (beginning of period t) =====
     // Before any regional labour supply is computed this period:
     //   1) normalise LS_region_share_next;
