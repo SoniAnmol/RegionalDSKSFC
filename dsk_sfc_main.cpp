@@ -530,6 +530,20 @@ int main(int argc, char *argv[])
       cout << "Exiting function REGIONAL_CONSISTENCY_CHECK in period " << t << endl;
     }
 
+    // Firm regional relocation decision.
+    if (flag_firm_relocation == 1 &&
+        NR > 1 &&
+        t % freq_firm_reloc == 0)
+    {
+      FIRM_RELOCATION_COMPUTATION();
+
+      if (verbose)
+      {
+        cout << "Exiting function FIRM_RELOCATION_COMPUTATION in period "
+             << t << endl;
+      }
+    }
+
     // Compute migration and update next-period regional labor supply shares
     MOBILITY_COMPUTATION();
     if (verbose)
