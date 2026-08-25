@@ -1920,6 +1920,10 @@ void RESIZE(void)
     rho_K_reloc_exp.assign(NR, 0.0);
     rho_C_reloc_exp.assign(NR, 0.0);
     profit_expectations_initialized_reloc = false;
+    market_potential_K_reloc.assign(NR, 0.0);
+    market_potential_C_reloc.assign(NR, 0.0);
+    market_signal_K_reloc.assign(NR, 0.0);
+    market_signal_C_reloc.assign(NR, 0.0);
     region_labor_supply.assign(NR, 0.0);
     region_unemployment.assign(NR, 0.0);
     region_dirty_capacity.assign(NR, 0.0);

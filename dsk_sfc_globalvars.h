@@ -578,6 +578,13 @@ std::vector<double> rho_C_reloc_exp; // Expected regional C-sector profit margin
 
 bool profit_expectations_initialized_reloc;
 
+// Firm-relocation regional market-opportunity signals
+std::vector<double> market_potential_K_reloc; // Nominal machine demand per K-firm in region
+std::vector<double> market_potential_C_reloc; // Nominal consumption budget per C-firm in region
+
+std::vector<double> market_signal_K_reloc; // Log relative K-sector market opportunity
+std::vector<double> market_signal_C_reloc; // Log relative C-sector market opportunity
+
 std::vector<double> region_labor_supply;              // Regional labour supply levels
 std::vector<double> region_unemployment;              // Regional unemployment levels (deprecated: use reg_U)
 std::vector<std::string> region_resultsexp_names;     // Filenames for regional resultsexp outputs

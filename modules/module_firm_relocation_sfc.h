@@ -5,6 +5,23 @@
 
 // Regional model structure
 extern int NR;
+extern int N1;
+extern int N2;
+
+// National market aggregates
+extern double Cons;
+extern double Investment_n;
+
+// Regional market-opportunity inputs
+extern std::vector<double> reg_cons_share;
+extern std::vector<double> reg_Investment_n;
+extern std::vector<double> reg_N1;
+extern std::vector<double> reg_N2;
+
+extern std::vector<double> market_potential_K_reloc;
+extern std::vector<double> market_potential_C_reloc;
+extern std::vector<double> market_signal_K_reloc;
+extern std::vector<double> market_signal_C_reloc;
 
 // Regional realised sector aggregates
 extern std::vector<double> reg_S1;

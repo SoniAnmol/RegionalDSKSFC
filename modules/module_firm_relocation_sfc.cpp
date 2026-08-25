@@ -91,6 +91,85 @@ void FIRM_RELOCATION_COMPUTATION(void)
             rho_C_reloc[rr] = rho_C_reloc_exp[rr];
         }
     }
+    // ------------------------------------------------------------
+    // Regional market opportunity
+    // ------------------------------------------------------------
+    //
+    // C-firms:
+    //   buyer-side regional consumption budget / number of C-firms.
+    //
+    // K-firms:
+    //   buyer-side regional nominal machine investment / number of K-firms.
+    //
+    // The max(N_r, 1) denominator allows currently empty regions to
+    // remain potential destinations without generating division by zero.
+
+    const double national_market_C =
+        (N2 > 0) ? Cons / static_cast<double>(N2) : 0.0;
+
+    const double national_market_K =
+        (N1 > 0) ? Investment_n / static_cast<double>(N1) : 0.0;
+
+    for (int rr = 0; rr < NR; rr++)
+    {
+        // --------------------------------------------------------
+        // C-sector market opportunity
+        // --------------------------------------------------------
+        double consumption_share =
+            ((int)reg_cons_share.size() == NR)
+                ? reg_cons_share[rr]
+                : 1.0 / static_cast<double>(NR);
+
+        if (consumption_share < 0.0)
+        {
+            consumption_share = 0.0;
+        }
+
+        const double regional_consumption_budget =
+            Cons * consumption_share;
+
+        const double number_C =
+            std::max(reg_N2[rr], 1.0);
+
+        market_potential_C_reloc[rr] =
+            regional_consumption_budget / number_C;
+
+        if (national_market_C > eps)
+        {
+            market_signal_C_reloc[rr] =
+                std::log(
+                    (market_potential_C_reloc[rr] + eps) /
+                    (national_market_C + eps));
+        }
+        else
+        {
+            market_signal_C_reloc[rr] = 0.0;
+        }
+
+        // --------------------------------------------------------
+        // K-sector market opportunity
+        // --------------------------------------------------------
+        const double regional_machine_demand =
+            std::max(reg_Investment_n[rr], 0.0);
+
+        const double number_K =
+            std::max(reg_N1[rr], 1.0);
+
+        market_potential_K_reloc[rr] =
+            regional_machine_demand / number_K;
+
+        if (national_market_K > eps)
+        {
+            market_signal_K_reloc[rr] =
+                std::log(
+                    (market_potential_K_reloc[rr] + eps) /
+                    (national_market_K + eps));
+        }
+        else
+        {
+            market_signal_K_reloc[rr] = 0.0;
+        }
+    }
 
     // No relocation decision is made in this step.
 }
