@@ -47,6 +47,7 @@ set(SOURCE_FILES
     modules/module_climate_sfc.cpp
     modules/module_macro_sfc.cpp
     modules/module_finance_sfc.cpp
+    modules/module_firm_relocation_sfc.cpp
 
     dsk_sfc_main.cpp
 )
