@@ -1,5 +1,8 @@
 #include "module_firm_relocation_sfc.h"
 
+#include <algorithm>
+#include <cmath>
+
 void FIRM_RELOCATION_COMPUTATION(void)
 {
     if (NR <= 0)
