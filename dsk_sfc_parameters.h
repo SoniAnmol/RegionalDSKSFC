@@ -201,6 +201,7 @@ std::vector<std::vector<double>> delta_adapt_c_rg; // [NC_adapt][NR] per-channel
 
 // Mobility parameters
 int freq_firm_reloc;        // Frequency, in model periods, at which firms reconsider relocation
+double lambda_profit_reloc; // Adaptive-expectations updating weight for regional firm profitability
 double mu_F_mig;            // Fixed moving cost for households (origin-wage units, not utility-equivalent)
 
 // Mobility utility parameters

@@ -115,7 +115,8 @@
       "p_move_mig": 0.0053,
       "tau_mig": 2,
       "chi_w": 0.5,
-      "freq_firm_reloc": 4
+      "freq_firm_reloc": 4,
+      "lambda_profit_reloc": 0.25
     }
   ],
   "climparams": [

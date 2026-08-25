@@ -558,17 +558,26 @@ double uu1_en_g;       // Boost to R&D effectiveness from public support
 double uu2_en_g;       // Boost to R&D effectiveness from public support
 
 // Regions
-int NR;                                               // Number of regions
-RowVector region_K_shares;                            // Shares of K-firm initial locations by region
-RowVector region_C_shares;                            // Shares of C-firm initial locations by region
-RowVector region_energy_dirty_shares;                 // Shares of initial dirty capacity by region
-RowVector region_energy_green_shares;                 // Shares of initial green capacity by region
-RowVector ge_growth_probability;                      // Probabilities for allocating new green capacity by region
-RowVector de_growth_probability;                      // Probabilities for allocating new dirty capacity by region
-std::vector<int> region_firm_assignment_K;            // Region index for each K-firm (1-based regions)
-std::vector<int> region_firm_assignment_C;            // Region index for each C-firm (1-based regions)
-std::vector<int> region_firm_assignment_K_next;       // Next-period region index for each K-firm
-std::vector<int> region_firm_assignment_C_next;       // Next-period region index for each C-firm
+int NR;                                         // Number of regions
+RowVector region_K_shares;                      // Shares of K-firm initial locations by region
+RowVector region_C_shares;                      // Shares of C-firm initial locations by region
+RowVector region_energy_dirty_shares;           // Shares of initial dirty capacity by region
+RowVector region_energy_green_shares;           // Shares of initial green capacity by region
+RowVector ge_growth_probability;                // Probabilities for allocating new green capacity by region
+RowVector de_growth_probability;                // Probabilities for allocating new dirty capacity by region
+std::vector<int> region_firm_assignment_K;      // Region index for each K-firm (1-based regions)
+std::vector<int> region_firm_assignment_C;      // Region index for each C-firm (1-based regions)
+std::vector<int> region_firm_assignment_K_next; // Next-period region index for each K-firm
+std::vector<int> region_firm_assignment_C_next; // Next-period region index for each C-firm
+
+// Firm-relocation regional profitability signals
+std::vector<double> rho_K_reloc;     // Current regional K-sector profit-margin signal
+std::vector<double> rho_C_reloc;     // Current regional C-sector profit-margin signal
+std::vector<double> rho_K_reloc_exp; // Expected regional K-sector profit margin
+std::vector<double> rho_C_reloc_exp; // Expected regional C-sector profit margin
+
+bool profit_expectations_initialized_reloc;
+
 std::vector<double> region_labor_supply;              // Regional labour supply levels
 std::vector<double> region_unemployment;              // Regional unemployment levels (deprecated: use reg_U)
 std::vector<std::string> region_resultsexp_names;     // Filenames for regional resultsexp outputs

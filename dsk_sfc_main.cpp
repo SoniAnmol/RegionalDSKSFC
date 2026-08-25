@@ -1447,7 +1447,18 @@ void SETPARAMS(const rapidjson::Document &inputs)
     freq_firm_reloc = 4;
   }
 
-  // Regional mobility flag (1=on, 0=off)
+  // Adaptive updating of perceived regional profitability.
+  // This weight applies whenever firms reconsider relocation.
+  lambda_profit_reloc = getDoubleParam("lambda_profit_reloc", 0.25);
+
+  if (lambda_profit_reloc < 0.0 || lambda_profit_reloc > 1.0)
+  {
+    std::cerr << "[WARN] lambda_profit_reloc must lie in [0,1]; resetting to 0.25"
+              << std::endl;
+    lambda_profit_reloc = 0.25;
+  }
+
+  // Regional labour mobility flag (1=on, 0=off)
   // Use defensive lambda for reading from flags array
   auto getFlagIntMobility = [&inputs](const char *key, int default_val) -> int
   {
@@ -1904,6 +1915,11 @@ void RESIZE(void)
     region_firm_assignment_C.assign(N2, 0);
     region_firm_assignment_K_next.assign(N1, 0);
     region_firm_assignment_C_next.assign(N2, 0);
+    rho_K_reloc.assign(NR, 0.0);
+    rho_C_reloc.assign(NR, 0.0);
+    rho_K_reloc_exp.assign(NR, 0.0);
+    rho_C_reloc_exp.assign(NR, 0.0);
+    profit_expectations_initialized_reloc = false;
     region_labor_supply.assign(NR, 0.0);
     region_unemployment.assign(NR, 0.0);
     region_dirty_capacity.assign(NR, 0.0);
