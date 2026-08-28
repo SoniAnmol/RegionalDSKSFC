@@ -312,5 +312,33 @@ void FIRM_RELOCATION_COMPUTATION(void)
                     : 0.0;
         }
     }
+    // ------------------------------------------------------------
+    // Residual regional climate risk after adaptation
+    // ------------------------------------------------------------
+    //
+    // Firms assess regional climate risk as expected physical hazard
+    // conditional on the protection already present in the region:
+    //
+    //     climate risk = hazard * adaptation damage multiplier
+    //
+    // Omega_adapt_rg = 1 implies no protection.
+    // Lower Omega_adapt_rg implies stronger regional protection.
+
+    for (int rr = 0; rr < NR; rr++)
+    {
+        double omega_adapt = 1.0;
+
+        if ((int)Omega_adapt_rg.size() == NR)
+        {
+            omega_adapt =
+                std::min(1.0, std::max(0.0, Omega_adapt_rg[rr]));
+        }
+
+        climate_risk_K_reloc[rr] =
+            hazard_K_reloc[rr] * omega_adapt;
+
+        climate_risk_C_reloc[rr] =
+            hazard_C_reloc[rr] * omega_adapt;
+    }
     // No relocation decision is made in this step.
 }

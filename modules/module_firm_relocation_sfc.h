@@ -65,6 +65,13 @@ extern int flag_RDshocks;
 extern std::vector<double> hazard_K_reloc;
 extern std::vector<double> hazard_C_reloc;
 
+// Existing regional adaptation damage multiplier
+extern std::vector<double> Omega_adapt_rg;
+
+// Residual regional climate risk after adaptation
+extern std::vector<double> climate_risk_K_reloc;
+extern std::vector<double> climate_risk_C_reloc;
+
 // Firm regional relocation
 void FIRM_RELOCATION_COMPUTATION(void);
 

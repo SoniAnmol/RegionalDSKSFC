@@ -588,6 +588,8 @@ std::vector<double> attractiveness_econ_K_reloc; // Preliminary economic attract
 std::vector<double> attractiveness_econ_C_reloc; // Preliminary economic attractiveness for C firm relocation
 std::vector<double> hazard_K_reloc;              // Raw regional climate-hazard signals for K firm relocation
 std::vector<double> hazard_C_reloc;              // Raw regional climate-hazard signals for C firm relocation
+std::vector<double> climate_risk_K_reloc;        // Residual regional climate risk after adaptation for K firms
+std::vector<double> climate_risk_C_reloc;        // Residual regional climate risk after adaptation for C firms
 
 std::vector<double> region_labor_supply;              // Regional labour supply levels
 std::vector<double> region_unemployment;              // Regional unemployment levels (deprecated: use reg_U)
