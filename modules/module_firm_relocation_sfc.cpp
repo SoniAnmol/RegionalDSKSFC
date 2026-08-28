@@ -340,5 +340,26 @@ void FIRM_RELOCATION_COMPUTATION(void)
         climate_risk_C_reloc[rr] =
             hazard_C_reloc[rr] * omega_adapt;
     }
+    // ------------------------------------------------------------
+    // Final regional attractiveness including climate risk
+    // ------------------------------------------------------------
+    //
+    // Regional attractiveness combines:
+    //   1. expected profitability,
+    //   2. sector-specific market opportunity,
+    //   3. adaptation-adjusted climate risk.
+    //
+    // Higher residual climate risk lowers attractiveness.
+
+    for (int rr = 0; rr < NR; rr++)
+    {
+        attractiveness_K_reloc[rr] =
+            attractiveness_econ_K_reloc[rr] -
+            beta_risk_K_reloc * climate_risk_K_reloc[rr];
+
+        attractiveness_C_reloc[rr] =
+            attractiveness_econ_C_reloc[rr] -
+            beta_risk_C_reloc * climate_risk_C_reloc[rr];
+    }
     // No relocation decision is made in this step.
 }

@@ -204,6 +204,8 @@ int freq_firm_reloc;        // Frequency, in model periods, at which firms recon
 double lambda_profit_reloc; // Adaptive-expectations updating weight for regional firm profitability
 double beta_market_K_reloc; // Weight on regional K-sector market opportunity
 double beta_market_C_reloc; // Weight on regional C-sector market opportunity
+double beta_risk_K_reloc;   // Weight on residual regional climate risk for K firms
+double beta_risk_C_reloc;   // Weight on residual regional climate risk for C firms
 double mu_F_mig;            // Fixed moving cost for households (origin-wage units, not utility-equivalent)
 
 // Mobility utility parameters

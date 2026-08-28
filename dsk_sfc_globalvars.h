@@ -586,6 +586,8 @@ std::vector<double> market_signal_K_reloc;       // Log relative K-sector market
 std::vector<double> market_signal_C_reloc;       // Log relative C-sector market opportunity
 std::vector<double> attractiveness_econ_K_reloc; // Preliminary economic attractiveness for K firm relocation
 std::vector<double> attractiveness_econ_C_reloc; // Preliminary economic attractiveness for C firm relocation
+std::vector<double> attractiveness_K_reloc;      // Final regional attractiveness including climate risk for K firms
+std::vector<double> attractiveness_C_reloc;      // Final regional attractiveness including climate risk for C firms
 std::vector<double> hazard_K_reloc;              // Raw regional climate-hazard signals for K firm relocation
 std::vector<double> hazard_C_reloc;              // Raw regional climate-hazard signals for C firm relocation
 std::vector<double> climate_risk_K_reloc;        // Residual regional climate risk after adaptation for K firms

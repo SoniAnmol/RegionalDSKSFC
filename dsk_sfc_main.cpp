@@ -1477,6 +1477,25 @@ void SETPARAMS(const rapidjson::Document &inputs)
     beta_market_C_reloc = 0.10;
   }
 
+  // Firm-relocation climate-risk weights.
+  // These map residual expected climate damage into attractiveness units.
+  beta_risk_K_reloc = getDoubleParam("beta_risk_K_reloc", 1.0);
+  beta_risk_C_reloc = getDoubleParam("beta_risk_C_reloc", 1.0);
+
+  if (beta_risk_K_reloc < 0.0)
+  {
+    std::cerr << "[WARN] beta_risk_K_reloc must be >= 0; resetting to 1.0"
+              << std::endl;
+    beta_risk_K_reloc = 1.0;
+  }
+
+  if (beta_risk_C_reloc < 0.0)
+  {
+    std::cerr << "[WARN] beta_risk_C_reloc must be >= 0; resetting to 1.0"
+              << std::endl;
+    beta_risk_C_reloc = 1.0;
+  }
+
   // Regional labour mobility flag (1=on, 0=off)
   // Use defensive lambda for reading from flags array
   auto getFlagIntMobility = [&inputs](const char *key, int default_val) -> int
@@ -1945,6 +1964,8 @@ void RESIZE(void)
     market_signal_C_reloc.assign(NR, 0.0);
     attractiveness_econ_K_reloc.assign(NR, 0.0);
     attractiveness_econ_C_reloc.assign(NR, 0.0);
+    attractiveness_K_reloc.assign(NR, 0.0);
+    attractiveness_C_reloc.assign(NR, 0.0);
     hazard_K_reloc.assign(NR, 0.0);
     hazard_C_reloc.assign(NR, 0.0);
     climate_risk_K_reloc.assign(NR, 0.0);

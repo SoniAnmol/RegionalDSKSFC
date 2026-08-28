@@ -32,6 +32,9 @@ extern std::vector<double> market_signal_C_reloc;
 // Preliminary regional economic attractiveness
 extern std::vector<double> attractiveness_econ_K_reloc;
 extern std::vector<double> attractiveness_econ_C_reloc;
+// Final regional attractiveness including climate risk
+extern std::vector<double> attractiveness_K_reloc;
+extern std::vector<double> attractiveness_C_reloc;
 
 // Regional realised sector aggregates
 extern std::vector<double> reg_S1;
@@ -51,6 +54,8 @@ extern bool profit_expectations_initialized_reloc;
 extern double lambda_profit_reloc;
 extern double beta_market_K_reloc;
 extern double beta_market_C_reloc;
+extern double beta_risk_K_reloc;
+extern double beta_risk_C_reloc;
 
 // Climate-shock activation flags
 extern int flag_exogenousshocks;
