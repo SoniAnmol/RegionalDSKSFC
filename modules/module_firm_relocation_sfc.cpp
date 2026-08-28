@@ -404,5 +404,38 @@ void FIRM_RELOCATION_COMPUTATION(void)
         relocation_eligible_C_reloc[origin] =
             (best_gain_C > tau_C_reloc) ? 1 : 0;
     }
+    // ------------------------------------------------------------
+    // Relocation willingness probability
+    // ------------------------------------------------------------
+    //
+    // Conditional on the best available destination exceeding the
+    // inertia threshold, relocation willingness rises smoothly with
+    // the excess attractiveness gain.
+    //
+    // This step computes probabilities only. No random draws are made.
+
+    for (int origin = 0; origin < NR; origin++)
+    {
+        relocation_prob_K_reloc[origin] = 0.0;
+        relocation_prob_C_reloc[origin] = 0.0;
+
+        if (relocation_eligible_K_reloc[origin] == 1)
+        {
+            const double excess_gain_K =
+                relocation_gain_K_reloc[origin] - tau_K_reloc;
+
+            relocation_prob_K_reloc[origin] =
+                1.0 - std::exp(-gamma_K_reloc * excess_gain_K);
+        }
+
+        if (relocation_eligible_C_reloc[origin] == 1)
+        {
+            const double excess_gain_C =
+                relocation_gain_C_reloc[origin] - tau_C_reloc;
+
+            relocation_prob_C_reloc[origin] =
+                1.0 - std::exp(-gamma_C_reloc * excess_gain_C);
+        }
+    }
     // No relocation decision is made in this step.
 }

@@ -208,6 +208,8 @@ double beta_risk_K_reloc;   // Weight on residual regional climate risk for K fi
 double beta_risk_C_reloc;   // Weight on residual regional climate risk for C firms
 double tau_K_reloc;         // Minimum attractiveness gain required for K-firm relocation
 double tau_C_reloc;         // Minimum attractiveness gain required for C-firm relocation
+double gamma_K_reloc;       // Sensitivity of K-firm relocation probability to excess attractiveness gain
+double gamma_C_reloc;       // Sensitivity of C-firm relocation probability to excess attractiveness gain
 double mu_F_mig;            // Fixed moving cost for households (origin-wage units, not utility-equivalent)
 
 // Mobility utility parameters

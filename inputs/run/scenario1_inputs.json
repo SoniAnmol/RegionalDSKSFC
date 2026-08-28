@@ -122,7 +122,9 @@
       "beta_risk_K_reloc": 1.0,
       "beta_risk_C_reloc": 1.0,
       "tau_K_reloc": 0.05,
-      "tau_C_reloc": 0.05
+      "tau_C_reloc": 0.05,
+      "gamma_K_reloc": 5.0,
+      "gamma_C_reloc": 5.0
     }
   ],
   "climparams": [

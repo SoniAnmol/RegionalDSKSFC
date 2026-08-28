@@ -42,6 +42,10 @@ extern std::vector<int> relocation_eligible_K_reloc;
 extern std::vector<int> relocation_eligible_C_reloc;
 extern double tau_K_reloc;
 extern double tau_C_reloc;
+extern std::vector<double> relocation_prob_K_reloc;
+extern std::vector<double> relocation_prob_C_reloc;
+extern double gamma_K_reloc;
+extern double gamma_C_reloc;
 
 // Regional realised sector aggregates
 extern std::vector<double> reg_S1;

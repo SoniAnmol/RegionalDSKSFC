@@ -1516,6 +1516,25 @@ void SETPARAMS(const rapidjson::Document &inputs)
     tau_C_reloc = 0.05;
   }
 
+  // Sensitivity of relocation willingness to attractiveness gains
+  // above the inertia threshold.
+  gamma_K_reloc = getDoubleParam("gamma_K_reloc", 5.0);
+  gamma_C_reloc = getDoubleParam("gamma_C_reloc", 5.0);
+
+  if (gamma_K_reloc < 0.0)
+  {
+    std::cerr << "[WARN] gamma_K_reloc must be >= 0; resetting to 5.0"
+              << std::endl;
+    gamma_K_reloc = 5.0;
+  }
+
+  if (gamma_C_reloc < 0.0)
+  {
+    std::cerr << "[WARN] gamma_C_reloc must be >= 0; resetting to 5.0"
+              << std::endl;
+    gamma_C_reloc = 5.0;
+  }
+
   // Regional labour mobility flag (1=on, 0=off)
   // Use defensive lambda for reading from flags array
   auto getFlagIntMobility = [&inputs](const char *key, int default_val) -> int
@@ -1990,6 +2009,8 @@ void RESIZE(void)
     relocation_gain_C_reloc.assign(NR, 0.0);
     relocation_eligible_K_reloc.assign(NR, 0);
     relocation_eligible_C_reloc.assign(NR, 0);
+    relocation_prob_K_reloc.assign(NR, 0.0);
+    relocation_prob_C_reloc.assign(NR, 0.0);
     hazard_K_reloc.assign(NR, 0.0);
     hazard_C_reloc.assign(NR, 0.0);
     climate_risk_K_reloc.assign(NR, 0.0);
