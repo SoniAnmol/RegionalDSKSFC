@@ -35,6 +35,13 @@ extern std::vector<double> attractiveness_econ_C_reloc;
 // Final regional attractiveness including climate risk
 extern std::vector<double> attractiveness_K_reloc;
 extern std::vector<double> attractiveness_C_reloc;
+extern std::vector<double> relocation_gain_K_reloc;
+extern std::vector<double> relocation_gain_C_reloc;
+
+extern std::vector<int> relocation_eligible_K_reloc;
+extern std::vector<int> relocation_eligible_C_reloc;
+extern double tau_K_reloc;
+extern double tau_C_reloc;
 
 // Regional realised sector aggregates
 extern std::vector<double> reg_S1;

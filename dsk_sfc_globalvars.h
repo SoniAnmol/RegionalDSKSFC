@@ -592,6 +592,10 @@ std::vector<double> hazard_K_reloc;              // Raw regional climate-hazard 
 std::vector<double> hazard_C_reloc;              // Raw regional climate-hazard signals for C firm relocation
 std::vector<double> climate_risk_K_reloc;        // Residual regional climate risk after adaptation for K firms
 std::vector<double> climate_risk_C_reloc;        // Residual regional climate risk after adaptation for C firms
+std::vector<double> relocation_gain_K_reloc;     // Maximum attractiveness gain available from leaving each origin region for K firms
+std::vector<double> relocation_gain_C_reloc;     // Maximum attractiveness gain available from leaving each origin region for C firms
+std::vector<int> relocation_eligible_K_reloc;    // Whether an origin region exceeds the relocation inertia threshold for K firms
+std::vector<int> relocation_eligible_C_reloc;    // Whether an origin region exceeds the relocation inertia threshold for C firms
 
 std::vector<double> region_labor_supply;              // Regional labour supply levels
 std::vector<double> region_unemployment;              // Regional unemployment levels (deprecated: use reg_U)

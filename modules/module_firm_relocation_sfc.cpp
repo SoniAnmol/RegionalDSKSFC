@@ -361,5 +361,48 @@ void FIRM_RELOCATION_COMPUTATION(void)
             attractiveness_econ_C_reloc[rr] -
             beta_risk_C_reloc * climate_risk_C_reloc[rr];
     }
+    // ------------------------------------------------------------
+    // Origin-region attractiveness gains and relocation inertia
+    // ------------------------------------------------------------
+    //
+    // For each possible origin region, determine the largest
+    // attractiveness improvement available elsewhere.
+    //
+    // This step identifies whether relocation is worth considering.
+    // It does not choose a destination and consumes no random draws.
+
+    for (int origin = 0; origin < NR; origin++)
+    {
+        double best_gain_K = 0.0;
+        double best_gain_C = 0.0;
+
+        for (int dest = 0; dest < NR; dest++)
+        {
+            if (dest == origin)
+            {
+                continue;
+            }
+
+            const double gain_K =
+                attractiveness_K_reloc[dest] -
+                attractiveness_K_reloc[origin];
+
+            const double gain_C =
+                attractiveness_C_reloc[dest] -
+                attractiveness_C_reloc[origin];
+
+            best_gain_K = std::max(best_gain_K, gain_K);
+            best_gain_C = std::max(best_gain_C, gain_C);
+        }
+
+        relocation_gain_K_reloc[origin] = best_gain_K;
+        relocation_gain_C_reloc[origin] = best_gain_C;
+
+        relocation_eligible_K_reloc[origin] =
+            (best_gain_K > tau_K_reloc) ? 1 : 0;
+
+        relocation_eligible_C_reloc[origin] =
+            (best_gain_C > tau_C_reloc) ? 1 : 0;
+    }
     // No relocation decision is made in this step.
 }

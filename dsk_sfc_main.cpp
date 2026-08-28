@@ -1496,6 +1496,26 @@ void SETPARAMS(const rapidjson::Document &inputs)
     beta_risk_C_reloc = 1.0;
   }
 
+  // Relocation inertia thresholds.
+  // A destination must improve attractiveness by more than tau
+  // before relocation becomes economically eligible.
+  tau_K_reloc = getDoubleParam("tau_K_reloc", 0.05);
+  tau_C_reloc = getDoubleParam("tau_C_reloc", 0.05);
+
+  if (tau_K_reloc < 0.0)
+  {
+    std::cerr << "[WARN] tau_K_reloc must be >= 0; resetting to 0.05"
+              << std::endl;
+    tau_K_reloc = 0.05;
+  }
+
+  if (tau_C_reloc < 0.0)
+  {
+    std::cerr << "[WARN] tau_C_reloc must be >= 0; resetting to 0.05"
+              << std::endl;
+    tau_C_reloc = 0.05;
+  }
+
   // Regional labour mobility flag (1=on, 0=off)
   // Use defensive lambda for reading from flags array
   auto getFlagIntMobility = [&inputs](const char *key, int default_val) -> int
@@ -1966,6 +1986,10 @@ void RESIZE(void)
     attractiveness_econ_C_reloc.assign(NR, 0.0);
     attractiveness_K_reloc.assign(NR, 0.0);
     attractiveness_C_reloc.assign(NR, 0.0);
+    relocation_gain_K_reloc.assign(NR, 0.0);
+    relocation_gain_C_reloc.assign(NR, 0.0);
+    relocation_eligible_K_reloc.assign(NR, 0);
+    relocation_eligible_C_reloc.assign(NR, 0);
     hazard_K_reloc.assign(NR, 0.0);
     hazard_C_reloc.assign(NR, 0.0);
     climate_risk_K_reloc.assign(NR, 0.0);

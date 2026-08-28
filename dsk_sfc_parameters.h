@@ -206,6 +206,8 @@ double beta_market_K_reloc; // Weight on regional K-sector market opportunity
 double beta_market_C_reloc; // Weight on regional C-sector market opportunity
 double beta_risk_K_reloc;   // Weight on residual regional climate risk for K firms
 double beta_risk_C_reloc;   // Weight on residual regional climate risk for C firms
+double tau_K_reloc;         // Minimum attractiveness gain required for K-firm relocation
+double tau_C_reloc;         // Minimum attractiveness gain required for C-firm relocation
 double mu_F_mig;            // Fixed moving cost for households (origin-wage units, not utility-equivalent)
 
 // Mobility utility parameters
