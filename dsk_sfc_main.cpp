@@ -9202,14 +9202,16 @@ void SFC_CHECK(void)
 
   // Calculate the sectoral balances
   Balance_h = Wages + Benefits + InterestDeposits_h + Dividends(1) + TransferFuel - Taxes_h - Consumption - FirmTransfers;
-  Balance_1 = Sales1.Sum() + InterestDeposits_1.Sum() + FirmTransfers_1 + GovPurchases_1 - Wages_1.Sum() - EnergyPayments_1.Sum() - Dividends_1.Sum() - Taxes_1.Sum() - Taxes_CO2_1.Sum();
-  Balance_2 = Sales2.Sum() + InterestDeposits_2.Sum() + FirmTransfers_2 - Wages_2.Sum() - Investment_2.Sum() - LoanInterest_2.Sum() - EnergyPayments_2.Sum() - Dividends_2.Sum() - Taxes_2.Sum() - Taxes_CO2_2.Sum() + GovPurchases_2;
+  Balance_1 =
+      Sales1.Sum() + InterestDeposits_1.Sum() + FirmTransfers_1 + GovPurchases_1 - Wages_1.Sum() - EnergyPayments_1.Sum() - Dividends_1.Sum() - Taxes_1.Sum() - Taxes_CO2_1.Sum() - RelocationCosts_1.Sum();
+  Balance_2 =
+      Sales2.Sum() + InterestDeposits_2.Sum() + FirmTransfers_2 - Wages_2.Sum() - Investment_2.Sum() - LoanInterest_2.Sum() - EnergyPayments_2.Sum() - Dividends_2.Sum() - Taxes_2.Sum() - Taxes_CO2_2.Sum() - RelocationCosts_2.Sum() + GovPurchases_2;
   Balance_b = LoanInterest.Sum() + InterestBonds_b.Sum() + InterestReserves_b.Sum() + Bailout_b.Row(1).Sum() + BankTransfer - InterestDeposits.Sum() - Taxes_b.Sum() - InterestAdvances_b.Sum() - Dividends_b.Sum();
   Balance_e = EnergyPayments + InterestDeposits_e + Subsidy_Exp - Wages_en - Dividends_e - Taxes_CO2_e - FuelCost - Taxes_e_shock;
   Balance_cb = InterestBonds_cb + InterestAdvances - InterestReserves - TransferCB;
   Balance_g = Taxes + TransferCB + Taxes_CO2 + Taxes_e_shock + Taxes_f_shock - InterestBonds - Bailout - EntryCosts - G - Subsidy_Exp;
   Balance_f = FuelCost - TransferFuel - Taxes_f_shock;
-  Balance_reloc = 0.0;
+  Balance_reloc = RelocationCosts;
 
   // Sectoral balances should sum to zero
   BalanceSum = Balance_h + Balance_1 + Balance_2 + Balance_b + Balance_e + Balance_cb + Balance_g + Balance_f + Balance_reloc;
@@ -9246,7 +9248,8 @@ void SFC_CHECK(void)
     // Per-firm govt investment credit recorded during RG_BLOCK_FISCAL disbursement
     // (public-capital EA within region + adaptation I_adapt over perceived-national shares).
     double ea_firm_i = (NR > 0) ? KfirmGovCredit(i) : 0.0;
-    Balances_1(i) = Sales1(i) + InterestDeposits_1(i) - Wages_1(i) - EnergyPayments_1(i) - Dividends_1(i) - Taxes_1(i) - Taxes_CO2_1(i) + ea_firm_i;
+    Balances_1(i) =
+        Sales1(i) + InterestDeposits_1(i) - Wages_1(i) - EnergyPayments_1(i) - Dividends_1(i) - Taxes_1(i) - Taxes_CO2_1(i) - RelocationCosts_1(i) + ea_firm_i;
     NW_1(1, i) = Deposits_1(1, i);
     NW_1_c(i) = NW_1(2, i) + Balances_1(i) + baddebt_1(i) + Injection_1(i);
   }
@@ -9261,7 +9264,7 @@ void SFC_CHECK(void)
   for (i = 1; i <= N2; i++)
   {
     NW_2(1, i) = CapitalStock(1, i) + deltaCapitalStock(1, i) + Inventories(1, i) + Deposits_2(1, i) - Loans_2(1, i);
-    NW_2_c(i) = NW_2(2, i) + Pi2(i) + baddebt_2(i) + Injection_2(i) - Dividends_2(i) - Taxes_2(i) - Taxes_CO2_2(i) - Loss_Capital(i) - Loss_Inventories(i) + sub_Rec(i);
+    NW_2_c(i) = NW_2(2, i) + Pi2(i) + baddebt_2(i) + Injection_2(i) - Dividends_2(i) - Taxes_2(i) - Taxes_CO2_2(i) - Loss_Capital(i) - Loss_Inventories(i) - RelocationCosts_2(i) + sub_Rec(i);
   }
   deviation = fabs((NW_2_c.Sum() - NW_2.Row(1).Sum()) / NW_2_c.Sum());
   if (deviation > regionalaccountingtolerance)
