@@ -898,4 +898,109 @@ void FIRM_RELOCATION_COMPUTATION(void)
             relocated_C_reloc[jj] = 1;
         }
     }
+    // ------------------------------------------------------------
+    // Realised relocation costs
+    // ------------------------------------------------------------
+    //
+    // Actual movers pay one current production-expense equivalent:
+    //
+    //     RC = wages + energy payments
+    //
+    // Financial feasibility above required deposits >= 2 * RC.
+    // Therefore, after paying RC, the firm retains at least one
+    // current production-expense equivalent.
+    //
+    // Relocation expenditure is transferred to a passive,
+    // non-behavioural relocation account. The deposit remains at
+    // the same bank, so total bank deposits do not change.
+
+    // ----- K-firms -----
+    for (int ii = 0; ii < N1; ii++)
+    {
+        if (relocated_K_reloc[ii] != 1)
+        {
+            continue;
+        }
+
+        const int firm = ii + 1;
+
+        const double relocation_cost =
+            production_expense_K_reloc[ii];
+
+        const int bank =
+            static_cast<int>(BankingSupplier_1(firm));
+
+        if (relocation_cost <= eps)
+        {
+            continue;
+        }
+
+        if (bank < 1 || bank > Deposits_reloc_b.Ncols())
+        {
+            continue;
+        }
+
+        RelocationCosts_1(firm) =
+            relocation_cost;
+
+        RelocationCosts +=
+            relocation_cost;
+
+        // Firm pays relocation cost.
+        Deposits_1(1, firm) -=
+            relocation_cost;
+
+        // Same deposit liability is reassigned to the passive
+        // relocation account at the firm's existing bank.
+        Deposits_reloc(1) +=
+            relocation_cost;
+
+        Deposits_reloc_b(1, bank) +=
+            relocation_cost;
+    }
+
+    // ----- C-firms -----
+    for (int jj = 0; jj < N2; jj++)
+    {
+        if (relocated_C_reloc[jj] != 1)
+        {
+            continue;
+        }
+
+        const int firm = jj + 1;
+
+        const double relocation_cost =
+            production_expense_C_reloc[jj];
+
+        const int bank =
+            static_cast<int>(BankingSupplier_2(firm));
+
+        if (relocation_cost <= eps)
+        {
+            continue;
+        }
+
+        if (bank < 1 || bank > Deposits_reloc_b.Ncols())
+        {
+            continue;
+        }
+
+        RelocationCosts_2(firm) =
+            relocation_cost;
+
+        RelocationCosts +=
+            relocation_cost;
+
+        // Firm pays relocation cost.
+        Deposits_2(1, firm) -=
+            relocation_cost;
+
+        // Same deposit liability is reassigned to the passive
+        // relocation account at the firm's existing bank.
+        Deposits_reloc(1) +=
+            relocation_cost;
+
+        Deposits_reloc_b(1, bank) +=
+            relocation_cost;
+    }
 }

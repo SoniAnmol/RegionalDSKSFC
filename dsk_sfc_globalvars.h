@@ -159,6 +159,8 @@ Matrix Deposits_2;             // C-firm deposits
 Matrix Deposits;               // Deposits from banks' side
 Matrix Deposits_hb;            // Household deposits from banks' side
 Matrix Deposits_eb;            // Energy sector deposits from banks' side
+RowVector Deposits_reloc(2);   // Permanently sterilized relocation-cost deposits
+Matrix Deposits_reloc_b;       // Relocation-account deposits by bank
 Matrix GB_b;                   // Government bonds held by banks
 RowVector GB_cb(2);            // Government bonds held by CB
 RowVector GB(2);               // Government bonds
@@ -182,16 +184,18 @@ RowVector NW_gov(2);           // Net worth of Government
 RowVector NW_cb(2);            // Net worth of CB
 RowVector NW_e(2);             // Net worth of Energy sector
 RowVector NW_f(2);             // Net worth of fossil fuel sector
+RowVector NW_reloc(2);         // Net worth of passive relocation-cost account
 
-double NW_h_c;     // Net worth of households (control; for SFC-check)
-RowVector NW_1_c;  // Net worth of K-firms (control; for SFC-check)
-RowVector NW_2_c;  // Net worth of C-firms (control; for SFC-check)
-RowVector NW_b_c;  // Net worth of banks (control; for SFC-check)
-double NW_gov_c;   // Net worth of Government (control; for SFC-check)
-double NW_cb_c;    // Net worth of CB (control; for SFC-check)
-double NW_e_c;     // Net worth of energy sector (control; for SFC-check)
-double NW_f_c;     // Net worth of fossil fuel sector (control; for SFC-check)
-double NWSum;      // Sum of net worths
+double NW_h_c;    // Net worth of households (control; for SFC-check)
+RowVector NW_1_c; // Net worth of K-firms (control; for SFC-check)
+RowVector NW_2_c; // Net worth of C-firms (control; for SFC-check)
+RowVector NW_b_c; // Net worth of banks (control; for SFC-check)
+double NW_gov_c;  // Net worth of Government (control; for SFC-check)
+double NW_cb_c;   // Net worth of CB (control; for SFC-check)
+double NW_e_c;    // Net worth of energy sector (control; for SFC-check)
+double NW_f_c;    // Net worth of fossil fuel sector (control; for SFC-check)
+double NWSum;     // Sum of net worths
+double NW_reloc_c;
 double RealAssets; // Nominal value of all real assets in the economy
 
 // Additional TFM Items
@@ -246,16 +250,20 @@ double TransferFuel;          // Transfer from fossil fuel sector to households
 double Taxes_e_shock;         // Excess profit tax on energy sector
 double Taxes_f_shock;         // Excess profit tax on fossil fuel sector
 double Transfer_shock;        // Transfer to households to combat energy price shock
+RowVector RelocationCosts_1;  // Relocation costs paid by K-firms
+RowVector RelocationCosts_2;  // Relocation costs paid by C-firms
+double RelocationCosts;       // Total relocation costs received by passive relocation account
 
-double Balance_h;     // Sectoral balance households
-double Balance_1;     // Sectoral balance K-firms
-double Balance_2;     // Sectoral balance C-firms
-double Balance_e;     // Sectoral balance energy sector
-double Balance_b;     // Sectoral balance banks
-double Balance_g;     // Sectoral balance government
-double Balance_cb;    // Sectoral balance CB
-double Balance_f;     // Sectoral balance fossil fuels
-double BalanceSum;    // Sum of sectoral balances
+double Balance_h;  // Sectoral balance households
+double Balance_1;  // Sectoral balance K-firms
+double Balance_2;  // Sectoral balance C-firms
+double Balance_e;  // Sectoral balance energy sector
+double Balance_b;  // Sectoral balance banks
+double Balance_g;  // Sectoral balance government
+double Balance_cb; // Sectoral balance CB
+double Balance_f;  // Sectoral balance fossil fuels
+double BalanceSum; // Sum of sectoral balances
+double Balance_reloc;
 RowVector Balances_1; // Individual balances K-firms
 
 // Households

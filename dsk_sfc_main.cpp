@@ -499,6 +499,20 @@ int main(int argc, char *argv[])
       cout << "Exiting function REGIONAL_UPDATE (post-shocks) in period " << t << endl;
     }
 
+    // Firm regional relocation decision.
+    if (flag_firm_relocation == 1 &&
+        NR > 1 &&
+        t % freq_firm_reloc == 0)
+    {
+      FIRM_RELOCATION_COMPUTATION();
+
+      if (verbose)
+      {
+        cout << "Exiting function FIRM_RELOCATION_COMPUTATION in period "
+             << t << endl;
+      }
+    }
+
     DEPOSITCHECK();
     if (verbose)
     {
@@ -528,20 +542,6 @@ int main(int argc, char *argv[])
     if (verbose)
     {
       cout << "Exiting function REGIONAL_CONSISTENCY_CHECK in period " << t << endl;
-    }
-
-    // Firm regional relocation decision.
-    if (flag_firm_relocation == 1 &&
-        NR > 1 &&
-        t % freq_firm_reloc == 0)
-    {
-      FIRM_RELOCATION_COMPUTATION();
-
-      if (verbose)
-      {
-        cout << "Exiting function FIRM_RELOCATION_COMPUTATION in period "
-             << t << endl;
-      }
     }
 
     // Compute migration and update next-period regional labor supply shares
@@ -1916,6 +1916,7 @@ void RESIZE(void)
   Bond_share.ReSize(NB);
   Deposits_hb.ReSize(2, NB);
   Deposits_eb.ReSize(2, NB);
+  Deposits_reloc_b.ReSize(2, NB);
   Advances_b.ReSize(2, NB);
   Reserves_b.ReSize(2, NB);
   InterestBonds_b.ReSize(NB);
@@ -2037,6 +2038,8 @@ void RESIZE(void)
     destination_prob_C_reloc.assign(NR, std::vector<double>(NR, 0.0));
     relocated_K_reloc.assign(N1, 0);
     relocated_C_reloc.assign(N2, 0);
+    RelocationCosts_1.ReSize(N1);
+    RelocationCosts_2.ReSize(N2);
     hazard_K_reloc.assign(NR, 0.0);
     hazard_C_reloc.assign(NR, 0.0);
     climate_risk_K_reloc.assign(NR, 0.0);
@@ -2509,8 +2512,6 @@ void INITIALIZE(int Exseed)
   p1 = (1 + mi1) * (w0 / (A0 * pm * a) + mi_en0 / A0_en);
   Am(2) = (A0 * N2 + A0 * a * pm * N1) / (N1 + N2);
 
-  // TODO Place holder for computing regional mean productivity
-
   // Households & Energy sector deposits should be positive at begining
   Deposits_h = D_h0;
   Deposits_e = D_e0;
@@ -2534,7 +2535,16 @@ void INITIALIZE(int Exseed)
     NW_b(1, i) = Loans_b(1, i) + Reserves_b(1, i) + GB_b(1, i) - Deposits(1, i) - Advances_b(1, i);
     NW_b(2, i) = Loans_b(2, i) + Reserves_b(2, i) + GB_b(2, i) - Deposits(2, i) - Advances_b(2, i);
   }
+
+  Deposits_reloc = 0.0;
+  Deposits_reloc_b = 0.0;
+
+  NW_reloc = 0.0;
+  NW_reloc_c = 0.0;
+  Balance_reloc = 0.0;
+
   // GB_b=0;
+
   GB_cb(1) = NW_b0 + W10 * N1 + W20 * N2 + D_h0 + Deposits_e(1) - GB_b.Row(1).Sum() - Loans_b.Row(1).Sum();
   GB_cb(2) = NW_b0 + W10 * N1 + W20 * N2 + D_h0 + Deposits_e(2) - GB_b.Row(2).Sum() - Loans_b.Row(2).Sum();
   GB(1) = GB_cb(1) + GB_b.Row(1).Sum();
@@ -2901,6 +2911,7 @@ void SETVARS(void)
   BankTransfer = 0;
   Deposits_h(1) = Deposits_h(2);
   Deposits_e(1) = Deposits_e(2);
+  Deposits_reloc(1) = Deposits_reloc(2);
   GB_cb(1) = GB_cb(2);
   GB(1) = GB(2);
   Advances(1) = Advances(2);
@@ -2946,6 +2957,17 @@ void SETVARS(void)
       sub_Rec(jj) = 0.0;
     }
   }
+
+  // Relocation bank side
+  for (i = 1; i <= NB; i++)
+  {
+    Deposits_reloc_b(1, i) =
+        Deposits_reloc_b(2, i);
+  }
+  Balance_reloc = 0.0;
+  RelocationCosts_1 = 0.0;
+  RelocationCosts_2 = 0.0;
+  RelocationCosts = 0.0;
 
   Divtot_1 = 0;
   Divtot_2 = 0;
@@ -8597,7 +8619,8 @@ void DEPOSITCHECK(void)
       std::cerr << "Share error Deposits_hb for bank " << i << " in period " << t << endl;
       Errors << "\n Share error Deposits_hb for bank " << i << " in period " << t << endl;
     }
-    DepositsCheck_1 = Deposits(1, i) - Deposits_hb(1, i) - Deposits_eb(1, i);
+    DepositsCheck_1 =
+        Deposits(1, i) - Deposits_hb(1, i) - Deposits_eb(1, i) - Deposits_reloc_b(1, i);
     DepositsCheck_2 = 0;
     for (j = 1; j <= N1; j++)
     {
@@ -8766,6 +8789,13 @@ void NEGATIVITYCHECK(void)
       std::cerr << "Error Deposits_eb for Bank " << i << " in period " << t << endl;
       Errors << "\n Error Deposits_eb for Bank " << i << " in period " << t << endl;
     }
+    if (Deposits_reloc_b(1, i) < (-tolerance * cpi(1)))
+    {
+      std::cerr << "Error Deposits_reloc_b for Bank "
+                << i << " in period " << t << endl;
+      Errors << "\n Error Deposits_reloc_b for Bank "
+             << i << " in period " << t << endl;
+    }
     if (GB_b(1, i) < (-tolerance * cpi(1)))
     {
       std::cerr << "Error GB for Bank " << i << " in period " << t << endl;
@@ -8832,6 +8862,14 @@ void NEGATIVITYCHECK(void)
   {
     std::cerr << "Error Deposits_h in period " << t << endl;
     Errors << "\n Error Deposits_h in period " << t << endl;
+  }
+  if (Deposits_reloc(1) < 0)
+  {
+    std::cerr << "Error Deposits_reloc in period "
+              << t << endl;
+
+    Errors << "\n Error Deposits_reloc in period "
+           << t << endl;
   }
   if (Consumption < 0)
   {
@@ -8934,11 +8972,27 @@ void CHECKSUMS(void)
     std::cerr << "Sum error GB in period " << t << endl;
     Errors << "\n Sum error GB in period " << t << endl;
   }
-  deviation = fabs((Deposits_1.Row(1).Sum() + Deposits_2.Row(1).Sum() + Deposits_hb.Row(1).Sum() + Deposits_eb.Row(1).Sum() - Deposits.Row(1).Sum()) / Deposits.Row(1).Sum());
+  deviation = fabs(
+      (Deposits_1.Row(1).Sum() + Deposits_2.Row(1).Sum() + Deposits_hb.Row(1).Sum() + Deposits_eb.Row(1).Sum() + Deposits_reloc_b.Row(1).Sum() - Deposits.Row(1).Sum()) / Deposits.Row(1).Sum());
   if (deviation > tolerance && Deposits.Row(1).Sum() > tolerance)
   {
     std::cerr << "Sum error Deposits in period " << t << endl;
     Errors << "\n Sum error Deposits in period " << t << endl;
+  }
+  if (Deposits_reloc(1) > tolerance ||
+      Deposits_reloc_b.Row(1).Sum() > tolerance)
+  {
+    deviation = fabs(
+        Deposits_reloc(1) -
+        Deposits_reloc_b.Row(1).Sum());
+
+    if (deviation > tolerance)
+    {
+      std::cerr << "Sum error Deposits_reloc in period "
+                << t << endl;
+      Errors << "\n Sum error Deposits_reloc in period "
+             << t << endl;
+    }
   }
   deviation = fabs((Reserves(1) - Reserves_b.Row(1).Sum()) / Reserves_b.Row(1).Sum());
   if (deviation > tolerance && Reserves_b.Row(1).Sum() > tolerance && Reserves(1) > tolerance)
@@ -9099,6 +9153,9 @@ void ADJUSTSTOCKS(void)
       Deposits_eb(1, i) = 0;
     }
 
+    // Add passive relocation-account deposits
+    Deposits(1, i) += Deposits_reloc_b(1, i);
+
     if (Reserves(1) > 0)
     {
       Reserves_b(1, i) = ShareReserves(i) * Reserves(1);
@@ -9152,11 +9209,13 @@ void SFC_CHECK(void)
   Balance_cb = InterestBonds_cb + InterestAdvances - InterestReserves - TransferCB;
   Balance_g = Taxes + TransferCB + Taxes_CO2 + Taxes_e_shock + Taxes_f_shock - InterestBonds - Bailout - EntryCosts - G - Subsidy_Exp;
   Balance_f = FuelCost - TransferFuel - Taxes_f_shock;
+  Balance_reloc = 0.0;
 
   // Sectoral balances should sum to zero
-  BalanceSum = Balance_h + Balance_1 + Balance_2 + Balance_b + Balance_e + Balance_cb + Balance_g + Balance_f;
+  BalanceSum = Balance_h + Balance_1 + Balance_2 + Balance_b + Balance_e + Balance_cb + Balance_g + Balance_f + Balance_reloc;
   // Deviation needs to be scaled somehow since model variables (and hence possibly deviations due to rounding) will grow over time
-  deviation = fabs(BalanceSum) / (fabs(Balance_h) + fabs(Balance_1) + fabs(Balance_2) + fabs(Balance_b) + fabs(Balance_e) + fabs(Balance_cb) + fabs(Balance_g) + fabs(Balance_f));
+  deviation = fabs(BalanceSum) /
+              (fabs(Balance_h) + fabs(Balance_1) + fabs(Balance_2) + fabs(Balance_b) + fabs(Balance_e) + fabs(Balance_cb) + fabs(Balance_g) + fabs(Balance_f) + fabs(Balance_reloc));
   if (deviation > regionalaccountingtolerance)
   {
     std::cerr << "\n\n ERROR: Sectoral balances do not sum to zero in period " << t << endl;
@@ -9274,8 +9333,30 @@ void SFC_CHECK(void)
     Errors << "\n Stock and flow measures of net worth for the FOSSIL FUEL SECTOR are not consistent in period " << t << endl;
   }
 
+  // Compare stock and flow measures of relocation-account net worth
+  NW_reloc(1) = Deposits_reloc(1);
+
+  NW_reloc_c =
+      NW_reloc(2) + Balance_reloc;
+
+  deviation =
+      fabs(NW_reloc(1) - NW_reloc_c);
+
+  if (deviation > tolerance)
+  {
+    std::cerr
+        << "\n\n ERROR: Stock and flow measures of net worth "
+        << "for the RELOCATION ACCOUNT are not consistent in period "
+        << t << endl;
+
+    Errors
+        << "\n Stock and flow measures of net worth "
+        << "for the RELOCATION ACCOUNT are not consistent in period "
+        << t << endl;
+  }
+
   // Sum of all sectoral net worths should be equal to nominal value of tangible assets in the economy
-  NWSum = NW_h(1) + NW_1.Row(1).Sum() + NW_2.Row(1).Sum() + NW_b.Row(1).Sum() + NW_e(1) + NW_cb(1) + NW_gov(1) + NW_f(1);
+  NWSum = NW_h(1) + NW_1.Row(1).Sum() + NW_2.Row(1).Sum() + NW_b.Row(1).Sum() + NW_e(1) + NW_cb(1) + NW_gov(1) + NW_f(1) + NW_reloc(1);
   RealAssets = CapitalStock.Row(1).Sum() + deltaCapitalStock.Row(1).Sum() + Inventories.Row(1).Sum() + CapitalStock_e(1) + K_pub_total;
   deviation = fabs((NWSum - RealAssets) / RealAssets);
   if (deviation > regionalaccountingtolerance)
@@ -9721,6 +9802,8 @@ void UPDATE(void)
   // Update lagged variables needed in next period
   Deposits_h(2) = Deposits_h(1);
   Deposits_e(2) = Deposits_e(1);
+  Deposits_reloc(2) = Deposits_reloc(1);
+  NW_reloc(2) = NW_reloc(1);
   Deposits_fuel(2) = Deposits_fuel(1);
   Deposits_fuel_cb(2) = Deposits_fuel_cb(1);
   NW_f(2) = NW_f(1);
@@ -9809,6 +9892,7 @@ void UPDATE(void)
     Deposits(2, i) = Deposits(1, i);
     Deposits_hb(2, i) = Deposits_hb(1, i);
     Deposits_eb(2, i) = Deposits_eb(1, i);
+    Deposits_reloc_b(2, i) = Deposits_reloc_b(1, i);
     GB_b(2, i) = GB_b(1, i);
     Loans_b(2, i) = Loans_b(1, i);
     Advances_b(2, i) = Advances_b(1, i);

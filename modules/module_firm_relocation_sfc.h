@@ -129,6 +129,19 @@ extern std::vector<int> relocated_C_reloc;
 // Shared model random-number-generator seed
 extern long int *p_seed;
 
+// Relocation-cost flows
+extern RowVector RelocationCosts_1;
+extern RowVector RelocationCosts_2;
+extern double RelocationCosts;
+
+// Passive relocation-account deposits
+extern RowVector Deposits_reloc;
+extern Matrix Deposits_reloc_b;
+
+// Firms' banking suppliers
+extern RowVector BankingSupplier_1;
+extern RowVector BankingSupplier_2;
+
 // Firm regional relocation
 void FIRM_RELOCATION_COMPUTATION(void);
 
