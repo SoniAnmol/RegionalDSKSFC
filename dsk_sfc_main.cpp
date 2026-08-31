@@ -1535,6 +1535,24 @@ void SETPARAMS(const rapidjson::Document &inputs)
     gamma_C_reloc = 5.0;
   }
 
+  // Sensitivity of probabilistic destination choice to regional attractiveness.
+  eta_K_reloc = getDoubleParam("eta_K_reloc", 5.0);
+  eta_C_reloc = getDoubleParam("eta_C_reloc", 5.0);
+
+  if (eta_K_reloc < 0.0)
+  {
+    std::cerr << "[WARN] eta_K_reloc must be >= 0; resetting to 5.0"
+              << std::endl;
+    eta_K_reloc = 5.0;
+  }
+
+  if (eta_C_reloc < 0.0)
+  {
+    std::cerr << "[WARN] eta_C_reloc must be >= 0; resetting to 5.0"
+              << std::endl;
+    eta_C_reloc = 5.0;
+  }
+
   // Regional labour mobility flag (1=on, 0=off)
   // Use defensive lambda for reading from flags array
   auto getFlagIntMobility = [&inputs](const char *key, int default_val) -> int
@@ -2015,6 +2033,8 @@ void RESIZE(void)
     production_expense_C_reloc.assign(N2, 0.0);
     relocation_feasible_K_reloc.assign(N1, 0);
     relocation_feasible_C_reloc.assign(N2, 0);
+    destination_prob_K_reloc.assign(NR, std::vector<double>(NR, 0.0));
+    destination_prob_C_reloc.assign(NR, std::vector<double>(NR, 0.0));
     hazard_K_reloc.assign(NR, 0.0);
     hazard_C_reloc.assign(NR, 0.0);
     climate_risk_K_reloc.assign(NR, 0.0);

@@ -210,6 +210,8 @@ double tau_K_reloc;         // Minimum attractiveness gain required for K-firm r
 double tau_C_reloc;         // Minimum attractiveness gain required for C-firm relocation
 double gamma_K_reloc;       // Sensitivity of K-firm relocation probability to excess attractiveness gain
 double gamma_C_reloc;       // Sensitivity of C-firm relocation probability to excess attractiveness gain
+double eta_K_reloc;         // Sensitivity of K-firm destination choice to regional attractiveness
+double eta_C_reloc;         // Sensitivity of C-firm destination choice to regional attractiveness
 double mu_F_mig;            // Fixed moving cost for households (origin-wage units, not utility-equivalent)
 
 // Mobility utility parameters

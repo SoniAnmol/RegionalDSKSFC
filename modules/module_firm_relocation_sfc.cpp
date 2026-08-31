@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 void FIRM_RELOCATION_COMPUTATION(void)
 {
@@ -515,6 +516,159 @@ void FIRM_RELOCATION_COMPUTATION(void)
                  2.0 * production_expense_C_reloc[jj])
                 ? 1
                 : 0;
+    }
+    // ------------------------------------------------------------
+    // Probabilistic destination choice
+    // ------------------------------------------------------------
+    //
+    // For each origin region, construct a softmax distribution over
+    // alternative regions whose attractiveness exceeds the origin by
+    // more than the sector-specific relocation threshold.
+    //
+    // Probabilities are computed only. No random destination draw is made.
+
+    for (int origin = 0; origin < NR; origin++)
+    {
+        // Reset probability rows.
+        for (int dest = 0; dest < NR; dest++)
+        {
+            destination_prob_K_reloc[origin][dest] = 0.0;
+            destination_prob_C_reloc[origin][dest] = 0.0;
+        }
+
+        // --------------------------------------------------------
+        // K-firm destinations
+        // --------------------------------------------------------
+        if (relocation_eligible_K_reloc[origin] == 1)
+        {
+            double max_attractiveness_K =
+                -std::numeric_limits<double>::infinity();
+
+            // Find maximum attractiveness among acceptable destinations.
+            for (int dest = 0; dest < NR; dest++)
+            {
+                if (dest == origin)
+                {
+                    continue;
+                }
+
+                const double gain =
+                    attractiveness_K_reloc[dest] -
+                    attractiveness_K_reloc[origin];
+
+                if (gain > tau_K_reloc)
+                {
+                    max_attractiveness_K =
+                        std::max(
+                            max_attractiveness_K,
+                            attractiveness_K_reloc[dest]);
+                }
+            }
+
+            double denom_K = 0.0;
+
+            for (int dest = 0; dest < NR; dest++)
+            {
+                if (dest == origin)
+                {
+                    continue;
+                }
+
+                const double gain =
+                    attractiveness_K_reloc[dest] -
+                    attractiveness_K_reloc[origin];
+
+                if (gain > tau_K_reloc)
+                {
+                    const double weight =
+                        std::exp(
+                            eta_K_reloc *
+                            (attractiveness_K_reloc[dest] -
+                             max_attractiveness_K));
+
+                    destination_prob_K_reloc[origin][dest] =
+                        weight;
+
+                    denom_K += weight;
+                }
+            }
+
+            if (denom_K > eps)
+            {
+                for (int dest = 0; dest < NR; dest++)
+                {
+                    destination_prob_K_reloc[origin][dest] /=
+                        denom_K;
+                }
+            }
+        }
+
+        // --------------------------------------------------------
+        // C-firm destinations
+        // --------------------------------------------------------
+        if (relocation_eligible_C_reloc[origin] == 1)
+        {
+            double max_attractiveness_C =
+                -std::numeric_limits<double>::infinity();
+
+            // Find maximum attractiveness among acceptable destinations.
+            for (int dest = 0; dest < NR; dest++)
+            {
+                if (dest == origin)
+                {
+                    continue;
+                }
+
+                const double gain =
+                    attractiveness_C_reloc[dest] -
+                    attractiveness_C_reloc[origin];
+
+                if (gain > tau_C_reloc)
+                {
+                    max_attractiveness_C =
+                        std::max(
+                            max_attractiveness_C,
+                            attractiveness_C_reloc[dest]);
+                }
+            }
+
+            double denom_C = 0.0;
+
+            for (int dest = 0; dest < NR; dest++)
+            {
+                if (dest == origin)
+                {
+                    continue;
+                }
+
+                const double gain =
+                    attractiveness_C_reloc[dest] -
+                    attractiveness_C_reloc[origin];
+
+                if (gain > tau_C_reloc)
+                {
+                    const double weight =
+                        std::exp(
+                            eta_C_reloc *
+                            (attractiveness_C_reloc[dest] -
+                             max_attractiveness_C));
+
+                    destination_prob_C_reloc[origin][dest] =
+                        weight;
+
+                    denom_C += weight;
+                }
+            }
+
+            if (denom_C > eps)
+            {
+                for (int dest = 0; dest < NR; dest++)
+                {
+                    destination_prob_C_reloc[origin][dest] /=
+                        denom_C;
+                }
+            }
+        }
     }
     // No relocation decision is made in this step.
 }

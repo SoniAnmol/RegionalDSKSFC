@@ -108,6 +108,13 @@ extern std::vector<double> Omega_adapt_rg;
 extern std::vector<double> climate_risk_K_reloc;
 extern std::vector<double> climate_risk_C_reloc;
 
+// Origin-destination relocation probabilities
+extern std::vector<std::vector<double>> destination_prob_K_reloc;
+extern std::vector<std::vector<double>> destination_prob_C_reloc;
+
+extern double eta_K_reloc;
+extern double eta_C_reloc;
+
 // Firm regional relocation
 void FIRM_RELOCATION_COMPUTATION(void);
 

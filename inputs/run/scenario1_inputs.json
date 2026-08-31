@@ -124,7 +124,9 @@
       "tau_K_reloc": 0.05,
       "tau_C_reloc": 0.05,
       "gamma_K_reloc": 5.0,
-      "gamma_C_reloc": 5.0
+      "gamma_C_reloc": 5.0,
+      "eta_K_reloc": 5.0,
+      "eta_C_reloc": 5.0
     }
   ],
   "climparams": [

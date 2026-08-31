@@ -582,37 +582,38 @@ bool profit_expectations_initialized_reloc;
 std::vector<double> market_potential_K_reloc; // Nominal machine demand per K-firm in region
 std::vector<double> market_potential_C_reloc; // Nominal consumption budget per C-firm in region
 
-std::vector<double> market_signal_K_reloc;       // Log relative K-sector market opportunity
-std::vector<double> market_signal_C_reloc;       // Log relative C-sector market opportunity
-std::vector<double> attractiveness_econ_K_reloc; // Preliminary economic attractiveness for K firm relocation
-std::vector<double> attractiveness_econ_C_reloc; // Preliminary economic attractiveness for C firm relocation
-std::vector<double> attractiveness_K_reloc;      // Final regional attractiveness including climate risk for K firms
-std::vector<double> attractiveness_C_reloc;      // Final regional attractiveness including climate risk for C firms
-std::vector<double> hazard_K_reloc;              // Raw regional climate-hazard signals for K firm relocation
-std::vector<double> hazard_C_reloc;              // Raw regional climate-hazard signals for C firm relocation
-std::vector<double> climate_risk_K_reloc;        // Residual regional climate risk after adaptation for K firms
-std::vector<double> climate_risk_C_reloc;        // Residual regional climate risk after adaptation for C firms
-std::vector<double> relocation_gain_K_reloc;     // Maximum attractiveness gain available from leaving each origin region for K firms
-std::vector<double> relocation_gain_C_reloc;     // Maximum attractiveness gain available from leaving each origin region for C firms
-std::vector<int> relocation_eligible_K_reloc;    // Whether an origin region exceeds the relocation inertia threshold for K firms
-std::vector<int> relocation_eligible_C_reloc;    // Whether an origin region exceeds the relocation inertia threshold for C firms
-std::vector<double> relocation_prob_K_reloc;     // Origin->region relocation willingness probabilities for K firms
-std::vector<double> relocation_prob_C_reloc;     // Origin->region relocation willingness probabilities for C firms
-std::vector<double> production_expense_K_reloc;  // Firm-specific production expenses used for relocation feasibility for K firms
-std::vector<double> production_expense_C_reloc;  // Firm-specific production expenses used for relocation feasibility for C firms
-std::vector<int> relocation_feasible_K_reloc;    // K Firm-specific ability to finance relocation while retaining production-expense buffer for next time step
-std::vector<int> relocation_feasible_C_reloc;    // C Firm-specific ability to finance relocation while retaining production-expense buffer for next time step
-
-std::vector<double> region_labor_supply;              // Regional labour supply levels
-std::vector<double> region_unemployment;              // Regional unemployment levels (deprecated: use reg_U)
-std::vector<std::string> region_resultsexp_names;     // Filenames for regional resultsexp outputs
-std::vector<std::ofstream> region_resultsexp_streams; // Persistent streams for regional resultsexp outputs
-std::vector<std::string> region_ymc_names;            // Filenames for regional ymc outputs
-std::vector<std::ofstream> region_ymc_streams;        // Persistent streams for regional ymc outputs
-std::vector<double> region_dirty_capacity;            // Regional dirty capacity stocks (derivative tracking)
-std::vector<double> region_green_capacity;            // Regional green capacity stocks (derivative tracking)
-std::vector<double> region_dirty_capacity_lag;        // Lagged regional dirty capacity stocks
-std::vector<double> region_green_capacity_lag;        // Lagged regional green capacity stocks
+std::vector<double> market_signal_K_reloc;                 // Log relative K-sector market opportunity
+std::vector<double> market_signal_C_reloc;                 // Log relative C-sector market opportunity
+std::vector<double> attractiveness_econ_K_reloc;           // Preliminary economic attractiveness for K firm relocation
+std::vector<double> attractiveness_econ_C_reloc;           // Preliminary economic attractiveness for C firm relocation
+std::vector<double> attractiveness_K_reloc;                // Final regional attractiveness including climate risk for K firms
+std::vector<double> attractiveness_C_reloc;                // Final regional attractiveness including climate risk for C firms
+std::vector<double> hazard_K_reloc;                        // Raw regional climate-hazard signals for K firm relocation
+std::vector<double> hazard_C_reloc;                        // Raw regional climate-hazard signals for C firm relocation
+std::vector<double> climate_risk_K_reloc;                  // Residual regional climate risk after adaptation for K firms
+std::vector<double> climate_risk_C_reloc;                  // Residual regional climate risk after adaptation for C firms
+std::vector<double> relocation_gain_K_reloc;               // Maximum attractiveness gain available from leaving each origin region for K firms
+std::vector<double> relocation_gain_C_reloc;               // Maximum attractiveness gain available from leaving each origin region for C firms
+std::vector<int> relocation_eligible_K_reloc;              // Whether an origin region exceeds the relocation inertia threshold for K firms
+std::vector<int> relocation_eligible_C_reloc;              // Whether an origin region exceeds the relocation inertia threshold for C firms
+std::vector<double> relocation_prob_K_reloc;               // Origin->region relocation willingness probabilities for K firms
+std::vector<double> relocation_prob_C_reloc;               // Origin->region relocation willingness probabilities for C firms
+std::vector<double> production_expense_K_reloc;            // Firm-specific production expenses used for relocation feasibility for K firms
+std::vector<double> production_expense_C_reloc;            // Firm-specific production expenses used for relocation feasibility for C firms
+std::vector<int> relocation_feasible_K_reloc;              // K Firm-specific ability to finance relocation while retaining production-expense buffer for next time step
+std::vector<int> relocation_feasible_C_reloc;              // C Firm-specific ability to finance relocation while retaining production-expense buffer for next time step
+std::vector<std::vector<double>> destination_prob_K_reloc; // Origin-destination relocation probabilities for K firms
+std::vector<std::vector<double>> destination_prob_C_reloc; // Origin-destination relocation probabilities for C firms
+std::vector<double> region_labor_supply;                   // Regional labour supply levels
+std::vector<double> region_unemployment;                   // Regional unemployment levels (deprecated: use reg_U)
+std::vector<std::string> region_resultsexp_names;          // Filenames for regional resultsexp outputs
+std::vector<std::ofstream> region_resultsexp_streams;      // Persistent streams for regional resultsexp outputs
+std::vector<std::string> region_ymc_names;                 // Filenames for regional ymc outputs
+std::vector<std::ofstream> region_ymc_streams;             // Persistent streams for regional ymc outputs
+std::vector<double> region_dirty_capacity;                 // Regional dirty capacity stocks (derivative tracking)
+std::vector<double> region_green_capacity;                 // Regional green capacity stocks (derivative tracking)
+std::vector<double> region_dirty_capacity_lag;             // Lagged regional dirty capacity stocks
+std::vector<double> region_green_capacity_lag;             // Lagged regional green capacity stocks
 
 // Regional Accounting Variables
 std::vector<double> reg_N1;                      // Regional number of K-firms
