@@ -230,17 +230,4 @@ double chi_w;     // Regional wage-mixing weight: dw_r = chi_w*dw_nat + (1-chi_w
                   // chi_w = 1 -> fully national wage growth; chi_w = 0 -> fully regional
 double dwage_max; // Symmetric bound on per-period regional wage growth |dw_r| <= dwage_max
 
-// Current and next-period firm locations
-extern std::vector<int> region_firm_assignment_K;
-extern std::vector<int> region_firm_assignment_C;
-extern std::vector<int> region_firm_assignment_K_next;
-extern std::vector<int> region_firm_assignment_C_next;
-
-// Realised relocation indicators
-extern std::vector<int> relocated_K_reloc;
-extern std::vector<int> relocated_C_reloc;
-
-// Shared model RNG seed
-extern long int *p_seed;
-
 #endif
