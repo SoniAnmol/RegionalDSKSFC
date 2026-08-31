@@ -2035,6 +2035,8 @@ void RESIZE(void)
     relocation_feasible_C_reloc.assign(N2, 0);
     destination_prob_K_reloc.assign(NR, std::vector<double>(NR, 0.0));
     destination_prob_C_reloc.assign(NR, std::vector<double>(NR, 0.0));
+    relocated_K_reloc.assign(N1, 0);
+    relocated_C_reloc.assign(N2, 0);
     hazard_K_reloc.assign(NR, 0.0);
     hazard_C_reloc.assign(NR, 0.0);
     climate_risk_K_reloc.assign(NR, 0.0);

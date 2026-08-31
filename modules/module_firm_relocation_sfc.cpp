@@ -1,5 +1,5 @@
 #include "module_firm_relocation_sfc.h"
-
+#include "../auxiliary/ran1.h"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -670,5 +670,232 @@ void FIRM_RELOCATION_COMPUTATION(void)
             }
         }
     }
-    // No relocation decision is made in this step.
+    // ------------------------------------------------------------
+    // Firm-level relocation decisions
+    // ------------------------------------------------------------
+    //
+    // Firms act only if:
+    //   1. their origin region is relocation-eligible;
+    //   2. the individual firm is financially feasible;
+    //   3. a Bernoulli draw is below the origin-specific
+    //      relocation willingness probability.
+    //
+    // Conditional on relocation, the destination is drawn from the
+    // origin-specific softmax probabilities computed above.
+    //
+    // Current locations are not changed here. Successful relocation
+    // decisions are written only to the *_next location vectors and
+    // therefore take effect at the beginning of the next period.
+    //
+    // No relocation expenditure is paid in this step.
+
+    // Start from the current-period location configuration.
+    // Non-movers therefore automatically retain their current region.
+    region_firm_assignment_K_next = region_firm_assignment_K;
+    region_firm_assignment_C_next = region_firm_assignment_C;
+
+    // Reset realised-move indicators for this relocation evaluation.
+    std::fill(relocated_K_reloc.begin(),
+              relocated_K_reloc.end(), 0);
+
+    std::fill(relocated_C_reloc.begin(),
+              relocated_C_reloc.end(), 0);
+
+    // ------------------------------------------------------------
+    // K-firms
+    // ------------------------------------------------------------
+    for (int ii = 0; ii < N1; ii++)
+    {
+        const int origin_region =
+            region_firm_assignment_K[ii];
+
+        if (origin_region < 1 || origin_region > NR)
+        {
+            continue;
+        }
+
+        const int origin = origin_region - 1;
+
+        // The firm must face a sufficiently attractive alternative
+        // and must be financially able to relocate.
+        if (relocation_eligible_K_reloc[origin] != 1 ||
+            relocation_feasible_K_reloc[ii] != 1)
+        {
+            continue;
+        }
+
+        const double move_prob =
+            relocation_prob_K_reloc[origin];
+
+        if (move_prob <= 0.0)
+        {
+            continue;
+        }
+
+        // Check that a valid destination distribution exists before
+        // consuming any random draw.
+        double destination_sum = 0.0;
+
+        for (int dest = 0; dest < NR; dest++)
+        {
+            destination_sum +=
+                destination_prob_K_reloc[origin][dest];
+        }
+
+        if (destination_sum <= eps)
+        {
+            continue;
+        }
+
+        // Bernoulli relocation decision.
+        const double move_draw = ran1(p_seed);
+
+        if (move_draw >= move_prob)
+        {
+            continue;
+        }
+
+        // Conditional destination draw.
+        const double destination_draw =
+            ran1(p_seed) * destination_sum;
+
+        double cumulative_prob = 0.0;
+        int selected_dest = -1;
+        int last_positive_dest = -1;
+
+        for (int dest = 0; dest < NR; dest++)
+        {
+            const double p =
+                destination_prob_K_reloc[origin][dest];
+
+            if (p <= 0.0)
+            {
+                continue;
+            }
+
+            last_positive_dest = dest;
+            cumulative_prob += p;
+
+            if (destination_draw < cumulative_prob)
+            {
+                selected_dest = dest;
+                break;
+            }
+        }
+
+        // Numerical fallback in case of tiny floating-point
+        // discrepancies in the cumulative distribution.
+        if (selected_dest < 0)
+        {
+            selected_dest = last_positive_dest;
+        }
+
+        if (selected_dest >= 0 &&
+            selected_dest != origin)
+        {
+            region_firm_assignment_K_next[ii] =
+                selected_dest + 1;
+
+            relocated_K_reloc[ii] = 1;
+        }
+    }
+
+    // ------------------------------------------------------------
+    // C-firms
+    // ------------------------------------------------------------
+    for (int jj = 0; jj < N2; jj++)
+    {
+        const int origin_region =
+            region_firm_assignment_C[jj];
+
+        if (origin_region < 1 || origin_region > NR)
+        {
+            continue;
+        }
+
+        const int origin = origin_region - 1;
+
+        // The firm must face a sufficiently attractive alternative
+        // and must be financially able to relocate.
+        if (relocation_eligible_C_reloc[origin] != 1 ||
+            relocation_feasible_C_reloc[jj] != 1)
+        {
+            continue;
+        }
+
+        const double move_prob =
+            relocation_prob_C_reloc[origin];
+
+        if (move_prob <= 0.0)
+        {
+            continue;
+        }
+
+        // Check that a valid destination distribution exists before
+        // consuming any random draw.
+        double destination_sum = 0.0;
+
+        for (int dest = 0; dest < NR; dest++)
+        {
+            destination_sum +=
+                destination_prob_C_reloc[origin][dest];
+        }
+
+        if (destination_sum <= eps)
+        {
+            continue;
+        }
+
+        // Bernoulli relocation decision.
+        const double move_draw = ran1(p_seed);
+
+        if (move_draw >= move_prob)
+        {
+            continue;
+        }
+
+        // Conditional destination draw.
+        const double destination_draw =
+            ran1(p_seed) * destination_sum;
+
+        double cumulative_prob = 0.0;
+        int selected_dest = -1;
+        int last_positive_dest = -1;
+
+        for (int dest = 0; dest < NR; dest++)
+        {
+            const double p =
+                destination_prob_C_reloc[origin][dest];
+
+            if (p <= 0.0)
+            {
+                continue;
+            }
+
+            last_positive_dest = dest;
+            cumulative_prob += p;
+
+            if (destination_draw < cumulative_prob)
+            {
+                selected_dest = dest;
+                break;
+            }
+        }
+
+        // Numerical fallback in case of tiny floating-point
+        // discrepancies in the cumulative distribution.
+        if (selected_dest < 0)
+        {
+            selected_dest = last_positive_dest;
+        }
+
+        if (selected_dest >= 0 &&
+            selected_dest != origin)
+        {
+            region_firm_assignment_C_next[jj] =
+                selected_dest + 1;
+
+            relocated_C_reloc[jj] = 1;
+        }
+    }
 }

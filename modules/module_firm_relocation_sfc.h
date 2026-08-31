@@ -115,6 +115,20 @@ extern std::vector<std::vector<double>> destination_prob_C_reloc;
 extern double eta_K_reloc;
 extern double eta_C_reloc;
 
+// Current and next-period firm regional locations
+extern std::vector<int> region_firm_assignment_K;
+extern std::vector<int> region_firm_assignment_C;
+
+extern std::vector<int> region_firm_assignment_K_next;
+extern std::vector<int> region_firm_assignment_C_next;
+
+// Firm-level realised relocation indicators
+extern std::vector<int> relocated_K_reloc;
+extern std::vector<int> relocated_C_reloc;
+
+// Shared model random-number-generator seed
+extern long int *p_seed;
+
 // Firm regional relocation
 void FIRM_RELOCATION_COMPUTATION(void);
 

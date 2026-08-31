@@ -604,6 +604,8 @@ std::vector<int> relocation_feasible_K_reloc;              // K Firm-specific ab
 std::vector<int> relocation_feasible_C_reloc;              // C Firm-specific ability to finance relocation while retaining production-expense buffer for next time step
 std::vector<std::vector<double>> destination_prob_K_reloc; // Origin-destination relocation probabilities for K firms
 std::vector<std::vector<double>> destination_prob_C_reloc; // Origin-destination relocation probabilities for C firms
+std::vector<int> relocated_K_reloc;                        // K Firm-level realised relocation indicators
+std::vector<int> relocated_C_reloc;                        // C Firm-level realised relocation indicators
 std::vector<double> region_labor_supply;                   // Regional labour supply levels
 std::vector<double> region_unemployment;                   // Regional unemployment levels (deprecated: use reg_U)
 std::vector<std::string> region_resultsexp_names;          // Filenames for regional resultsexp outputs
