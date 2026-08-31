@@ -508,6 +508,28 @@ int main(int argc, char *argv[])
 
       if (verbose)
       {
+        int movers_K = 0;
+        int movers_C = 0;
+
+        for (int ii = 0; ii < N1; ii++)
+        {
+          movers_K += relocated_K_reloc[ii];
+        }
+
+        for (int jj = 0; jj < N2; jj++)
+        {
+          movers_C += relocated_C_reloc[jj];
+        }
+
+        cout << "[FIRM RELOCATION] t=" << t
+             << " K_movers=" << movers_K
+             << " C_movers=" << movers_C
+             << " RelocationCosts=" << RelocationCosts
+             << " dDeposits_reloc="
+             << (Deposits_reloc(1) - Deposits_reloc(2))
+             << " Deposits_reloc=" << Deposits_reloc(1)
+             << endl;
+
         cout << "Exiting function FIRM_RELOCATION_COMPUTATION in period "
              << t << endl;
       }
