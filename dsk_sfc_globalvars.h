@@ -598,6 +598,10 @@ std::vector<int> relocation_eligible_K_reloc;    // Whether an origin region exc
 std::vector<int> relocation_eligible_C_reloc;    // Whether an origin region exceeds the relocation inertia threshold for C firms
 std::vector<double> relocation_prob_K_reloc;     // Origin->region relocation willingness probabilities for K firms
 std::vector<double> relocation_prob_C_reloc;     // Origin->region relocation willingness probabilities for C firms
+std::vector<double> production_expense_K_reloc;  // Firm-specific production expenses used for relocation feasibility for K firms
+std::vector<double> production_expense_C_reloc;  // Firm-specific production expenses used for relocation feasibility for C firms
+std::vector<int> relocation_feasible_K_reloc;    // K Firm-specific ability to finance relocation while retaining production-expense buffer for next time step
+std::vector<int> relocation_feasible_C_reloc;    // C Firm-specific ability to finance relocation while retaining production-expense buffer for next time step
 
 std::vector<double> region_labor_supply;              // Regional labour supply levels
 std::vector<double> region_unemployment;              // Regional unemployment levels (deprecated: use reg_U)

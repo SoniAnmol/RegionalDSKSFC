@@ -47,6 +47,26 @@ extern std::vector<double> relocation_prob_C_reloc;
 extern double gamma_K_reloc;
 extern double gamma_C_reloc;
 
+// Firm-specific relocation financial feasibility
+extern std::vector<double> production_expense_K_reloc;
+extern std::vector<double> production_expense_C_reloc;
+
+extern std::vector<int> relocation_feasible_K_reloc;
+extern std::vector<int> relocation_feasible_C_reloc;
+// Firm-level operating expenses and liquidity
+extern RowVector Wages_1;
+extern RowVector Wages_2;
+
+extern RowVector EnergyPayments_1;
+extern RowVector EnergyPayments_2;
+
+extern Matrix Deposits_1;
+extern Matrix Deposits_2;
+
+// Current-period exit indicators
+extern RowVector exiting_1;
+extern RowVector exiting_2;
+
 // Regional realised sector aggregates
 extern std::vector<double> reg_S1;
 extern std::vector<double> reg_S2;

@@ -437,5 +437,84 @@ void FIRM_RELOCATION_COMPUTATION(void)
                 1.0 - std::exp(-gamma_C_reloc * excess_gain_C);
         }
     }
+    // ------------------------------------------------------------
+    // Firm-specific production expenses and relocation feasibility
+    // ------------------------------------------------------------
+    //
+    // A firm's current production expense is defined as its realised
+    // wage bill plus its realised energy expenditure:
+    //
+    //     PE = wages + energy payments
+    //
+    // A firm may consider relocation financially feasible only if
+    // current deposits can cover two production-expense equivalents.
+    //
+    // One production-expense equivalent will later become the realised
+    // relocation cost for an actual mover. The second remains as a
+    // post-relocation operating-liquidity buffer.
+    //
+    // This step computes feasibility only. No deposits are changed.
+
+    // ----- K-firms -----
+    for (int ii = 0; ii < N1; ii++)
+    {
+        const int firm = ii + 1;
+
+        const double wages =
+            std::max(0.0, Wages_1(firm));
+
+        const double energy =
+            std::max(0.0, EnergyPayments_1(firm));
+
+        production_expense_K_reloc[ii] =
+            wages + energy;
+
+        const double deposits =
+            std::max(0.0, Deposits_1(1, firm));
+
+        // Firms that exited during the current period are not allowed
+        // to make a relocation decision.
+        //
+        // A strictly positive production expense is required so that
+        // inactive firms cannot relocate at zero cost.
+        relocation_feasible_K_reloc[ii] =
+            (exiting_1(firm) == 0.0 &&
+             production_expense_K_reloc[ii] > eps &&
+             deposits + eps >=
+                 2.0 * production_expense_K_reloc[ii])
+                ? 1
+                : 0;
+    }
+
+    // ----- C-firms -----
+    for (int jj = 0; jj < N2; jj++)
+    {
+        const int firm = jj + 1;
+
+        const double wages =
+            std::max(0.0, Wages_2(firm));
+
+        const double energy =
+            std::max(0.0, EnergyPayments_2(firm));
+
+        production_expense_C_reloc[jj] =
+            wages + energy;
+
+        const double deposits =
+            std::max(0.0, Deposits_2(1, firm));
+
+        // Firms that exited during the current period are not allowed
+        // to make a relocation decision.
+        //
+        // A strictly positive production expense is required so that
+        // inactive firms cannot relocate at zero cost.
+        relocation_feasible_C_reloc[jj] =
+            (exiting_2(firm) == 0.0 &&
+             production_expense_C_reloc[jj] > eps &&
+             deposits + eps >=
+                 2.0 * production_expense_C_reloc[jj])
+                ? 1
+                : 0;
+    }
     // No relocation decision is made in this step.
 }

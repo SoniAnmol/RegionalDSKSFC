@@ -2011,6 +2011,10 @@ void RESIZE(void)
     relocation_eligible_C_reloc.assign(NR, 0);
     relocation_prob_K_reloc.assign(NR, 0.0);
     relocation_prob_C_reloc.assign(NR, 0.0);
+    production_expense_K_reloc.assign(N1, 0.0);
+    production_expense_C_reloc.assign(N2, 0.0);
+    relocation_feasible_K_reloc.assign(N1, 0);
+    relocation_feasible_C_reloc.assign(N2, 0);
     hazard_K_reloc.assign(NR, 0.0);
     hazard_C_reloc.assign(NR, 0.0);
     climate_risk_K_reloc.assign(NR, 0.0);
