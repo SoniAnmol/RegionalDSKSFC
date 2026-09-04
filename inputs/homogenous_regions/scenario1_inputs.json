@@ -37,7 +37,7 @@
       "chi": -1.39,
       "omega1": 20,
       "omega2": 1,
-      "tau_regional": 0.5,
+      "tau_regional": 0.0,
       "psi1": 0.4,
       "psi2": 1,
       "psi3": 0.26,
@@ -472,7 +472,7 @@
       "flag_regional_mobility": 1,
       "flag_regional_labor": 1,
       "flag_ls_distribution": 0,
-      "flag_regional_bias": 1
+      "flag_regional_bias": 0
     }
   ],
   "inits": [

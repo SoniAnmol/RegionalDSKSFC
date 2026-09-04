@@ -10,14 +10,14 @@
 #include <stdio.h>
 #include <fstream>
 #include <string>
-#include <string.h> 
+#include <string.h>
 #include <sstream>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <vector>
 #include <random>
-#include <utility> 
-#include <stdexcept> 
+#include <utility>
+#include <stdexcept>
 #include <fenv.h>
 #include "newmat10/include.h"
 #include "newmat10/newmat.h"
@@ -27,11 +27,11 @@
 #include "include/CLI11/CLI11.hpp"
 
 // Include External Files
-#include "auxiliary/ran1.h"					// Generator of a U[0,1] 
-#include "auxiliary/gasdev.h"				// Generator of a N(0,1)
-#include "auxiliary/bnldev.h"				// Generator of a Bin(n,p)
-#include "auxiliary/betadev.h"				// Generator of a Beta(alfa,beta)
-#include "auxiliary/gammln.h"				// Logarithm of the Gamma function
+#include "auxiliary/ran1.h"    // Generator of a U[0,1]
+#include "auxiliary/gasdev.h"  // Generator of a N(0,1)
+#include "auxiliary/bnldev.h"  // Generator of a Bin(n,p)
+#include "auxiliary/betadev.h" // Generator of a Beta(alfa,beta)
+#include "auxiliary/gammln.h"  // Logarithm of the Gamma function
 
 using std::string;
 using std::stringstream;
@@ -47,4 +47,4 @@ using std::stringstream;
 #include "modules/module_macro_sfc.h"
 #include "modules/module_energy_sfc.h"
 #include "modules/module_climate_sfc.h"
-
+#include "modules/module_firm_relocation_sfc.h"

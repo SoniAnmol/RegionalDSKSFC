@@ -159,6 +159,8 @@ Matrix Deposits_2;             // C-firm deposits
 Matrix Deposits;               // Deposits from banks' side
 Matrix Deposits_hb;            // Household deposits from banks' side
 Matrix Deposits_eb;            // Energy sector deposits from banks' side
+RowVector Deposits_reloc(2);   // Permanently sterilized relocation-cost deposits
+Matrix Deposits_reloc_b;       // Relocation-account deposits by bank
 Matrix GB_b;                   // Government bonds held by banks
 RowVector GB_cb(2);            // Government bonds held by CB
 RowVector GB(2);               // Government bonds
@@ -182,16 +184,18 @@ RowVector NW_gov(2);           // Net worth of Government
 RowVector NW_cb(2);            // Net worth of CB
 RowVector NW_e(2);             // Net worth of Energy sector
 RowVector NW_f(2);             // Net worth of fossil fuel sector
+RowVector NW_reloc(2);         // Net worth of passive relocation-cost account
 
-double NW_h_c;     // Net worth of households (control; for SFC-check)
-RowVector NW_1_c;  // Net worth of K-firms (control; for SFC-check)
-RowVector NW_2_c;  // Net worth of C-firms (control; for SFC-check)
-RowVector NW_b_c;  // Net worth of banks (control; for SFC-check)
-double NW_gov_c;   // Net worth of Government (control; for SFC-check)
-double NW_cb_c;    // Net worth of CB (control; for SFC-check)
-double NW_e_c;     // Net worth of energy sector (control; for SFC-check)
-double NW_f_c;     // Net worth of fossil fuel sector (control; for SFC-check)
-double NWSum;      // Sum of net worths
+double NW_h_c;    // Net worth of households (control; for SFC-check)
+RowVector NW_1_c; // Net worth of K-firms (control; for SFC-check)
+RowVector NW_2_c; // Net worth of C-firms (control; for SFC-check)
+RowVector NW_b_c; // Net worth of banks (control; for SFC-check)
+double NW_gov_c;  // Net worth of Government (control; for SFC-check)
+double NW_cb_c;   // Net worth of CB (control; for SFC-check)
+double NW_e_c;    // Net worth of energy sector (control; for SFC-check)
+double NW_f_c;    // Net worth of fossil fuel sector (control; for SFC-check)
+double NWSum;     // Sum of net worths
+double NW_reloc_c;
 double RealAssets; // Nominal value of all real assets in the economy
 
 // Additional TFM Items
@@ -246,16 +250,20 @@ double TransferFuel;          // Transfer from fossil fuel sector to households
 double Taxes_e_shock;         // Excess profit tax on energy sector
 double Taxes_f_shock;         // Excess profit tax on fossil fuel sector
 double Transfer_shock;        // Transfer to households to combat energy price shock
+RowVector RelocationCosts_1;  // Relocation costs paid by K-firms
+RowVector RelocationCosts_2;  // Relocation costs paid by C-firms
+double RelocationCosts;       // Total relocation costs received by passive relocation account
 
-double Balance_h;     // Sectoral balance households
-double Balance_1;     // Sectoral balance K-firms
-double Balance_2;     // Sectoral balance C-firms
-double Balance_e;     // Sectoral balance energy sector
-double Balance_b;     // Sectoral balance banks
-double Balance_g;     // Sectoral balance government
-double Balance_cb;    // Sectoral balance CB
-double Balance_f;     // Sectoral balance fossil fuels
-double BalanceSum;    // Sum of sectoral balances
+double Balance_h;  // Sectoral balance households
+double Balance_1;  // Sectoral balance K-firms
+double Balance_2;  // Sectoral balance C-firms
+double Balance_e;  // Sectoral balance energy sector
+double Balance_b;  // Sectoral balance banks
+double Balance_g;  // Sectoral balance government
+double Balance_cb; // Sectoral balance CB
+double Balance_f;  // Sectoral balance fossil fuels
+double BalanceSum; // Sum of sectoral balances
+double Balance_reloc;
 RowVector Balances_1; // Individual balances K-firms
 
 // Households
@@ -558,25 +566,64 @@ double uu1_en_g;       // Boost to R&D effectiveness from public support
 double uu2_en_g;       // Boost to R&D effectiveness from public support
 
 // Regions
-int NR;                                               // Number of regions
-RowVector region_K_shares;                            // Shares of K-firm initial locations by region
-RowVector region_C_shares;                            // Shares of C-firm initial locations by region
-RowVector region_energy_dirty_shares;                 // Shares of initial dirty capacity by region
-RowVector region_energy_green_shares;                 // Shares of initial green capacity by region
-RowVector ge_growth_probability;                      // Probabilities for allocating new green capacity by region
-RowVector de_growth_probability;                      // Probabilities for allocating new dirty capacity by region
-std::vector<int> region_firm_assignment_K;            // Region index for each K-firm (1-based regions)
-std::vector<int> region_firm_assignment_C;            // Region index for each C-firm (1-based regions)
-std::vector<double> region_labor_supply;              // Regional labour supply levels
-std::vector<double> region_unemployment;              // Regional unemployment levels (deprecated: use reg_U)
-std::vector<std::string> region_resultsexp_names;     // Filenames for regional resultsexp outputs
-std::vector<std::ofstream> region_resultsexp_streams; // Persistent streams for regional resultsexp outputs
-std::vector<std::string> region_ymc_names;            // Filenames for regional ymc outputs
-std::vector<std::ofstream> region_ymc_streams;        // Persistent streams for regional ymc outputs
-std::vector<double> region_dirty_capacity;            // Regional dirty capacity stocks (derivative tracking)
-std::vector<double> region_green_capacity;            // Regional green capacity stocks (derivative tracking)
-std::vector<double> region_dirty_capacity_lag;        // Lagged regional dirty capacity stocks
-std::vector<double> region_green_capacity_lag;        // Lagged regional green capacity stocks
+int NR;                                         // Number of regions
+RowVector region_K_shares;                      // Shares of K-firm initial locations by region
+RowVector region_C_shares;                      // Shares of C-firm initial locations by region
+RowVector region_energy_dirty_shares;           // Shares of initial dirty capacity by region
+RowVector region_energy_green_shares;           // Shares of initial green capacity by region
+RowVector ge_growth_probability;                // Probabilities for allocating new green capacity by region
+RowVector de_growth_probability;                // Probabilities for allocating new dirty capacity by region
+std::vector<int> region_firm_assignment_K;      // Region index for each K-firm (1-based regions)
+std::vector<int> region_firm_assignment_C;      // Region index for each C-firm (1-based regions)
+std::vector<int> region_firm_assignment_K_next; // Next-period region index for each K-firm
+std::vector<int> region_firm_assignment_C_next; // Next-period region index for each C-firm
+
+// Firm-relocation regional profitability signals
+std::vector<double> rho_K_reloc;     // Current regional K-sector profit-margin signal
+std::vector<double> rho_C_reloc;     // Current regional C-sector profit-margin signal
+std::vector<double> rho_K_reloc_exp; // Expected regional K-sector profit margin
+std::vector<double> rho_C_reloc_exp; // Expected regional C-sector profit margin
+
+bool profit_expectations_initialized_reloc;
+
+// Firm-relocation regional market-opportunity signals
+std::vector<double> market_potential_K_reloc; // Nominal machine demand per K-firm in region
+std::vector<double> market_potential_C_reloc; // Nominal consumption budget per C-firm in region
+
+std::vector<double> market_signal_K_reloc;                 // Log relative K-sector market opportunity
+std::vector<double> market_signal_C_reloc;                 // Log relative C-sector market opportunity
+std::vector<double> attractiveness_econ_K_reloc;           // Preliminary economic attractiveness for K firm relocation
+std::vector<double> attractiveness_econ_C_reloc;           // Preliminary economic attractiveness for C firm relocation
+std::vector<double> attractiveness_K_reloc;                // Final regional attractiveness including climate risk for K firms
+std::vector<double> attractiveness_C_reloc;                // Final regional attractiveness including climate risk for C firms
+std::vector<double> hazard_K_reloc;                        // Raw regional climate-hazard signals for K firm relocation
+std::vector<double> hazard_C_reloc;                        // Raw regional climate-hazard signals for C firm relocation
+std::vector<double> climate_risk_K_reloc;                  // Residual regional climate risk after adaptation for K firms
+std::vector<double> climate_risk_C_reloc;                  // Residual regional climate risk after adaptation for C firms
+std::vector<double> relocation_gain_K_reloc;               // Maximum attractiveness gain available from leaving each origin region for K firms
+std::vector<double> relocation_gain_C_reloc;               // Maximum attractiveness gain available from leaving each origin region for C firms
+std::vector<int> relocation_eligible_K_reloc;              // Whether an origin region exceeds the relocation inertia threshold for K firms
+std::vector<int> relocation_eligible_C_reloc;              // Whether an origin region exceeds the relocation inertia threshold for C firms
+std::vector<double> relocation_prob_K_reloc;               // Origin->region relocation willingness probabilities for K firms
+std::vector<double> relocation_prob_C_reloc;               // Origin->region relocation willingness probabilities for C firms
+std::vector<double> production_expense_K_reloc;            // Firm-specific production expenses used for relocation feasibility for K firms
+std::vector<double> production_expense_C_reloc;            // Firm-specific production expenses used for relocation feasibility for C firms
+std::vector<int> relocation_feasible_K_reloc;              // K Firm-specific ability to finance relocation while retaining production-expense buffer for next time step
+std::vector<int> relocation_feasible_C_reloc;              // C Firm-specific ability to finance relocation while retaining production-expense buffer for next time step
+std::vector<std::vector<double>> destination_prob_K_reloc; // Origin-destination relocation probabilities for K firms
+std::vector<std::vector<double>> destination_prob_C_reloc; // Origin-destination relocation probabilities for C firms
+std::vector<int> relocated_K_reloc;                        // K Firm-level realised relocation indicators
+std::vector<int> relocated_C_reloc;                        // C Firm-level realised relocation indicators
+std::vector<double> region_labor_supply;                   // Regional labour supply levels
+std::vector<double> region_unemployment;                   // Regional unemployment levels (deprecated: use reg_U)
+std::vector<std::string> region_resultsexp_names;          // Filenames for regional resultsexp outputs
+std::vector<std::ofstream> region_resultsexp_streams;      // Persistent streams for regional resultsexp outputs
+std::vector<std::string> region_ymc_names;                 // Filenames for regional ymc outputs
+std::vector<std::ofstream> region_ymc_streams;             // Persistent streams for regional ymc outputs
+std::vector<double> region_dirty_capacity;                 // Regional dirty capacity stocks (derivative tracking)
+std::vector<double> region_green_capacity;                 // Regional green capacity stocks (derivative tracking)
+std::vector<double> region_dirty_capacity_lag;             // Lagged regional dirty capacity stocks
+std::vector<double> region_green_capacity_lag;             // Lagged regional green capacity stocks
 
 // Regional Accounting Variables
 std::vector<double> reg_N1;                      // Regional number of K-firms

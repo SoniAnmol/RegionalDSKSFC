@@ -200,8 +200,19 @@ std::vector<std::vector<double>> phi_alloc_c_rg;   // [NC_adapt][NR] investment 
 std::vector<std::vector<double>> delta_adapt_c_rg; // [NC_adapt][NR] per-channel depreciation rate (default 0.05)
 
 // Mobility parameters
-double mu_F_mig;            // Fixed moving cost (origin-wage units, not utility-equivalent)
-int flag_regional_mobility; // Flag to enable/disable regional mobility (1=on, 0=off)
+int freq_firm_reloc;        // Frequency, in model periods, at which firms reconsider relocation
+double lambda_profit_reloc; // Adaptive-expectations updating weight for regional firm profitability
+double beta_market_K_reloc; // Weight on regional K-sector market opportunity
+double beta_market_C_reloc; // Weight on regional C-sector market opportunity
+double beta_risk_K_reloc;   // Weight on residual regional climate risk for K firms
+double beta_risk_C_reloc;   // Weight on residual regional climate risk for C firms
+double tau_K_reloc;         // Minimum attractiveness gain required for K-firm relocation
+double tau_C_reloc;         // Minimum attractiveness gain required for C-firm relocation
+double gamma_K_reloc;       // Sensitivity of K-firm relocation probability to excess attractiveness gain
+double gamma_C_reloc;       // Sensitivity of C-firm relocation probability to excess attractiveness gain
+double eta_K_reloc;         // Sensitivity of K-firm destination choice to regional attractiveness
+double eta_C_reloc;         // Sensitivity of C-firm destination choice to regional attractiveness
+double mu_F_mig;            // Fixed moving cost for households (origin-wage units, not utility-equivalent)
 
 // Mobility utility parameters
 double beta_w_mig;    // Log-wage coefficient in regional utility (default 1.0)

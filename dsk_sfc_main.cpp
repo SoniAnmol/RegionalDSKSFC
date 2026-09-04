@@ -217,6 +217,18 @@ int main(int argc, char *argv[])
       cout << "Entering simulation period " << t << endl;
     }
 
+    // ===== Firm regional-location roll (beginning of period t) =====
+    // Relocation decisions made at the end of t-1 are stored in the *_next vectors. They become the firms' effective locations at the start of t.
+    if (NR > 0 &&
+        (int)region_firm_assignment_K.size() == N1 &&
+        (int)region_firm_assignment_K_next.size() == N1 &&
+        (int)region_firm_assignment_C.size() == N2 &&
+        (int)region_firm_assignment_C_next.size() == N2)
+    {
+      region_firm_assignment_K = region_firm_assignment_K_next;
+      region_firm_assignment_C = region_firm_assignment_C_next;
+    }
+
     // ===== Regional labour-supply-share roll (beginning of period t) =====
     // Before any regional labour supply is computed this period:
     //   1) normalise LS_region_share_next;
@@ -485,6 +497,42 @@ int main(int argc, char *argv[])
     if (verbose)
     {
       cout << "Exiting function REGIONAL_UPDATE (post-shocks) in period " << t << endl;
+    }
+
+    // Firm regional relocation decision.
+    if (flag_firm_relocation == 1 &&
+        NR > 1 &&
+        t % freq_firm_reloc == 0)
+    {
+      FIRM_RELOCATION_COMPUTATION();
+
+      if (verbose)
+      {
+        int movers_K = 0;
+        int movers_C = 0;
+
+        for (int ii = 0; ii < N1; ii++)
+        {
+          movers_K += relocated_K_reloc[ii];
+        }
+
+        for (int jj = 0; jj < N2; jj++)
+        {
+          movers_C += relocated_C_reloc[jj];
+        }
+
+        // cout << "[FIRM RELOCATION] t=" << t
+        //      << " K_movers=" << movers_K
+        //      << " C_movers=" << movers_C
+        //      << " RelocationCosts=" << RelocationCosts
+        //      << " dDeposits_reloc="
+        //      << (Deposits_reloc(1) - Deposits_reloc(2))
+        //      << " Deposits_reloc=" << Deposits_reloc(1)
+        //      << endl;
+
+        cout << "Exiting function FIRM_RELOCATION_COMPUTATION in period "
+             << t << endl;
+      }
     }
 
     DEPOSITCHECK();
@@ -924,6 +972,19 @@ void SETPARAMS(const rapidjson::Document &inputs)
   // These preserve shock-type differentiation at the regional level
   if (NR > 0)
   {
+    // Resize legacy flattened regional shock vectors.
+    // Each shock channel contains one value per region.
+    const int n_regional_shock_params = nshocks * NR;
+
+    a_0_reg.ReSize(n_regional_shock_params);
+    b_0_reg.ReSize(n_regional_shock_params);
+    shockexponent1_reg.ReSize(n_regional_shock_params);
+    shockexponent2_reg.ReSize(n_regional_shock_params);
+
+    a_0_reg = 0.0;
+    b_0_reg = 0.0;
+    shockexponent1_reg = 0.0;
+    shockexponent2_reg = 0.0;
     // Allocate 2D arrays [shock][region]
     a_0_regional.resize(nshocks);
     b_0_regional.resize(nshocks);
@@ -1025,8 +1086,6 @@ void SETPARAMS(const rapidjson::Document &inputs)
     }
     std::cerr << "[DEBUG] Shock parameter loading finished successfully" << std::endl;
     std::cerr.flush();
-
-
 
     for (int i = 1; i <= nshocks; i++)
     {
@@ -1401,8 +1460,122 @@ void SETPARAMS(const rapidjson::Document &inputs)
   // Mobility parameters
   // Fixed moving cost and distance-based moving cost (utility equivalent)
   mu_F_mig = getDoubleParam("mu_F_mig", 4);
+  // Quarterly baseline: 4 periods = once per year.
+  freq_firm_reloc = getIntParam("freq_firm_reloc", 4);
+  if (freq_firm_reloc < 1)
+  {
+    std::cerr << "[WARN] freq_firm_reloc must be >= 1; resetting to 4"
+              << std::endl;
+    freq_firm_reloc = 4;
+  }
 
-  // Regional mobility flag (1=on, 0=off)
+  // Adaptive updating of perceived regional profitability.
+  // This weight applies whenever firms reconsider relocation.
+  lambda_profit_reloc = getDoubleParam("lambda_profit_reloc", 0.25);
+
+  if (lambda_profit_reloc < 0.0 || lambda_profit_reloc > 1.0)
+  {
+    std::cerr << "[WARN] lambda_profit_reloc must lie in [0,1]; resetting to 0.25"
+              << std::endl;
+    lambda_profit_reloc = 0.25;
+  }
+
+  // Firm-relocation market-opportunity weights.
+  // Units: profit-margin equivalent per unit of log relative market opportunity.
+  beta_market_K_reloc = getDoubleParam("beta_market_K_reloc", 0.10);
+  beta_market_C_reloc = getDoubleParam("beta_market_C_reloc", 0.10);
+
+  if (beta_market_K_reloc < 0.0)
+  {
+    std::cerr << "[WARN] beta_market_K_reloc must be >= 0; resetting to 0.10"
+              << std::endl;
+    beta_market_K_reloc = 0.10;
+  }
+
+  if (beta_market_C_reloc < 0.0)
+  {
+    std::cerr << "[WARN] beta_market_C_reloc must be >= 0; resetting to 0.10"
+              << std::endl;
+    beta_market_C_reloc = 0.10;
+  }
+
+  // Firm-relocation climate-risk weights.
+  // These map residual expected climate damage into attractiveness units.
+  beta_risk_K_reloc = getDoubleParam("beta_risk_K_reloc", 1.0);
+  beta_risk_C_reloc = getDoubleParam("beta_risk_C_reloc", 1.0);
+
+  if (beta_risk_K_reloc < 0.0)
+  {
+    std::cerr << "[WARN] beta_risk_K_reloc must be >= 0; resetting to 1.0"
+              << std::endl;
+    beta_risk_K_reloc = 1.0;
+  }
+
+  if (beta_risk_C_reloc < 0.0)
+  {
+    std::cerr << "[WARN] beta_risk_C_reloc must be >= 0; resetting to 1.0"
+              << std::endl;
+    beta_risk_C_reloc = 1.0;
+  }
+
+  // Relocation inertia thresholds.
+  // A destination must improve attractiveness by more than tau
+  // before relocation becomes economically eligible.
+  tau_K_reloc = getDoubleParam("tau_K_reloc", 0.05);
+  tau_C_reloc = getDoubleParam("tau_C_reloc", 0.05);
+
+  if (tau_K_reloc < 0.0)
+  {
+    std::cerr << "[WARN] tau_K_reloc must be >= 0; resetting to 0.05"
+              << std::endl;
+    tau_K_reloc = 0.05;
+  }
+
+  if (tau_C_reloc < 0.0)
+  {
+    std::cerr << "[WARN] tau_C_reloc must be >= 0; resetting to 0.05"
+              << std::endl;
+    tau_C_reloc = 0.05;
+  }
+
+  // Sensitivity of relocation willingness to attractiveness gains
+  // above the inertia threshold.
+  gamma_K_reloc = getDoubleParam("gamma_K_reloc", 5.0);
+  gamma_C_reloc = getDoubleParam("gamma_C_reloc", 5.0);
+
+  if (gamma_K_reloc < 0.0)
+  {
+    std::cerr << "[WARN] gamma_K_reloc must be >= 0; resetting to 5.0"
+              << std::endl;
+    gamma_K_reloc = 5.0;
+  }
+
+  if (gamma_C_reloc < 0.0)
+  {
+    std::cerr << "[WARN] gamma_C_reloc must be >= 0; resetting to 5.0"
+              << std::endl;
+    gamma_C_reloc = 5.0;
+  }
+
+  // Sensitivity of probabilistic destination choice to regional attractiveness.
+  eta_K_reloc = getDoubleParam("eta_K_reloc", 5.0);
+  eta_C_reloc = getDoubleParam("eta_C_reloc", 5.0);
+
+  if (eta_K_reloc < 0.0)
+  {
+    std::cerr << "[WARN] eta_K_reloc must be >= 0; resetting to 5.0"
+              << std::endl;
+    eta_K_reloc = 5.0;
+  }
+
+  if (eta_C_reloc < 0.0)
+  {
+    std::cerr << "[WARN] eta_C_reloc must be >= 0; resetting to 5.0"
+              << std::endl;
+    eta_C_reloc = 5.0;
+  }
+
+  // Regional labour mobility flag (1=on, 0=off)
   // Use defensive lambda for reading from flags array
   auto getFlagIntMobility = [&inputs](const char *key, int default_val) -> int
   {
@@ -1413,7 +1586,22 @@ void SETPARAMS(const rapidjson::Document &inputs)
     }
     return default_val;
   };
+
+  // Labour inter-regional relocation flag
   flag_regional_mobility = getFlagIntMobility("flag_regional_mobility", 0);
+
+  // Firm inter-regional relocation flag
+  flag_firm_relocation = getFlagIntMobility("flag_firm_relocation", 0);
+
+  if (flag_firm_relocation != 0 && flag_firm_relocation != 1)
+  {
+    std::cerr << "[WARN] flag_firm_relocation invalid ("
+              << flag_firm_relocation
+              << "); resetting to 0"
+              << std::endl;
+
+    flag_firm_relocation = 0;
+  }
 
   // Regional labour market flags (1=on, 0=off)
   flag_regional_labor = getFlagIntMobility("flag_regional_labor", 0);
@@ -1750,6 +1938,7 @@ void RESIZE(void)
   Bond_share.ReSize(NB);
   Deposits_hb.ReSize(2, NB);
   Deposits_eb.ReSize(2, NB);
+  Deposits_reloc_b.ReSize(2, NB);
   Advances_b.ReSize(2, NB);
   Reserves_b.ReSize(2, NB);
   InterestBonds_b.ReSize(NB);
@@ -1842,6 +2031,41 @@ void RESIZE(void)
   {
     region_firm_assignment_K.assign(N1, 0);
     region_firm_assignment_C.assign(N2, 0);
+    region_firm_assignment_K_next.assign(N1, 0);
+    region_firm_assignment_C_next.assign(N2, 0);
+    rho_K_reloc.assign(NR, 0.0);
+    rho_C_reloc.assign(NR, 0.0);
+    rho_K_reloc_exp.assign(NR, 0.0);
+    rho_C_reloc_exp.assign(NR, 0.0);
+    profit_expectations_initialized_reloc = false;
+    market_potential_K_reloc.assign(NR, 0.0);
+    market_potential_C_reloc.assign(NR, 0.0);
+    market_signal_K_reloc.assign(NR, 0.0);
+    market_signal_C_reloc.assign(NR, 0.0);
+    attractiveness_econ_K_reloc.assign(NR, 0.0);
+    attractiveness_econ_C_reloc.assign(NR, 0.0);
+    attractiveness_K_reloc.assign(NR, 0.0);
+    attractiveness_C_reloc.assign(NR, 0.0);
+    relocation_gain_K_reloc.assign(NR, 0.0);
+    relocation_gain_C_reloc.assign(NR, 0.0);
+    relocation_eligible_K_reloc.assign(NR, 0);
+    relocation_eligible_C_reloc.assign(NR, 0);
+    relocation_prob_K_reloc.assign(NR, 0.0);
+    relocation_prob_C_reloc.assign(NR, 0.0);
+    production_expense_K_reloc.assign(N1, 0.0);
+    production_expense_C_reloc.assign(N2, 0.0);
+    relocation_feasible_K_reloc.assign(N1, 0);
+    relocation_feasible_C_reloc.assign(N2, 0);
+    destination_prob_K_reloc.assign(NR, std::vector<double>(NR, 0.0));
+    destination_prob_C_reloc.assign(NR, std::vector<double>(NR, 0.0));
+    relocated_K_reloc.assign(N1, 0);
+    relocated_C_reloc.assign(N2, 0);
+    RelocationCosts_1.ReSize(N1);
+    RelocationCosts_2.ReSize(N2);
+    hazard_K_reloc.assign(NR, 0.0);
+    hazard_C_reloc.assign(NR, 0.0);
+    climate_risk_K_reloc.assign(NR, 0.0);
+    climate_risk_C_reloc.assign(NR, 0.0);
     region_labor_supply.assign(NR, 0.0);
     region_unemployment.assign(NR, 0.0);
     region_dirty_capacity.assign(NR, 0.0);
@@ -2121,6 +2345,8 @@ void INITIALIZE(int Exseed)
 
     assign_regions_by_share(region_firm_assignment_K, region_K_shares, N1);
     assign_regions_by_share(region_firm_assignment_C, region_C_shares, N2);
+    region_firm_assignment_K_next = region_firm_assignment_K;
+    region_firm_assignment_C_next = region_firm_assignment_C;
     region_labor_supply.assign(NR, 0.0);
     region_unemployment.assign(NR, 0.0);
     region_dirty_capacity.assign(NR, 0.0);
@@ -2308,8 +2534,6 @@ void INITIALIZE(int Exseed)
   p1 = (1 + mi1) * (w0 / (A0 * pm * a) + mi_en0 / A0_en);
   Am(2) = (A0 * N2 + A0 * a * pm * N1) / (N1 + N2);
 
-  // TODO Place holder for computing regional mean productivity
-
   // Households & Energy sector deposits should be positive at begining
   Deposits_h = D_h0;
   Deposits_e = D_e0;
@@ -2333,7 +2557,16 @@ void INITIALIZE(int Exseed)
     NW_b(1, i) = Loans_b(1, i) + Reserves_b(1, i) + GB_b(1, i) - Deposits(1, i) - Advances_b(1, i);
     NW_b(2, i) = Loans_b(2, i) + Reserves_b(2, i) + GB_b(2, i) - Deposits(2, i) - Advances_b(2, i);
   }
+
+  Deposits_reloc = 0.0;
+  Deposits_reloc_b = 0.0;
+
+  NW_reloc = 0.0;
+  NW_reloc_c = 0.0;
+  Balance_reloc = 0.0;
+
   // GB_b=0;
+
   GB_cb(1) = NW_b0 + W10 * N1 + W20 * N2 + D_h0 + Deposits_e(1) - GB_b.Row(1).Sum() - Loans_b.Row(1).Sum();
   GB_cb(2) = NW_b0 + W10 * N1 + W20 * N2 + D_h0 + Deposits_e(2) - GB_b.Row(2).Sum() - Loans_b.Row(2).Sum();
   GB(1) = GB_cb(1) + GB_b.Row(1).Sum();
@@ -2695,11 +2928,13 @@ void SETVARS(void)
   Taxes_f_shock = 0;
   Wages = 0;
   KfirmGovCredit = 0;
+  Deposits_recovered_1 = 0; // Added to debug CB net-worth error
   Deposits_recovered_2 = 0;
   EntryCosts = 0;
   BankTransfer = 0;
   Deposits_h(1) = Deposits_h(2);
   Deposits_e(1) = Deposits_e(2);
+  Deposits_reloc(1) = Deposits_reloc(2);
   GB_cb(1) = GB_cb(2);
   GB(1) = GB(2);
   Advances(1) = Advances(2);
@@ -2745,6 +2980,17 @@ void SETVARS(void)
       sub_Rec(jj) = 0.0;
     }
   }
+
+  // Relocation bank side
+  for (i = 1; i <= NB; i++)
+  {
+    Deposits_reloc_b(1, i) =
+        Deposits_reloc_b(2, i);
+  }
+  Balance_reloc = 0.0;
+  RelocationCosts_1 = 0.0;
+  RelocationCosts_2 = 0.0;
+  RelocationCosts = 0.0;
 
   Divtot_1 = 0;
   Divtot_2 = 0;
@@ -8396,7 +8642,8 @@ void DEPOSITCHECK(void)
       std::cerr << "Share error Deposits_hb for bank " << i << " in period " << t << endl;
       Errors << "\n Share error Deposits_hb for bank " << i << " in period " << t << endl;
     }
-    DepositsCheck_1 = Deposits(1, i) - Deposits_hb(1, i) - Deposits_eb(1, i);
+    DepositsCheck_1 =
+        Deposits(1, i) - Deposits_hb(1, i) - Deposits_eb(1, i) - Deposits_reloc_b(1, i);
     DepositsCheck_2 = 0;
     for (j = 1; j <= N1; j++)
     {
@@ -8565,6 +8812,13 @@ void NEGATIVITYCHECK(void)
       std::cerr << "Error Deposits_eb for Bank " << i << " in period " << t << endl;
       Errors << "\n Error Deposits_eb for Bank " << i << " in period " << t << endl;
     }
+    if (Deposits_reloc_b(1, i) < (-tolerance * cpi(1)))
+    {
+      std::cerr << "Error Deposits_reloc_b for Bank "
+                << i << " in period " << t << endl;
+      Errors << "\n Error Deposits_reloc_b for Bank "
+             << i << " in period " << t << endl;
+    }
     if (GB_b(1, i) < (-tolerance * cpi(1)))
     {
       std::cerr << "Error GB for Bank " << i << " in period " << t << endl;
@@ -8631,6 +8885,14 @@ void NEGATIVITYCHECK(void)
   {
     std::cerr << "Error Deposits_h in period " << t << endl;
     Errors << "\n Error Deposits_h in period " << t << endl;
+  }
+  if (Deposits_reloc(1) < 0)
+  {
+    std::cerr << "Error Deposits_reloc in period "
+              << t << endl;
+
+    Errors << "\n Error Deposits_reloc in period "
+           << t << endl;
   }
   if (Consumption < 0)
   {
@@ -8733,11 +8995,27 @@ void CHECKSUMS(void)
     std::cerr << "Sum error GB in period " << t << endl;
     Errors << "\n Sum error GB in period " << t << endl;
   }
-  deviation = fabs((Deposits_1.Row(1).Sum() + Deposits_2.Row(1).Sum() + Deposits_hb.Row(1).Sum() + Deposits_eb.Row(1).Sum() - Deposits.Row(1).Sum()) / Deposits.Row(1).Sum());
+  deviation = fabs(
+      (Deposits_1.Row(1).Sum() + Deposits_2.Row(1).Sum() + Deposits_hb.Row(1).Sum() + Deposits_eb.Row(1).Sum() + Deposits_reloc_b.Row(1).Sum() - Deposits.Row(1).Sum()) / Deposits.Row(1).Sum());
   if (deviation > tolerance && Deposits.Row(1).Sum() > tolerance)
   {
     std::cerr << "Sum error Deposits in period " << t << endl;
     Errors << "\n Sum error Deposits in period " << t << endl;
+  }
+  if (Deposits_reloc(1) > tolerance ||
+      Deposits_reloc_b.Row(1).Sum() > tolerance)
+  {
+    deviation = fabs(
+        Deposits_reloc(1) -
+        Deposits_reloc_b.Row(1).Sum());
+
+    if (deviation > tolerance)
+    {
+      std::cerr << "Sum error Deposits_reloc in period "
+                << t << endl;
+      Errors << "\n Sum error Deposits_reloc in period "
+             << t << endl;
+    }
   }
   deviation = fabs((Reserves(1) - Reserves_b.Row(1).Sum()) / Reserves_b.Row(1).Sum());
   if (deviation > tolerance && Reserves_b.Row(1).Sum() > tolerance && Reserves(1) > tolerance)
@@ -8898,6 +9176,9 @@ void ADJUSTSTOCKS(void)
       Deposits_eb(1, i) = 0;
     }
 
+    // Add passive relocation-account deposits
+    Deposits(1, i) += Deposits_reloc_b(1, i);
+
     if (Reserves(1) > 0)
     {
       Reserves_b(1, i) = ShareReserves(i) * Reserves(1);
@@ -8944,18 +9225,22 @@ void SFC_CHECK(void)
 
   // Calculate the sectoral balances
   Balance_h = Wages + Benefits + InterestDeposits_h + Dividends(1) + TransferFuel - Taxes_h - Consumption - FirmTransfers;
-  Balance_1 = Sales1.Sum() + InterestDeposits_1.Sum() + FirmTransfers_1 + GovPurchases_1 - Wages_1.Sum() - EnergyPayments_1.Sum() - Dividends_1.Sum() - Taxes_1.Sum() - Taxes_CO2_1.Sum();
-  Balance_2 = Sales2.Sum() + InterestDeposits_2.Sum() + FirmTransfers_2 - Wages_2.Sum() - Investment_2.Sum() - LoanInterest_2.Sum() - EnergyPayments_2.Sum() - Dividends_2.Sum() - Taxes_2.Sum() - Taxes_CO2_2.Sum() + GovPurchases_2;
+  Balance_1 =
+      Sales1.Sum() + InterestDeposits_1.Sum() + FirmTransfers_1 + GovPurchases_1 - Wages_1.Sum() - EnergyPayments_1.Sum() - Dividends_1.Sum() - Taxes_1.Sum() - Taxes_CO2_1.Sum() - RelocationCosts_1.Sum();
+  Balance_2 =
+      Sales2.Sum() + InterestDeposits_2.Sum() + FirmTransfers_2 - Wages_2.Sum() - Investment_2.Sum() - LoanInterest_2.Sum() - EnergyPayments_2.Sum() - Dividends_2.Sum() - Taxes_2.Sum() - Taxes_CO2_2.Sum() - RelocationCosts_2.Sum() + GovPurchases_2;
   Balance_b = LoanInterest.Sum() + InterestBonds_b.Sum() + InterestReserves_b.Sum() + Bailout_b.Row(1).Sum() + BankTransfer - InterestDeposits.Sum() - Taxes_b.Sum() - InterestAdvances_b.Sum() - Dividends_b.Sum();
   Balance_e = EnergyPayments + InterestDeposits_e + Subsidy_Exp - Wages_en - Dividends_e - Taxes_CO2_e - FuelCost - Taxes_e_shock;
   Balance_cb = InterestBonds_cb + InterestAdvances - InterestReserves - TransferCB;
   Balance_g = Taxes + TransferCB + Taxes_CO2 + Taxes_e_shock + Taxes_f_shock - InterestBonds - Bailout - EntryCosts - G - Subsidy_Exp;
   Balance_f = FuelCost - TransferFuel - Taxes_f_shock;
+  Balance_reloc = RelocationCosts;
 
   // Sectoral balances should sum to zero
-  BalanceSum = Balance_h + Balance_1 + Balance_2 + Balance_b + Balance_e + Balance_cb + Balance_g + Balance_f;
+  BalanceSum = Balance_h + Balance_1 + Balance_2 + Balance_b + Balance_e + Balance_cb + Balance_g + Balance_f + Balance_reloc;
   // Deviation needs to be scaled somehow since model variables (and hence possibly deviations due to rounding) will grow over time
-  deviation = fabs(BalanceSum) / (fabs(Balance_h) + fabs(Balance_1) + fabs(Balance_2) + fabs(Balance_b) + fabs(Balance_e) + fabs(Balance_cb) + fabs(Balance_g) + fabs(Balance_f));
+  deviation = fabs(BalanceSum) /
+              (fabs(Balance_h) + fabs(Balance_1) + fabs(Balance_2) + fabs(Balance_b) + fabs(Balance_e) + fabs(Balance_cb) + fabs(Balance_g) + fabs(Balance_f) + fabs(Balance_reloc));
   if (deviation > regionalaccountingtolerance)
   {
     std::cerr << "\n\n ERROR: Sectoral balances do not sum to zero in period " << t << endl;
@@ -8986,7 +9271,8 @@ void SFC_CHECK(void)
     // Per-firm govt investment credit recorded during RG_BLOCK_FISCAL disbursement
     // (public-capital EA within region + adaptation I_adapt over perceived-national shares).
     double ea_firm_i = (NR > 0) ? KfirmGovCredit(i) : 0.0;
-    Balances_1(i) = Sales1(i) + InterestDeposits_1(i) - Wages_1(i) - EnergyPayments_1(i) - Dividends_1(i) - Taxes_1(i) - Taxes_CO2_1(i) + ea_firm_i;
+    Balances_1(i) =
+        Sales1(i) + InterestDeposits_1(i) - Wages_1(i) - EnergyPayments_1(i) - Dividends_1(i) - Taxes_1(i) - Taxes_CO2_1(i) - RelocationCosts_1(i) + ea_firm_i;
     NW_1(1, i) = Deposits_1(1, i);
     NW_1_c(i) = NW_1(2, i) + Balances_1(i) + baddebt_1(i) + Injection_1(i);
   }
@@ -9001,7 +9287,7 @@ void SFC_CHECK(void)
   for (i = 1; i <= N2; i++)
   {
     NW_2(1, i) = CapitalStock(1, i) + deltaCapitalStock(1, i) + Inventories(1, i) + Deposits_2(1, i) - Loans_2(1, i);
-    NW_2_c(i) = NW_2(2, i) + Pi2(i) + baddebt_2(i) + Injection_2(i) - Dividends_2(i) - Taxes_2(i) - Taxes_CO2_2(i) - Loss_Capital(i) - Loss_Inventories(i) + sub_Rec(i);
+    NW_2_c(i) = NW_2(2, i) + Pi2(i) + baddebt_2(i) + Injection_2(i) - Dividends_2(i) - Taxes_2(i) - Taxes_CO2_2(i) - Loss_Capital(i) - Loss_Inventories(i) - RelocationCosts_2(i) + sub_Rec(i);
   }
   deviation = fabs((NW_2_c.Sum() - NW_2.Row(1).Sum()) / NW_2_c.Sum());
   if (deviation > regionalaccountingtolerance)
@@ -9027,15 +9313,15 @@ void SFC_CHECK(void)
   {
     double gap = NW_cb(1) - NW_cb_c;
     double dfuel = Deposits_fuel_cb(1) - Deposits_fuel_cb(2);
-    Errors << "[CBDBG t=" << t << "] gap=" << gap
-           << " dNW_cb=" << (NW_cb(1) - NW_cb(2))
-           << " Balance_cb=" << Balance_cb
-           << " Adjustment_cb=" << Adjustment_cb
-           << " dDeposits_fuel_cb=" << dfuel
-           << " dGB_cb=" << (GB_cb(1) - GB_cb(2))
-           << " dAdvances=" << (Advances(1) - Advances(2))
-           << " dReserves=" << (Reserves(1) - Reserves(2))
-           << " NW_cb1=" << NW_cb(1) << " GDP_n=" << GDP_n(1) << std::endl;
+    // Errors << "[CBDBG t=" << t << "] gap=" << gap
+    //        << " dNW_cb=" << (NW_cb(1) - NW_cb(2))
+    //        << " Balance_cb=" << Balance_cb
+    //        << " Adjustment_cb=" << Adjustment_cb
+    //        << " dDeposits_fuel_cb=" << dfuel
+    //        << " dGB_cb=" << (GB_cb(1) - GB_cb(2))
+    //        << " dAdvances=" << (Advances(1) - Advances(2))
+    //        << " dReserves=" << (Reserves(1) - Reserves(2))
+    //        << " NW_cb1=" << NW_cb(1) << " GDP_n=" << GDP_n(1) << std::endl;
   }
   deviation = fabs((NW_cb(1) - NW_cb_c) / NW_cb_c);
   if (deviation > tolerance && fabs(NW_cb(1) / GDP_n(1)) > tolerance && fabs(NW_cb_c / GDP_n(1)) > tolerance)
@@ -9073,8 +9359,30 @@ void SFC_CHECK(void)
     Errors << "\n Stock and flow measures of net worth for the FOSSIL FUEL SECTOR are not consistent in period " << t << endl;
   }
 
+  // Compare stock and flow measures of relocation-account net worth
+  NW_reloc(1) = Deposits_reloc(1);
+
+  NW_reloc_c =
+      NW_reloc(2) + Balance_reloc;
+
+  deviation =
+      fabs(NW_reloc(1) - NW_reloc_c);
+
+  if (deviation > tolerance)
+  {
+    std::cerr
+        << "\n\n ERROR: Stock and flow measures of net worth "
+        << "for the RELOCATION ACCOUNT are not consistent in period "
+        << t << endl;
+
+    Errors
+        << "\n Stock and flow measures of net worth "
+        << "for the RELOCATION ACCOUNT are not consistent in period "
+        << t << endl;
+  }
+
   // Sum of all sectoral net worths should be equal to nominal value of tangible assets in the economy
-  NWSum = NW_h(1) + NW_1.Row(1).Sum() + NW_2.Row(1).Sum() + NW_b.Row(1).Sum() + NW_e(1) + NW_cb(1) + NW_gov(1) + NW_f(1);
+  NWSum = NW_h(1) + NW_1.Row(1).Sum() + NW_2.Row(1).Sum() + NW_b.Row(1).Sum() + NW_e(1) + NW_cb(1) + NW_gov(1) + NW_f(1) + NW_reloc(1);
   RealAssets = CapitalStock.Row(1).Sum() + deltaCapitalStock.Row(1).Sum() + Inventories.Row(1).Sum() + CapitalStock_e(1) + K_pub_total;
   deviation = fabs((NWSum - RealAssets) / RealAssets);
   if (deviation > regionalaccountingtolerance)
@@ -9520,6 +9828,8 @@ void UPDATE(void)
   // Update lagged variables needed in next period
   Deposits_h(2) = Deposits_h(1);
   Deposits_e(2) = Deposits_e(1);
+  Deposits_reloc(2) = Deposits_reloc(1);
+  NW_reloc(2) = NW_reloc(1);
   Deposits_fuel(2) = Deposits_fuel(1);
   Deposits_fuel_cb(2) = Deposits_fuel_cb(1);
   NW_f(2) = NW_f(1);
@@ -9608,6 +9918,7 @@ void UPDATE(void)
     Deposits(2, i) = Deposits(1, i);
     Deposits_hb(2, i) = Deposits_hb(1, i);
     Deposits_eb(2, i) = Deposits_eb(1, i);
+    Deposits_reloc_b(2, i) = Deposits_reloc_b(1, i);
     GB_b(2, i) = GB_b(1, i);
     Loans_b(2, i) = Loans_b(1, i);
     Advances_b(2, i) = Advances_b(1, i);
