@@ -521,14 +521,14 @@ int main(int argc, char *argv[])
           movers_C += relocated_C_reloc[jj];
         }
 
-        cout << "[FIRM RELOCATION] t=" << t
-             << " K_movers=" << movers_K
-             << " C_movers=" << movers_C
-             << " RelocationCosts=" << RelocationCosts
-             << " dDeposits_reloc="
-             << (Deposits_reloc(1) - Deposits_reloc(2))
-             << " Deposits_reloc=" << Deposits_reloc(1)
-             << endl;
+        // cout << "[FIRM RELOCATION] t=" << t
+        //      << " K_movers=" << movers_K
+        //      << " C_movers=" << movers_C
+        //      << " RelocationCosts=" << RelocationCosts
+        //      << " dDeposits_reloc="
+        //      << (Deposits_reloc(1) - Deposits_reloc(2))
+        //      << " Deposits_reloc=" << Deposits_reloc(1)
+        //      << endl;
 
         cout << "Exiting function FIRM_RELOCATION_COMPUTATION in period "
              << t << endl;
@@ -2928,6 +2928,7 @@ void SETVARS(void)
   Taxes_f_shock = 0;
   Wages = 0;
   KfirmGovCredit = 0;
+  Deposits_recovered_1 = 0; // Added to debug CB net-worth error
   Deposits_recovered_2 = 0;
   EntryCosts = 0;
   BankTransfer = 0;
@@ -9312,15 +9313,15 @@ void SFC_CHECK(void)
   {
     double gap = NW_cb(1) - NW_cb_c;
     double dfuel = Deposits_fuel_cb(1) - Deposits_fuel_cb(2);
-    Errors << "[CBDBG t=" << t << "] gap=" << gap
-           << " dNW_cb=" << (NW_cb(1) - NW_cb(2))
-           << " Balance_cb=" << Balance_cb
-           << " Adjustment_cb=" << Adjustment_cb
-           << " dDeposits_fuel_cb=" << dfuel
-           << " dGB_cb=" << (GB_cb(1) - GB_cb(2))
-           << " dAdvances=" << (Advances(1) - Advances(2))
-           << " dReserves=" << (Reserves(1) - Reserves(2))
-           << " NW_cb1=" << NW_cb(1) << " GDP_n=" << GDP_n(1) << std::endl;
+    // Errors << "[CBDBG t=" << t << "] gap=" << gap
+    //        << " dNW_cb=" << (NW_cb(1) - NW_cb(2))
+    //        << " Balance_cb=" << Balance_cb
+    //        << " Adjustment_cb=" << Adjustment_cb
+    //        << " dDeposits_fuel_cb=" << dfuel
+    //        << " dGB_cb=" << (GB_cb(1) - GB_cb(2))
+    //        << " dAdvances=" << (Advances(1) - Advances(2))
+    //        << " dReserves=" << (Reserves(1) - Reserves(2))
+    //        << " NW_cb1=" << NW_cb(1) << " GDP_n=" << GDP_n(1) << std::endl;
   }
   deviation = fabs((NW_cb(1) - NW_cb_c) / NW_cb_c);
   if (deviation > tolerance && fabs(NW_cb(1) / GDP_n(1)) > tolerance && fabs(NW_cb_c / GDP_n(1)) > tolerance)
