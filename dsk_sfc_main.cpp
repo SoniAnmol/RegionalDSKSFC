@@ -1,6 +1,51 @@
 #include "dsk_sfc_include.h"
 using namespace std;
 
+inline double perceivedRegionalPrice(double actual_price, int buyer_region, int seller_region,
+                                     int flag, double tau)
+{
+  if (flag == 1 && buyer_region != seller_region)
+  {
+    return actual_price * (1.0 + tau);
+  }
+  return actual_price;
+}
+#include "dsk_sfc_include.h"
+
+using namespace std;
+
+// Regional wage used for current-period production and wage payments.
+// reg_w_past is the regional analogue of the national w(2).
+double currentRegionalWage(int region_id)
+{
+  if (flag_regional_labor == 1 &&
+      NR > 0 &&
+      region_id >= 1 &&
+      region_id <= NR &&
+      static_cast<int>(reg_w_past.size()) == NR)
+  {
+    return reg_w_past[region_id - 1];
+  }
+
+  return w(2);
+}
+
+// Regional wage used for forward-looking / next-period decisions.
+// reg_w is the regional analogue of the newly determined national w(1).
+double nextRegionalWage(int region_id)
+{
+  if (flag_regional_labor == 1 &&
+      NR > 0 &&
+      region_id >= 1 &&
+      region_id <= NR &&
+      static_cast<int>(reg_w.size()) == NR)
+  {
+    return reg_w[region_id - 1];
+  }
+
+  return w(1);
+}
+
 int main(int argc, char *argv[])
 {
   CLI::App app{"DSK_SFC, the Dystopian Schumpeter meeting Keynes Stock Flow Consistent model"};
@@ -5689,7 +5734,18 @@ void PAY_LAB_INV(void)
   for (j = 1; j <= N2; j++)
   {
     sendingBank = BankingSupplier_2(j);
-    Wages_2(j) = w(2) * (Ld2(j));
+    int region_id = 0;
+
+    if (NR > 0 &&
+        static_cast<int>(region_firm_assignment_C.size()) == N2)
+    {
+      region_id = region_firm_assignment_C[j - 1];
+    }
+
+    const double wage_j = currentRegionalWage(region_id);
+
+    Wages_2(j) = wage_j * Ld2(j);
+
     if (Deposits_2(1, j) >= Wages_2(j))
     {
       Deposits_2(1, j) -= Wages_2(j);
@@ -5802,7 +5858,18 @@ void PAY_LAB_INV(void)
   for (i = 1; i <= N1; i++)
   {
     sendingBank = BankingSupplier_1(i);
-    Wages_1(i) = w(2) * (Ld1(i) + Ld1rd(i));
+    int region_id = 0;
+
+    if (NR > 0 &&
+        static_cast<int>(region_firm_assignment_K.size()) == N1)
+    {
+      region_id = region_firm_assignment_K[i - 1];
+    }
+
+    const double wage_i = currentRegionalWage(region_id);
+
+    Wages_1(i) = wage_i * (Ld1(i) + Ld1rd(i));
+
     if (Deposits_1(1, i) >= Wages_1(i))
     {
       Deposits_1(1, i) -= Wages_1(i);

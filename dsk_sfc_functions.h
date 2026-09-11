@@ -5,67 +5,6 @@
 
 #include "rapidjson/document.h"
 
-// Regional home-bias helper.
-// Returns the PERCEIVED effective price a buyer assigns to a supplier's posted price.
-// A non-regional supplier (buyer_region != seller_region) is perceived as
-// actual_price * (1 + tau) when the mechanism is active; otherwise the posted
-// price is returned unchanged. This is a reduced-form regional trade-cost / home-bias
-// term used ONLY in supplier and consumption evaluation. It never changes the actual
-// price paid, firm revenue, or any stock-flow accounting entry. Pure function: the
-// flag and wedge are passed explicitly so the routine has no hidden global state.
-inline double perceivedRegionalPrice(double actual_price, int buyer_region, int seller_region,
-                                     int flag, double tau)
-{
-  if (flag == 1 && buyer_region != seller_region)
-  {
-    return actual_price * (1.0 + tau);
-  }
-  return actual_price;
-}
-// Regional wage used for current-period production and wage payments.
-// National model convention:
-//   w(2) = wage inherited from the previous period and used during
-//          current-period production/payment decisions.
-// Regional analogue:
-//   reg_w_past[r]
-// Exact national fallback is preserved when the regional labour market
-// is disabled or the requested region is invalid.
-inline double currentRegionalWage(int region_id)
-{
-  if (flag_regional_labor == 1 &&
-      NR > 0 &&
-      region_id >= 1 &&
-      region_id <= NR &&
-      static_cast<int>(reg_w_past.size()) == NR)
-  {
-    return reg_w_past[region_id - 1];
-  }
-
-  return w(2);
-}
-
-
-// Regional wage used for forward-looking / next-period decisions.
-// National model convention:
-//   w(1) = newly determined wage.
-// Regional analogue:
-//   reg_w[r].
-// Exact national fallback is preserved when the regional labour market
-// is disabled or the requested region is invalid.
-inline double nextRegionalWage(int region_id)
-{
-  if (flag_regional_labor == 1 &&
-      NR > 0 &&
-      region_id >= 1 &&
-      region_id <= NR &&
-      static_cast<int>(reg_w.size()) == NR)
-  {
-    return reg_w[region_id - 1];
-  }
-
-  return w(1);
-}
-
 // Initialisation
 void SETPARAMS(const rapidjson::Document &inputs); // Sets parameters, flags and initial values using JSON input
 void RESIZE(void);                                 // Re-sizes all arrays and matrices based on supplied number of agents & periods
@@ -143,5 +82,10 @@ void GENFILESHOCKPARS(char *path, const char *s28, char runname[], char const *s
 void WRITEPROD(void);
 void WRITEDEB(void);
 void WRITENW(void);
+
+// R-DSk
+inline double perceivedRegionalPrice(double actual_price, int buyer_region, int seller_region, int flag, double tau);
+inline double currentRegionalWage(int region_id);
+inline double nextRegionalWage(int region_id);
 
 #endif
