@@ -84,8 +84,8 @@ void WRITEDEB(void);
 void WRITENW(void);
 
 // R-DSk
-inline double perceivedRegionalPrice(double actual_price, int buyer_region, int seller_region, int flag, double tau);
-inline double currentRegionalWage(int region_id);
-inline double nextRegionalWage(int region_id);
+double perceivedRegionalPrice(double actual_price, int buyer_region, int seller_region, int flag, double tau);
+double currentRegionalWage(int region_id);
+double nextRegionalWage(int region_id);
 
 #endif

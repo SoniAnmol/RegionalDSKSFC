@@ -1,8 +1,8 @@
 #include "dsk_sfc_include.h"
 using namespace std;
 
-inline double perceivedRegionalPrice(double actual_price, int buyer_region, int seller_region,
-                                     int flag, double tau)
+double perceivedRegionalPrice(double actual_price, int buyer_region, int seller_region,
+                              int flag, double tau)
 {
   if (flag == 1 && buyer_region != seller_region)
   {
@@ -10,9 +10,6 @@ inline double perceivedRegionalPrice(double actual_price, int buyer_region, int 
   }
   return actual_price;
 }
-#include "dsk_sfc_include.h"
-
-using namespace std;
 
 // Regional wage used for current-period production and wage payments.
 // reg_w_past is the regional analogue of the national w(2).
