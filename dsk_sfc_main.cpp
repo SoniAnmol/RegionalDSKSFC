@@ -4486,6 +4486,16 @@ void COSTPROD(void)
 {
   ofstream Errors(errorfilename, ios::app);
 
+  int region_j = 0;
+
+  if (NR > 0 &&
+      static_cast<int>(region_firm_assignment_C.size()) == N2)
+  {
+    region_j = region_firm_assignment_C[j - 1];
+  }
+
+  const double wage_j = currentRegionalWage(region_j);
+
   // C-firms determine effective production cost based on desired production; most efficient machines used first
   nmachprod = ceil(Qd(j) / dim_mach);
   nmp_temp = nmachprod;
@@ -4501,9 +4511,9 @@ void COSTPROD(void)
     {
       for (tt = t0; tt <= t; tt++)
       {
-        if (g_c[tt - 1][i - 1][j - 1] > 0 && (w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i)) < cmin)
+        if (g_c[tt - 1][i - 1][j - 1] > 0 && (wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i)) < cmin)
         {
-          cmin = w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
+          cmin = wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
           imin = i;
           jmin = j;
           tmin = tt;
@@ -4518,7 +4528,7 @@ void COSTPROD(void)
         A2e(j) += (1 - shocks_labprod2(j)) * A(tmin, imin) * nmp_temp / nmachprod;
         A2e_en(j) += (1 - shocks_eneff2(j)) * A_en(tmin, imin) * nmp_temp / nmachprod;
         A2e_ef(j) += A_ef(tmin, imin) * nmp_temp / nmachprod;
-        c2e(j) += (w(2) / ((1 - shocks_labprod2(j)) * A(tmin, imin)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin)) + t_CO2 * A_ef(tmin, imin) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin))) * nmp_temp / nmachprod;
+        c2e(j) += (wage_j / ((1 - shocks_labprod2(j)) * A(tmin, imin)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin)) + t_CO2 * A_ef(tmin, imin) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin))) * nmp_temp / nmachprod;
         g_c[tmin - 1][imin - 1][jmin - 1] -= nmp_temp;
         nmp_temp = 0;
       }
@@ -4527,7 +4537,7 @@ void COSTPROD(void)
         A2e(j) += (1 - shocks_labprod2(j)) * A(tmin, imin) * g_c[tmin - 1][imin - 1][jmin - 1] / nmachprod;
         A2e_en(j) += (1 - shocks_eneff2(j)) * A_en(tmin, imin) * g_c[tmin - 1][imin - 1][jmin - 1] / nmachprod;
         A2e_ef(j) += A_ef(tmin, imin) * g_c[tmin - 1][imin - 1][jmin - 1] / nmachprod;
-        c2e(j) += (w(2) / ((1 - shocks_labprod2(j)) * A(tmin, imin)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin)) + t_CO2 * A_ef(tmin, imin) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin))) * g_c[tmin - 1][imin - 1][jmin - 1] / nmachprod;
+        c2e(j) += (wage_j / ((1 - shocks_labprod2(j)) * A(tmin, imin)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin)) + t_CO2 * A_ef(tmin, imin) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin))) * g_c[tmin - 1][imin - 1][jmin - 1] / nmachprod;
         nmp_temp -= g_c[tmin - 1][imin - 1][jmin - 1];
         g_c[tmin - 1][imin - 1][jmin - 1] = 0;
       }
@@ -5470,6 +5480,17 @@ void PRODMACH(void)
 void ADJUSTEMISSENLAB(void)
 {
   ofstream Errors(errorfilename, ios::app);
+
+  int region_j = 0;
+
+  if (NR > 0 &&
+      static_cast<int>(region_firm_assignment_C.size()) == N2)
+  {
+    region_j = region_firm_assignment_C[j - 1];
+  }
+
+  const double wage_j = currentRegionalWage(region_j);
+
   nmachprod = ceil(Q2(j) / dim_mach);
   nmp_temp = nmachprod;
 
@@ -5484,9 +5505,9 @@ void ADJUSTEMISSENLAB(void)
     {
       for (tt = t0; tt <= t; tt++)
       {
-        if (g_c2[tt - 1][i - 1][j - 1] > 0 && (w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i)) < cmin)
+        if (g_c2[tt - 1][i - 1][j - 1] > 0 && (wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i)) < cmin)
         {
-          cmin = w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
+          cmin = wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
           imin = i;
           jmin = j;
           tmin = tt;
@@ -5557,9 +5578,9 @@ void ADJUSTEMISSENLAB(void)
       {
         for (tt = t0; tt <= t; tt++)
         {
-          if (g_c3[tt - 1][i - 1][j - 1] > 0 && (w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i)) < cmin)
+          if (g_c3[tt - 1][i - 1][j - 1] > 0 && (wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i)) < cmin)
           {
-            cmin = w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
+            cmin = wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
             imin = i;
             jmin = j;
             tmin = tt;
