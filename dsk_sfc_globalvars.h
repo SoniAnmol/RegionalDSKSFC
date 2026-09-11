@@ -660,8 +660,8 @@ std::vector<double> reg_GDP_n;                   // Regional nominal GDP
 std::vector<double> reg_LS;                      // Regional labor supply
 std::vector<double> LS_region_share;             // STATE: regional labour-supply share sigma_r (rolled from _next each period)
 std::vector<double> LS_region_share_next;        // STATE: next-period regional labour-supply share (written by migration)
-std::vector<double> reg_w;                       // Regional wage rate (income/benefit/migration-utility use; firms still pay national wage)
-std::vector<double> reg_w_past;                  // Lagged regional wage rate
+std::vector<double> reg_w;                       // Current regional wage state determined by the regional wage-setting rule
+std::vector<double> reg_w_past;                  // Lagged regional wage used for current-period production costs and wage payments
 std::vector<double> reg_U_past;                  // Lagged regional unemployment rate (for regional Phillips curve)
 std::vector<double> reg_Am_past;                 // Lagged regional mean productivity (for regional Phillips curve)
 std::vector<double> reg_YD;                      // Regional household disposable income

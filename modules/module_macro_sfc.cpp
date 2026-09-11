@@ -898,12 +898,7 @@ void WAGE(void)
 		w(1) = w_min;
 	}
 
-	// ===== Phase 3A: regional wage setting (income/benefit/migration use) =====
-	// Firms still pay the national wage; reg_w feeds household income, benefits
-	// and migration utility only (cost-side routing is Phase 3B, postponed).
-	//   wdot_reg_r = pi* + psi1(pi - pi*) + psi2*dAm_r - psi3*du_r
-	//   wdot_r     = chi_w*wdot_nat + (1 - chi_w)*wdot_reg_r,  |wdot_r| <= dwage_max
-	//   reg_w[r]   = reg_w_past[r] * (1 + wdot_r)
+	// Regional wage setting
 	if (flag_regional_labor == 1 && NR > 0 &&
 		(int)reg_w.size() == NR && (int)reg_w_past.size() == NR &&
 		(int)reg_U.size() == NR && (int)reg_U_past.size() == NR &&

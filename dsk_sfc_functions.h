@@ -22,6 +22,49 @@ inline double perceivedRegionalPrice(double actual_price, int buyer_region, int 
   }
   return actual_price;
 }
+// Regional wage used for current-period production and wage payments.
+// National model convention:
+//   w(2) = wage inherited from the previous period and used during
+//          current-period production/payment decisions.
+// Regional analogue:
+//   reg_w_past[r]
+// Exact national fallback is preserved when the regional labour market
+// is disabled or the requested region is invalid.
+inline double currentRegionalWage(int region_id)
+{
+  if (flag_regional_labor == 1 &&
+      NR > 0 &&
+      region_id >= 1 &&
+      region_id <= NR &&
+      static_cast<int>(reg_w_past.size()) == NR)
+  {
+    return reg_w_past[region_id - 1];
+  }
+
+  return w(2);
+}
+
+
+// Regional wage used for forward-looking / next-period decisions.
+// National model convention:
+//   w(1) = newly determined wage.
+// Regional analogue:
+//   reg_w[r].
+// Exact national fallback is preserved when the regional labour market
+// is disabled or the requested region is invalid.
+inline double nextRegionalWage(int region_id)
+{
+  if (flag_regional_labor == 1 &&
+      NR > 0 &&
+      region_id >= 1 &&
+      region_id <= NR &&
+      static_cast<int>(reg_w.size()) == NR)
+  {
+    return reg_w[region_id - 1];
+  }
+
+  return w(1);
+}
 
 // Initialisation
 void SETPARAMS(const rapidjson::Document &inputs); // Sets parameters, flags and initial values using JSON input
