@@ -3285,6 +3285,16 @@ void MACH(void)
   // Determine production cost and selling price for K-firms
   for (i = 1; i <= N1; i++)
   {
+    int region_i = 0;
+
+    if (NR > 0 &&
+        static_cast<int>(region_firm_assignment_K.size()) == N1)
+    {
+      region_i = region_firm_assignment_K[i - 1];
+    }
+
+    const double wage_i = currentRegionalWage(region_i);
+
     for (tt = t0; tt <= t; tt++)
     {
       if (A(tt, i) > 0 & A_en(tt, i) > 0)
@@ -3299,14 +3309,14 @@ void MACH(void)
       }
     }
 
-    c1(i) = w(2) / ((1 - shocks_labprod1(i)) * A1p(i) * a) + c_en(2) / ((1 - shocks_eneff1(i)) * A1p_en(i)) + t_CO2 * A1p_ef(i) / ((1 - shocks_eneff1(i)) * A1p_en(i));
+    c1(i) = wage_i / ((1 - shocks_labprod1(i)) * A1p(i) * a) + c_en(2) / ((1 - shocks_eneff1(i)) * A1p_en(i)) + t_CO2 * A1p_ef(i) / ((1 - shocks_eneff1(i)) * A1p_en(i));
     if (pass_1(i) == 1)
     {
       c1p(i) = c1(i);
     }
     else
     {
-      c1p(i) = w(2) / ((1 - shocks_labprod1(i)) * A1p(i) * a) + c_en_preshock / ((1 - shocks_eneff1(i)) * A1p_en(i)) + t_CO2 * A1p_ef(i) / ((1 - shocks_eneff1(i)) * A1p_en(i));
+      c1p(i) = wage_i / ((1 - shocks_labprod1(i)) * A1p(i) * a) + c_en_preshock / ((1 - shocks_eneff1(i)) * A1p_en(i)) + t_CO2 * A1p_ef(i) / ((1 - shocks_eneff1(i)) * A1p_en(i));
     }
 
     rnd = ran1(p_seed);
@@ -3342,6 +3352,16 @@ void MACH(void)
   // C-firms determine cost of production, revise mark-up and set their price
   for (j = 1; j <= N2; j++)
   {
+    int region_j = 0;
+
+    if (NR > 0 &&
+        static_cast<int>(region_firm_assignment_C.size()) == N2)
+    {
+      region_j = region_firm_assignment_C[j - 1];
+    }
+
+    const double wage_j = currentRegionalWage(region_j);
+
     n_mach(j) = K(j) / dim_mach;
     for (i = 1; i <= N1; i++)
     {
@@ -3349,14 +3369,14 @@ void MACH(void)
       {
         if (n_mach(j) > 0)
         {
-          c2(j) += (w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
+          c2(j) += (wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
           if (pass_2(j) == 1)
           {
-            c2p(j) += (w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
+            c2p(j) += (wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
           }
           else
           {
-            c2p(j) += (w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en_preshock / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
+            c2p(j) += (wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en_preshock / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
           }
           A2(j) += (1 - shocks_labprod2(j)) * A(tt, i) * g[tt - 1][i - 1][j - 1] / n_mach(j);
           A2_en(j) += (1 - shocks_eneff2(j)) * A_en(tt, i) * g[tt - 1][i - 1][j - 1] / n_mach(j);
