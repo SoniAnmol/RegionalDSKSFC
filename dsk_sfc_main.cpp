@@ -4423,6 +4423,16 @@ void INVEST(void)
 void SCRAPPING(void)
 {
   ofstream Errors(errorfilename, ios::app);
+  int region_j = 0;
+
+  if (NR > 0 &&
+      static_cast<int>(region_firm_assignment_C.size()) == N2)
+  {
+    region_j = region_firm_assignment_C[j - 1];
+  }
+
+  const double wage_j = currentRegionalWage(region_j);
+
   K_temp(j) = K(j) / dim_mach;
   indforn = int(fornit(j));
   // C-firms determine which machines should be scrapped due to age and/or due to superior tech being available
@@ -4430,7 +4440,8 @@ void SCRAPPING(void)
   {
     for (tt = t0; tt <= t; tt++)
     {
-      C_pb[tt - 1][i - 1][j - 1] = 0;
+      C_pb[tt - 1][i - 1][j - 1] =
+          wage_j / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
       g_pb[tt - 1][i - 1][j - 1] = 0;
 
       if (g[tt - 1][i - 1][j - 1] > 0 && age[tt - 1][i - 1][j - 1] > (agemax))
@@ -4444,7 +4455,8 @@ void SCRAPPING(void)
         else
         {
           g_pb[tt - 1][i - 1][j - 1] = min(g[tt - 1][i - 1][j - 1], (K_temp(j) - 1));
-          C_pb[tt - 1][i - 1][j - 1] = C(tt, i);
+          C_pb[tt - 1][i - 1][j - 1] =
+              wage_j / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
           SId(j) += dim_mach * g_pb[tt - 1][i - 1][j - 1];
           SId_age(j) += dim_mach * g_pb[tt - 1][i - 1][j - 1];
           if (SId(j) == 0 && K_temp(j) == 1)
@@ -4457,9 +4469,9 @@ void SCRAPPING(void)
 
       if (g[tt - 1][i - 1][j - 1] > 0 && g_pb[tt - 1][i - 1][j - 1] == 0 && A(tt, i) < A1(indforn))
       {
-        if (w(2) > 0 && A(tt, i) > 0 && A1(indforn) > 0 && A1_en(indforn) > 0 && A_en(tt, i) > 0)
+        if (wage_j > 0 && A(tt, i) > 0 && A1(indforn) > 0 && A1_en(indforn) > 0 && A_en(tt, i) > 0)
         {
-          payback = p1(indforn) / (w(2) / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i) - w(2) / A1(indforn) - c_en(2) / A1_en(indforn) - t_CO2 * A1_ef(indforn) / A1_en(indforn));
+          payback = p1(indforn) / (wage_j / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i) - w(2) / A1(indforn) - c_en(2) / A1_en(indforn) - t_CO2 * A1_ef(indforn) / A1_en(indforn));
         }
         else
         {
@@ -4471,7 +4483,8 @@ void SCRAPPING(void)
         if (payback <= b && payback > 0)
         {
           g_pb[tt - 1][i - 1][j - 1] = g[tt - 1][i - 1][j - 1];
-          C_pb[tt - 1][i - 1][j - 1] = C(tt, i);
+          C_pb[tt - 1][i - 1][j - 1] =
+              wage_j / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
           SId(j) += dim_mach * g_pb[tt - 1][i - 1][j - 1];
           SId_cost(j) += dim_mach * g_pb[tt - 1][i - 1][j - 1];
         }
