@@ -4440,8 +4440,7 @@ void SCRAPPING(void)
   {
     for (tt = t0; tt <= t; tt++)
     {
-      C_pb[tt - 1][i - 1][j - 1] =
-          wage_j / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
+      C_pb[tt - 1][i - 1][j - 1] = 0;
       g_pb[tt - 1][i - 1][j - 1] = 0;
 
       if (g[tt - 1][i - 1][j - 1] > 0 && age[tt - 1][i - 1][j - 1] > (agemax))
@@ -4449,7 +4448,8 @@ void SCRAPPING(void)
         if (flag_scrap_age == 1)
         {
           g_pb[tt - 1][i - 1][j - 1] = min(g[tt - 1][i - 1][j - 1], (K_temp(j) - 1));
-          C_pb[tt - 1][i - 1][j - 1] = C(tt, i);
+          C_pb[tt - 1][i - 1][j - 1] =
+              wage_j / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
           scrap_age(j) += dim_mach * g_pb[tt - 1][i - 1][j - 1];
         }
         else
@@ -4471,7 +4471,7 @@ void SCRAPPING(void)
       {
         if (wage_j > 0 && A(tt, i) > 0 && A1(indforn) > 0 && A1_en(indforn) > 0 && A_en(tt, i) > 0)
         {
-          payback = p1(indforn) / (wage_j / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i) - w(2) / A1(indforn) - c_en(2) / A1_en(indforn) - t_CO2 * A1_ef(indforn) / A1_en(indforn));
+          payback = p1(indforn) / (wage_j / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i) - wage_j / A1(indforn) - c_en(2) / A1_en(indforn) - t_CO2 * A1_ef(indforn) / A1_en(indforn));
         }
         else
         {
