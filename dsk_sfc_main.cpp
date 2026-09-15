@@ -11,6 +11,80 @@ double perceivedRegionalPrice(double actual_price, int buyer_region, int seller_
   return actual_price;
 }
 
+// Region-biased brochure recipient sampler (flag_regional_bias == 2). Draws one C-firm with
+// same-region relative weight exp(eta) using a single ran1 draw. Local firms get weight 1 and
+// non-local firms weight exp(-eta): identical categorical probabilities without overflow at large eta.
+int drawRegionBiasedCFirm(int seller_region, double eta)
+{
+  double w_nonlocal = exp(-eta);
+  double W = 0.0;
+  for (int j = 1; j <= N2; j++)
+  {
+    W += (region_firm_assignment_C[j - 1] == seller_region) ? 1.0 : w_nonlocal;
+  }
+  double u = ran1(p_seed) * W;
+  double cum = 0.0;
+  for (int j = 1; j <= N2; j++)
+  {
+    cum += (region_firm_assignment_C[j - 1] == seller_region) ? 1.0 : w_nonlocal;
+    if (u < cum)
+      return j;
+  }
+  return N2; // numerical guard against floating-point round-off at the upper edge
+}
+
+// Regional consumption-budget weights s_r, shared by flag_regional_bias 1 and 2.
+// Primary source reg_Dh, then population share LS_region_share, then equal shares.
+void updateRegionalConsumptionShares(void)
+{
+  double sumDh = 0.0;
+  bool dh_ok = ((int)reg_Dh.size() == NR);
+  if (dh_ok)
+  {
+    for (int rr = 0; rr < NR; rr++)
+    {
+      double v = reg_Dh[rr];
+      if (!std::isfinite(v) || v < 0.0)
+      {
+        dh_ok = false;
+        break;
+      }
+      sumDh += v;
+    }
+  }
+  if (dh_ok && sumDh > 0.0)
+  {
+    for (int rr = 0; rr < NR; rr++)
+      reg_cons_share[rr] = reg_Dh[rr] / sumDh;
+    return;
+  }
+
+  double sumLs = 0.0;
+  bool ls_ok = ((int)LS_region_share.size() == NR);
+  if (ls_ok)
+  {
+    for (int rr = 0; rr < NR; rr++)
+    {
+      double v = LS_region_share[rr];
+      if (!std::isfinite(v) || v < 0.0)
+      {
+        ls_ok = false;
+        break;
+      }
+      sumLs += v;
+    }
+  }
+  if (ls_ok && sumLs > 0.0)
+  {
+    for (int rr = 0; rr < NR; rr++)
+      reg_cons_share[rr] = LS_region_share[rr] / sumLs;
+    return;
+  }
+
+  for (int rr = 0; rr < NR; rr++)
+    reg_cons_share[rr] = 1.0 / NR;
+}
+
 // Regional wage used for current-period production and wage payments.
 // reg_w_past is the regional analogue of the national w(2).
 double currentRegionalWage(int region_id)
@@ -1649,11 +1723,14 @@ void SETPARAMS(const rapidjson::Document &inputs)
   flag_regional_labor = getFlagIntMobility("flag_regional_labor", 0);
 
   // Regional purchasing-preference (home-bias) mechanism.
-  // flag_regional_bias: 0 = baseline (no regional preference); 1 = perceived non-regional price penalty.
-  // tau_regional: proportional PERCEIVED non-regional purchasing-cost wedge (>= 0). This affects supplier
-  // evaluation only; actual payments always use posted prices p1/p2. No financial flow is created by it.
+  // flag_regional_bias: 0 = baseline (no regional preference); 1 = perceived non-regional price penalty;
+  //                     2 = regional exposure/search friction (no price wedge).
+  // tau_regional: proportional PERCEIVED non-regional purchasing-cost wedge (>= 0), flag 1 only. This affects
+  // supplier evaluation only; actual payments always use posted prices p1/p2. No financial flow is created by it.
+  // eta_K_search / eta_H_search: regional exposure/visibility biases (>= 0), flag 2 only. They change who is
+  // encountered/considered, not posted prices, so no financial flow is created by them either.
   flag_regional_bias = getFlagIntMobility("flag_regional_bias", 0);
-  if (flag_regional_bias != 0 && flag_regional_bias != 1)
+  if (flag_regional_bias != 0 && flag_regional_bias != 1 && flag_regional_bias != 2)
   {
     ofstream Errors(errorfilename, ios::app);
     std::cerr << "[WARN] flag_regional_bias invalid (" << flag_regional_bias << "); clamping to 0" << std::endl;
@@ -1670,10 +1747,30 @@ void SETPARAMS(const rapidjson::Document &inputs)
     Errors.close();
     tau_regional = 0.0;
   }
+  eta_K_search = getDoubleParam("eta_K_search", 0.0);
+  if (eta_K_search < 0.0)
+  {
+    ofstream Errors(errorfilename, ios::app);
+    std::cerr << "[WARN] eta_K_search negative (" << eta_K_search << "); clamping to 0.0" << std::endl;
+    Errors << "[WARN] eta_K_search negative (" << eta_K_search << "); clamping to 0.0" << std::endl;
+    Errors.close();
+    eta_K_search = 0.0;
+  }
+  eta_H_search = getDoubleParam("eta_H_search", 0.0);
+  if (eta_H_search < 0.0)
+  {
+    ofstream Errors(errorfilename, ios::app);
+    std::cerr << "[WARN] eta_H_search negative (" << eta_H_search << "); clamping to 0.0" << std::endl;
+    Errors << "[WARN] eta_H_search negative (" << eta_H_search << "); clamping to 0.0" << std::endl;
+    Errors.close();
+    eta_H_search = 0.0;
+  }
   if (verbose)
   {
     std::cerr << "[DEBUG] Regional bias loaded: flag_regional_bias=" << flag_regional_bias
-              << ", tau_regional=" << tau_regional << std::endl;
+              << ", tau_regional=" << tau_regional
+              << ", eta_K_search=" << eta_K_search
+              << ", eta_H_search=" << eta_H_search << std::endl;
   }
 
   // Regional wage-setting parameters (active when flag_regional_labor == 1)
@@ -4249,6 +4346,8 @@ void BROCHURE(void)
 
   ftot = 0;
   nclient = 0;
+  diag_brochure_local_draws = 0.0;
+  diag_brochure_total_draws = 0.0;
 
   for (j = 1; j <= N2; j++)
   {
@@ -4274,10 +4373,30 @@ void BROCHURE(void)
       newbroch++;
     }
 
+    // flag_regional_bias == 2: bias new-brochure recipients toward the K-firm's own region
+    // (exposure friction). One ran1 draw per brochure like the baseline; the baseline branch is
+    // kept explicit so the RNG stream stays bit-identical to flag 0/1 when exposure is inactive.
+    bool exposure_k_active = (flag_regional_bias == 2 && eta_K_search > 1e-12 && NR > 0 &&
+                              static_cast<int>(region_firm_assignment_C.size()) == N2 &&
+                              static_cast<int>(region_firm_assignment_K.size()) == N1);
+    int seller_region_i = (NR > 0 && static_cast<int>(region_firm_assignment_K.size()) == N1)
+                              ? region_firm_assignment_K[i - 1]
+                              : 0;
+
     while (newbroch > 0)
     {
-      rni = int(ran1(p_seed) * N1 * N2) % N2 + 1;
+      if (exposure_k_active)
+        rni = drawRegionBiasedCFirm(seller_region_i, eta_K_search);
+      else
+        rni = int(ran1(p_seed) * N1 * N2) % N2 + 1;
       Match(rni, i) = 1;
+      // Exposure diagnostic: count draws before Match is collapsed to the chosen supplier.
+      if (flag_regional_bias == 2 && seller_region_i >= 1)
+      {
+        diag_brochure_total_draws += 1.0;
+        if (region_firm_assignment_C[rni - 1] == seller_region_i)
+          diag_brochure_local_draws += 1.0;
+      }
       newbroch--;
     }
   }
@@ -6109,10 +6228,13 @@ void COMPET2(void)
     exit(EXIT_FAILURE);
   }
 
-  // Regional home-bias is active only when the flag is on, the wedge is materially
-  // positive, and the model is regionalised. Otherwise the original national
-  // quasi-replicator update below runs unchanged (exact baseline nesting).
-  bool regional_active = (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0);
+  // Regional home-bias is active when the flag is on and the model is regionalised. Flag 1 uses a
+  // perceived-price wedge (needs tau_regional > 0); flag 2 uses a household visibility/exposure bias
+  // (needs eta_H_search > 0). When neither is active the original national quasi-replicator runs
+  // unchanged (exact baseline nesting).
+  bool wedge_hh_active = (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0);
+  bool exposure_hh_active = (flag_regional_bias == 2 && eta_H_search > 1e-12 && NR > 0);
+  bool regional_active = wedge_hh_active || exposure_hh_active;
 
   if (!regional_active)
   {
@@ -6144,9 +6266,9 @@ void COMPET2(void)
       ftot(3) += f2(3, j);
     }
   }
-  else
+  else if (wedge_hh_active)
   {
-    // ----- REGIONAL HOME-BIAS: buyer-region-specific quasi-replicator -----
+    // ----- REGIONAL HOME-BIAS (flag 1): buyer-region-specific perceived-price replicator -----
     // Households in region r perceive an effective price for C-firm c that is inflated
     // by tau_regional when c is located in another region. Each region runs its own
     // replicator on its own market-share row f2_reg[r], using the existing unweighted
@@ -6154,58 +6276,8 @@ void COMPET2(void)
     // The national f2(1,c) is then the consumption-budget-weighted aggregate of the
     // regional rows; national exit/markup/timing continue to use national f2.
 
-    // Regional consumption-budget weights s_r: primary reg_Dh, then population share
-    // (LS_region_share), then equal shares. Weights are sanitised and normalised.
-    {
-      double sumDh = 0.0;
-      bool dh_ok = ((int)reg_Dh.size() == NR);
-      if (dh_ok)
-      {
-        for (int rr = 0; rr < NR; rr++)
-        {
-          double v = reg_Dh[rr];
-          if (!std::isfinite(v) || v < 0.0)
-          {
-            dh_ok = false;
-            break;
-          }
-          sumDh += v;
-        }
-      }
-      if (dh_ok && sumDh > 0.0)
-      {
-        for (int rr = 0; rr < NR; rr++)
-          reg_cons_share[rr] = reg_Dh[rr] / sumDh;
-      }
-      else
-      {
-        double sumLs = 0.0;
-        bool ls_ok = ((int)LS_region_share.size() == NR);
-        if (ls_ok)
-        {
-          for (int rr = 0; rr < NR; rr++)
-          {
-            double v = LS_region_share[rr];
-            if (!std::isfinite(v) || v < 0.0)
-            {
-              ls_ok = false;
-              break;
-            }
-            sumLs += v;
-          }
-        }
-        if (ls_ok && sumLs > 0.0)
-        {
-          for (int rr = 0; rr < NR; rr++)
-            reg_cons_share[rr] = LS_region_share[rr] / sumLs;
-        }
-        else
-        {
-          for (int rr = 0; rr < NR; rr++)
-            reg_cons_share[rr] = 1.0 / NR;
-        }
-      }
-    }
+    // Regional consumption-budget weights s_r (shared with flag 2).
+    updateRegionalConsumptionShares();
 
     // Region-specific replicator: update each f2_reg[r] current row (row 1) from its lag (row 2).
     for (int rr = 0; rr < NR; rr++)
@@ -6305,6 +6377,104 @@ void COMPET2(void)
           }
         }
       }
+      ftot(1) += f2(1, j);
+      ftot(2) += f2(2, j);
+      ftot(3) += f2(3, j);
+    }
+  }
+  else
+  {
+    // ----- REGIONAL EXPOSURE/SEARCH (flag 2): household visibility-weighted shares -----
+    // No price wedge. First compute the ordinary national economic quasi-replicator on posted
+    // prices (f_hat). Each region then weights f_hat by a visibility factor A_rj (same-region firms
+    // favoured) and renormalises to a proper share row. National f2 is the budget-weighted aggregate
+    // of these region rows, so market share stays the aggregation of actual regional demand shares.
+    std::vector<double> f_hat(N2 + 1, 0.0);
+    for (j = 1; j <= N2; j++)
+      f_hat[j] = f2(2, j) * ((2 * omega3) / (1 + exp((-chi) * ((E2(j) - Em2(1)) / Em2(1)))) + (1 - omega3));
+
+    // Regional consumption-budget weights s_r (shared with flag 1).
+    updateRegionalConsumptionShares();
+
+    // Region rows: visibility-weight f_hat (local weight 1, non-local exp(-eta_H_search); identical
+    // categorical probabilities without overflow) and normalise per region BEFORE aggregation.
+    double w_nl = exp(-eta_H_search);
+    for (int rr = 0; rr < NR; rr++)
+    {
+      int region_id = rr + 1;
+      double gsum = 0.0;
+      for (j = 1; j <= N2; j++)
+      {
+        double a = (region_firm_assignment_C[j - 1] == region_id) ? 1.0 : w_nl;
+        double v = a * f_hat[j];
+        if (!std::isfinite(v) || v < 0.0)
+          v = 0.0;
+        f2_reg[rr](1, j) = v;
+        gsum += v;
+      }
+      if (gsum > 0.0)
+      {
+        for (j = 1; j <= N2; j++)
+          f2_reg[rr](1, j) /= gsum;
+      }
+      else
+      {
+        for (j = 1; j <= N2; j++)
+          f2_reg[rr](1, j) = 1.0 / N2r;
+      }
+    }
+
+    // National f2(1,c) = budget-weighted aggregate of the normalised region rows; apply the exit
+    // threshold to this aggregate and zero any exiting firm across every regional row.
+    for (j = 1; j <= N2; j++)
+    {
+      double agg = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+        agg += reg_cons_share[rr] * f2_reg[rr](1, j);
+      f2(1, j) = agg;
+
+      if (f2(1, j) <= (1 / (N2r * 500)))
+      {
+        f2(1, j) = 0;
+        f2(2, j) = 0;
+        f2(3, j) = 0;
+        for (int rr = 0; rr < NR; rr++)
+        {
+          f2_reg[rr](1, j) = 0;
+          f2_reg[rr](2, j) = 0;
+          f2_reg[rr](3, j) = 0;
+        }
+        if (exiting_2(j) == 0 && exit_payments2(j) == 0 && exit_marketshare2(j) == 0)
+        {
+          exit_marketshare2(j) = 1;
+          int rr = region_firm_assignment_C[j - 1];
+          if (rr >= 1 && rr <= NR)
+          {
+            reg_exit_marketshare2[rr - 1] += 1.0;
+          }
+        }
+      }
+    }
+
+    // Post-exit: renormalise surviving region rows and RECOMPUTE national f2 from them so that
+    // national market share remains exactly the budget-weighted aggregate of regional demand shares.
+    for (int rr = 0; rr < NR; rr++)
+    {
+      double s1 = 0.0;
+      for (j = 1; j <= N2; j++)
+        s1 += f2_reg[rr](1, j);
+      if (s1 > 0.0)
+      {
+        for (j = 1; j <= N2; j++)
+          f2_reg[rr](1, j) /= s1;
+      }
+    }
+    for (j = 1; j <= N2; j++)
+    {
+      double agg = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+        agg += reg_cons_share[rr] * f2_reg[rr](1, j);
+      f2(1, j) = agg;
       ftot(1) += f2(1, j);
       ftot(2) += f2(2, j);
       ftot(3) += f2(3, j);
@@ -7125,7 +7295,12 @@ void ALLOC(void)
     Q2temp(j) = Q2(j) + N(2, j);
   }
 
-  bool regional_active = (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0);
+  // Regional consumption allocation runs for either home-bias mechanism: flag 1 (perceived-price
+  // wedge) or flag 2 (household visibility/exposure bias). The wedge diagnostic below is accumulated
+  // only under flag 1, so diag_wedge_cmarket stays 0 under flag 2 by construction.
+  bool wedge_hh_active = (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0);
+  bool exposure_hh_active = (flag_regional_bias == 2 && eta_H_search > 1e-12 && NR > 0);
+  bool regional_active = wedge_hh_active || exposure_hh_active;
 
   if (!regional_active)
   {
@@ -7384,7 +7559,7 @@ void ALLOC(void)
           tot_real += q;
           if (region_firm_assignment_C[j - 1] == region_id)
             local_real += q;
-          else
+          else if (wedge_hh_active)
             wedge_num += q * tau_regional;
         }
       }
