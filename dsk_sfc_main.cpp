@@ -4624,7 +4624,7 @@ void INVEST(void)
       EId(j) = 0;
     }
 
-    if (SId(j) == 0 && EId(j) == 0 && marker_age(j) == 1)
+    if (SId(j) == 0 && EId(j) == 0 && marker_age(j) == 1 && pending_capacity < dim_mach)
     {
       EId(j) = dim_mach;
     }
