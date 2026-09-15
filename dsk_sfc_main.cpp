@@ -8402,6 +8402,16 @@ void TECHANGEND(void)
 
   for (i = 1; i <= N1; i++)
   {
+    int region_i = 0;
+
+    if (NR > 0 &&
+        static_cast<int>(region_firm_assignment_K.size()) == N1)
+    {
+      region_i = region_firm_assignment_K[i - 1];
+    }
+
+    const double wage_i_next = nextRegionalWage(region_i);
+
     // K-firms determine R&D spending and associated labour demand
     RD(1, i) = nu * S1(i);
     if (S1(i) == 0)
@@ -8415,14 +8425,16 @@ void TECHANGEND(void)
       }
     }
 
-    if (w(1) > 0)
+    if (wage_i_next > 0)
     {
-      Ld1rd(i) = RD(1, i) / w(1);
+      Ld1rd(i) = RD(1, i) / wage_i_next;
     }
     else
     {
-      std::cerr << "\n\n ERROR: w=0 in period " << t << endl;
-      Errors << "\n w=0 in period " << t << endl;
+      std::cerr << "\n\n ERROR: regional wage=0 in period " << t
+                << " for K-firm " << i << endl;
+      Errors << "\n Regional wage=0 in period " << t
+             << " for K-firm " << i << endl;
       exit(EXIT_FAILURE);
     }
 
