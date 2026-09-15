@@ -35,6 +35,7 @@ extern std::vector<double> reg_CreditDemand_all, reg_CreditSupply_all;
 extern std::vector<double> reg_H1, reg_H2;
 extern std::vector<double> reg_Am1, reg_Am2, reg_Am_a, reg_Am_en, reg_GDP_r, reg_Investment_r, reg_ReplacementInvestment_r, reg_Investment_n, reg_EnergyPayments, reg_LS, reg_Cum_emissions, reg_Consumption;
 extern std::vector<double> reg_Emiss1_TOT, reg_Emiss2_TOT, reg_Emiss_en;
+
 // Regional labour market state (flag_regional_labor)
 extern std::vector<double> LS_region_share, LS_region_share_next;
 extern std::vector<double> reg_w, reg_w_past, reg_U_past, reg_Am_past, reg_YD, reg_C;
@@ -235,6 +236,7 @@ extern RowVector Dividends_1;
 extern RowVector Dividends_2;
 extern RowVector Wages_1;
 extern RowVector Wages_2;
+extern double Wages_en;
 extern RowVector shocks_labprod1;
 extern double reduction;
 extern double Ipast;
@@ -265,6 +267,8 @@ extern std::vector<double> reg_Am;
 extern std::vector<double> reg_D1_en;
 extern std::vector<double> reg_D2_en;
 extern std::vector<double> reg_D_en_TOT;
+extern std::vector<double> reg_Q_ge;
+extern std::vector<double> reg_Q_de;
 extern std::vector<double> reg_GDP_n;
 extern std::vector<double> reg_Loans_2;
 extern std::vector<double> reg_Inventories;

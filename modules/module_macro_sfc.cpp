@@ -571,6 +571,31 @@ void REGIONAL_UPDATE(void)
 			}
 		}
 
+		// Reallocate actually paid energy-sector wages after resetting reg_Wages.
+		// Use the same regional energy-production shares as PAY_LAB_INV.
+		if (Wages_en > 0)
+		{
+			double total_energy_production = 0.0;
+
+			for (int rr = 0; rr < NR; ++rr)
+			{
+				total_energy_production += reg_Q_ge[rr] + reg_Q_de[rr];
+			}
+
+			if (total_energy_production > 0)
+			{
+				for (int rr = 0; rr < NR; ++rr)
+				{
+					double region_energy_share =
+						(reg_Q_ge[rr] + reg_Q_de[rr]) /
+						total_energy_production;
+
+					reg_Wages[rr] +=
+						Wages_en * region_energy_share;
+				}
+			}
+		}
+
 		// Calculate total regional capital stock (C-firms only, matching national CapitalStock)
 		for (int rr = 1; rr <= NR; ++rr)
 		{
@@ -678,7 +703,7 @@ void REGIONAL_UPDATE(void)
 					reg_A2_weight += S2(1, jj);
 				}
 			}
-
+			
 			// Calculate regional average productivities
 			reg_Am1[rr - 1] = (reg_A1_weight > 0) ? reg_A1_sum / reg_A1_weight : 0;
 			reg_Am2[rr - 1] = (reg_A2_weight > 0) ? reg_A2_sum / reg_A2_weight : 0;
@@ -761,7 +786,7 @@ void REGIONAL_UPDATE(void)
 			}
 		}
 
-		// ===== Phase 4 / 5B: regional disposable income, consumption, deposits =====
+		// regional disposable income, consumption, deposits
 		// True regional household accounts. Households now hold regional deposits
 		// (reg_Dh) that accumulate disposable income minus consumption. reg_C is an
 		// accounting decomposition of national Consumption by disposable-income share.
@@ -805,7 +830,7 @@ void REGIONAL_UPDATE(void)
 			double sum_raw = 0.0;
 			for (int rr = 0; rr < NR; ++rr)
 			{
-				// 1. Desired regional consumption (by disposable-income share)
+				// Desired regional consumption (by disposable-income share)
 				double share;
 				if (total_reg_YD > 1e-12)
 					share = reg_YD[rr] / total_reg_YD;
@@ -815,18 +840,18 @@ void REGIONAL_UPDATE(void)
 				if (desired_r < 0.0)
 					desired_r = 0.0; // no negative consumption
 
-				// 2. Available household resources before migration
+				// Available household resources before migration
 				double resources_r = reg_Dh_lag[rr] + reg_YD[rr];
 				if (resources_r < 0.0)
 					resources_r = 0.0;
 
-				// 3. Cap regional consumption at available resources
+				// Cap regional consumption at available resources
 				double c_raw = (desired_r < resources_r) ? desired_r : resources_r;
 				reg_C_raw[rr] = c_raw;
 				sum_raw += c_raw;
 			}
 
-			// 4. Rescale raw consumption to national Consumption only if feasible
+			// Rescale raw consumption to national Consumption only if feasible
 			//    (scaling DOWN). If raw resources fall short, keep the feasible
 			//    expenditure and record the unallocated national consumption.
 			diag_reg_C_unallocated = 0.0;
@@ -843,7 +868,7 @@ void REGIONAL_UPDATE(void)
 				diag_reg_C_unallocated = Consumption - sum_raw;
 			}
 
-			// 5. Pre-migration regional deposits (income/consumption applied)
+			// Pre-migration regional deposits (income/consumption applied)
 			for (int rr = 0; rr < NR; ++rr)
 			{
 				reg_Dh_pre_migration[rr] = reg_Dh_lag[rr] + reg_YD[rr] - reg_C[rr];

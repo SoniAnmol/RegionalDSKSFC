@@ -3541,8 +3541,7 @@ void MOBILITY_COMPUTATION(void)
   //  Compute monetary moving costs MC_mig[o][d]
   for (int o = 0; o < NR; ++o)
   {
-    double w_o_lag = (flag_regional_labor == 1 && (int)reg_w.size() == NR) ? reg_w[o] : w(2);
-
+    double w_o_lag = currentRegionalWage(o + 1);
     double u_o_lag = ((int)reg_U_rate.size() == NR) ? reg_U_rate[o] : reg_U[o];
 
     w_o_lag = std::max(0.0, w_o_lag);
@@ -9603,6 +9602,30 @@ void REGIONAL_CONSISTENCY_CHECK(void)
 
   ofstream Errors(errorfilename, ios::app);
   double regional_sum, national_value, deviation;
+
+  // Check Wages: regional wage receipts should sum to national household wages
+  regional_sum = 0.0;
+
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_Wages[rr];
+  }
+
+  national_value = Wages;
+  deviation = fabs(regional_sum - national_value);
+
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation /= fabs(national_value);
+  }
+
+  if (deviation > regionalaccountingtolerance)
+  {
+    Errors << "Period " << t
+           << ": Regional Wages sum (" << regional_sum
+           << ") does not match national Wages (" << national_value
+           << "), deviation = " << deviation << endl;
+  }
 
   // Check GDP_n: Sum of regional GDP_n should equal national GDP_n(1)
   regional_sum = 0;
