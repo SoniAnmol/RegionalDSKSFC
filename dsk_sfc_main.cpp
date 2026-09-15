@@ -4279,6 +4279,15 @@ void BROCHURE(void)
 
   for (j = 1; j <= N2; j++)
   {
+    int region_j = 0;
+
+    if (NR > 0 &&
+        static_cast<int>(region_firm_assignment_C.size()) == N2)
+    {
+      region_j = region_firm_assignment_C[j - 1];
+    }
+
+    const double wage_j = currentRegionalWage(region_j);
     indforn = int(fornit(j));
     for (i = 1; i <= N1; i++)
     {
@@ -4286,9 +4295,9 @@ void BROCHURE(void)
       {
         // Apply a perceived non-regional purchasing-cost wedge to the machine PRICE only.
         // This affects supplier evaluation; the selected C-firm still pays the posted price p1.
-        // The operating-cost term (labour/energy/carbon)*b is a physical property of the
-        // machine and is never wedged. When the mechanism is inactive the effective prices
-        // equal the posted prices, so the comparison reproduces the baseline exactly.
+        // Operating costs are not wedged: labour is evaluated at the buyer C-firm's
+        // regional wage, while energy efficiency and carbon intensity come from the machine.
+        // When the regional mechanisms are inactive, the comparison reproduces the baseline.
         double p1_cand = p1(i);
         double p1_inc = p1(indforn);
         if (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0)
@@ -4297,7 +4306,7 @@ void BROCHURE(void)
           p1_cand = perceivedRegionalPrice(p1(i), buyer_region, region_firm_assignment_K[i - 1], flag_regional_bias, tau_regional);
           p1_inc = perceivedRegionalPrice(p1(indforn), buyer_region, region_firm_assignment_K[indforn - 1], flag_regional_bias, tau_regional);
         }
-        if (Match(j, i) == 1 && p1_cand + (w(2) / A1(i) + c_en(2) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b < p1_inc + (w(2) / A1(indforn) + c_en(2) / A1_en(indforn) + t_CO2 * A1_ef(indforn) / A1_en(indforn)) * b)
+        if (Match(j, i) == 1 && p1_cand + (wage_j / A1(i) + c_en(2) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b < p1_inc + (wage_j / A1(indforn) + c_en(2) / A1_en(indforn) + t_CO2 * A1_ef(indforn) / A1_en(indforn)) * b)
         {
           indforn = i;
         }
