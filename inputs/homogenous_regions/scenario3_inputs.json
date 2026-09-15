@@ -474,7 +474,8 @@
       "flag_adaptation": 2,
       "flag_regional_mobility": 1,
       "flag_regional_labor": 1,
-      "flag_regional_bias": 0
+      "flag_regional_bias": 0,
+      "flag_recovery_delivery_delay": 0
     }
   ],
   "inits": [

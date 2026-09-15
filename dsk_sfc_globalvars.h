@@ -764,7 +764,30 @@ RowVector affected_indicator;     // 1 if firm's shock >= d_bar_rec this period 
 RowVector affected_indicator_lag; // Lagged affected indicator (size N2, carry-forwarded in SETVARS)
 double GRecPaid_total;            // National sum of GRecPaid_rg
 double TREC_total;                // National sum of TREC_rg
-double GovPurchases_Rec;          // K-firm revenue from recovery machine orders (for SFC)
+
+// Recovery machine-delivery delay state (active when flag_recovery_delivery_delay == 1)
+RowVector recon_elig;       // 1 if C-firm received recovery disbursement this period (size N2)
+RowVector recon_elig_lag;   // Lagged eligibility marker (carry-forwarded in SETVARS)
+RowVector recon_Saff;       // Snapshot of Saff_rg_lag at disbursement (size N2)
+RowVector recon_Saff_lag;   // Lagged snapshot (carry-forwarded in SETVARS)
+RowVector CapitalInTransit; // Per-C-firm value of delayed reconstruction machines awaiting delivery (persistent stock)
+
+// One outstanding delayed reconstruction machine delivery; queued so overlapping orders never overwrite.
+struct PendingDelivery
+{
+    int buyer;    // C-firm index (1-based)
+    int supplier; // K-firm supplier index at order time (1-based)
+    int vintage;  // production-period index
+    int delivery; // scheduled delivery period (= vintage + 2)
+    double units; // held machine units (I-units)
+    double value; // held nominal value (units * production-period price)
+};
+std::vector<PendingDelivery> pending_deliveries;
+const double recovery_delay_eps = 1e-12; // RNG deadband for the Bernoulli delay draw
+long diag_recon_total_orders = 0;        // cumulative eligible reconstruction expansion orders
+long diag_recon_delayed_orders = 0;      // cumulative orders given the extra delivery delay
+double diag_recon_delayed_value = 0.0;   // cumulative nominal value delayed
+double GovPurchases_Rec;                 // K-firm revenue from recovery machine orders (for SFC)
 
 double GRANTPOOL;       // National grant pool (gamma_bar * Taxes)
 double REV_rg_total;    // Sum of regional revenues

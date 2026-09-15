@@ -596,7 +596,7 @@ void REGIONAL_UPDATE(void)
 				// NW_2 = CapitalStock + deltaCapitalStock + Inventories + Deposits_2 - Loans_2.
 				// NW_2(1,jj) is only updated in ENTRYEXIT and not refreshed after
 				// BANKING/BAILOUT/SETTLEMENT modify the balance-sheet components.
-				reg_NW2[rr - 1] += CapitalStock(1, jj) + deltaCapitalStock(1, jj) + Inventories(1, jj) + Deposits_2(1, jj) - Loans_2(1, jj);
+				reg_NW2[rr - 1] += CapitalStock(1, jj) + deltaCapitalStock(1, jj) + CapitalInTransit(jj) + Inventories(1, jj) + Deposits_2(1, jj) - Loans_2(1, jj);
 				reg_Deposits2[rr - 1] += Deposits_2(1, jj);
 				reg_CapitalStock2[rr - 1] += CapitalStock(1, jj);
 				reg_Dividends_2[rr - 1] += Dividends_2(jj); // Aggregate dividends for C-firms
@@ -1468,6 +1468,14 @@ void RG_BLOCK_FISCAL(void)
 					if (region_firm_assignment_C[jj - 1] == rr && affected_indicator_lag(jj) == 1.0 && exiting_2(jj) == 0)
 					{
 						sub_Rec(jj) = share;
+						// Delivery-delay eligibility: mark on the actual disbursement and snapshot the
+						// responsible disaster's damage (Saff_rg_lag drives the obligation being paid here).
+						if (flag_recovery_delivery_delay == 1)
+						{
+							recon_elig(jj) = 1.0;
+							double s = Saff_rg_lag[rr - 1];
+							recon_Saff(jj) = (s < 0.0) ? 0.0 : (s > 1.0 ? 1.0 : s);
+						}
 					}
 				}
 			}
