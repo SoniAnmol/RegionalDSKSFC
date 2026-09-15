@@ -8411,6 +8411,34 @@ void TECHANGEND(void)
     }
 
     const double wage_i_next = nextRegionalWage(region_i);
+    double wage_client_next = 0.0;
+    int client_count = 0;
+
+    for (int jj = 1; jj <= N2; ++jj)
+    {
+      if (Match(jj, i) == 1)
+      {
+        int region_j = 0;
+
+        if (NR > 0 &&
+            static_cast<int>(region_firm_assignment_C.size()) == N2)
+        {
+          region_j = region_firm_assignment_C[jj - 1];
+        }
+
+        wage_client_next += nextRegionalWage(region_j);
+        client_count++;
+      }
+    }
+
+    if (client_count > 0)
+    {
+      wage_client_next /= client_count;
+    }
+    else
+    {
+      wage_client_next = w(1);
+    }
 
     // K-firms determine R&D spending and associated labour demand
     RD(1, i) = nu * S1(i);
@@ -8679,7 +8707,13 @@ void TECHANGEND(void)
     }
 
     // If the imitated technology is superior, adopt it
-    if (((1 + mi1) * (wage_i_next / (A1pimm(i) * a) + c_en(1) / EEp_imm(i) + t_CO2 * EFp_imm(i) / EEp_imm(i))) + (w(1) / A1imm(i) + c_en(1) / EE_imm(i) + t_CO2 * EF_imm(i) / EE_imm(i)) * b < ((1 + mi1) * (wage_i_next / (A1p(i) * a) + c_en(1) / A1p_en(i) + t_CO2 * A1p_ef(i) / A1p_en(i)) + (w(1) / A1(i) + c_en(1) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b))
+    if (
+        (1 + mi1) *
+                (wage_i_next / (A1pimm(i) * a) + c_en(1) / EEp_imm(i) + t_CO2 * EFp_imm(i) / EEp_imm(i)) +
+            (wage_client_next / A1imm(i) + c_en(1) / EE_imm(i) + t_CO2 * EF_imm(i) / EE_imm(i)) * b <
+        (1 + mi1) *
+                (wage_i_next / (A1p(i) * a) + c_en(1) / A1p_en(i) + t_CO2 * A1p_ef(i) / A1p_en(i)) +
+            (wage_client_next / A1(i) + c_en(1) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b)
     {
       A1(i) = A1imm(i);
       A1p(i) = A1pimm(i);
@@ -8690,7 +8724,13 @@ void TECHANGEND(void)
     }
 
     // If the innovated technology is superior, adopt it
-    if (((1 + mi1) * (wage_i_next / (A1pinn(i) * a) + c_en(1) / EEp_inn(i) + t_CO2 * EFp_inn(i) / EEp_inn(i))) + (w(1) / A1inn(i) + c_en(1) / EE_inn(i) + t_CO2 * EF_inn(i) / EE_inn(i)) * b < ((1 + mi1) * (wage_i_next / (A1p(i) * a) + c_en(1) / A1p_en(i) + t_CO2 * A1p_ef(i) / A1p_en(i)) + (w(1) / A1(i) + c_en(1) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b))
+    if (
+        (1 + mi1) *
+                (wage_i_next / (A1pinn(i) * a) + c_en(1) / EEp_inn(i) + t_CO2 * EFp_inn(i) / EEp_inn(i)) +
+            (wage_client_next / A1inn(i) + c_en(1) / EE_inn(i) + t_CO2 * EF_inn(i) / EE_inn(i)) * b <
+        (1 + mi1) *
+                (wage_i_next / (A1p(i) * a) + c_en(1) / A1p_en(i) + t_CO2 * A1p_ef(i) / A1p_en(i)) +
+            (wage_client_next / A1(i) + c_en(1) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b)
     {
       A1(i) = A1inn(i);
       A1p(i) = A1pinn(i);
