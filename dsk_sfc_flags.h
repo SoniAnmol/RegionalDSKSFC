@@ -163,4 +163,11 @@ int flag_firm_relocation; // Switches firm regional relocation on or off
                           // = 0 [BASELINE] off: firm regional locations remain fixed
                           // = 1 on: K- and C-firms may reconsider their region
 
+int flag_recovery_delivery_delay; // Post-disaster reconstruction machine-delivery delay
+                                  // = 0 [BASELINE] off: model runs exactly as before (no extra RNG)
+                                  // = 1 on: a recovery-supported C-firm's reconstruction-associated expansion
+                                  //         order may face one extra delivery period (t+2 instead of t+1) with
+                                  //         probability = clamp(snapshotted Saff_rg_lag, 0, 1). Requires
+                                  //         flag_adaptation in {2,3} and flag_capshocks > 0 to be active.
+
 #endif

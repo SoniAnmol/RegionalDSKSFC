@@ -724,6 +724,14 @@ int main(int argc, char *argv[])
     cout << "End of simulation loop" << endl;
   }
 
+  if (flag_recovery_delivery_delay == 1)
+  {
+    std::cerr << "[RECOVERY-DELAY] eligible reconstruction orders=" << diag_recon_total_orders
+              << " delayed=" << diag_recon_delayed_orders
+              << " delayed_value=" << diag_recon_delayed_value
+              << " still_in_transit=" << pending_deliveries.size() << std::endl;
+  }
+
   if (NR > 0)
   {
     for (auto &stream : region_resultsexp_streams)
@@ -938,6 +946,7 @@ void SETPARAMS(const rapidjson::Document &inputs)
 
   // Adaptation parameters (backward-compatible defaults when flag_adaptation == 0)
   flag_adaptation = inputs["flags"][0].HasMember("flag_adaptation") ? inputs["flags"][0]["flag_adaptation"].GetInt() : 0;
+  flag_recovery_delivery_delay = inputs["flags"][0].HasMember("flag_recovery_delivery_delay") ? inputs["flags"][0]["flag_recovery_delivery_delay"].GetInt() : 0;
   delta_adapt = inputs["params"][0].HasMember("delta_adapt") ? inputs["params"][0]["delta_adapt"].GetDouble() : 0.05;
   phi_adapt = inputs["params"][0].HasMember("phi_adapt") ? inputs["params"][0]["phi_adapt"].GetDouble() : 1.0;
   omega_floor_adapt = inputs["params"][0].HasMember("omega_floor_adapt") ? inputs["params"][0]["omega_floor_adapt"].GetDouble() : 0.05;
@@ -2366,6 +2375,19 @@ void RESIZE(void)
   affected_indicator = 0.0;
   affected_indicator_lag.ReSize(N2);
   affected_indicator_lag = 0.0;
+
+  // Recovery machine-delivery delay state (N2-sized) and empty pending queue
+  recon_elig.ReSize(N2);
+  recon_elig = 0.0;
+  recon_elig_lag.ReSize(N2);
+  recon_elig_lag = 0.0;
+  recon_Saff.ReSize(N2);
+  recon_Saff = 0.0;
+  recon_Saff_lag.ReSize(N2);
+  recon_Saff_lag = 0.0;
+  CapitalInTransit.ReSize(N2);
+  CapitalInTransit = 0.0;
+  pending_deliveries.clear();
 }
 
 void INITIALIZE(int Exseed)
@@ -3124,6 +3146,19 @@ void SETVARS(void)
     }
   }
 
+  // Recovery delivery-delay eligibility: carry the disbursement marker/snapshot one period forward
+  // (grant is spendable next period), then reset. CapitalInTransit and the pending queue persist.
+  if (flag_recovery_delivery_delay == 1)
+  {
+    for (int jj = 1; jj <= N2; jj++)
+    {
+      recon_elig_lag(jj) = recon_elig(jj);
+      recon_Saff_lag(jj) = recon_Saff(jj);
+      recon_elig(jj) = 0.0;
+      recon_Saff(jj) = 0.0;
+    }
+  }
+
   // Relocation bank side
   for (i = 1; i <= NB; i++)
   {
@@ -3433,10 +3468,53 @@ void MACH(void)
   }
 
   // C-firms receive capital ordered in the last period
+  // Pre-pass: install delayed reconstruction deliveries scheduled for this period, restoring their
+  // original-vintage machines to gtemp before the productive vintage arrays are rebuilt below.
+  if (flag_recovery_delivery_delay == 1 && !pending_deliveries.empty())
+  {
+    for (size_t idx = 0; idx < pending_deliveries.size();)
+    {
+      PendingDelivery pd = pending_deliveries[idx];
+      if (pd.delivery == t)
+      {
+        gtemp[pd.vintage - 1][pd.supplier - 1][pd.buyer - 1] += pd.units;
+        int agewant = t - pd.vintage; // preserve production-age semantics across transit
+        if (age[pd.vintage - 1][pd.supplier - 1][pd.buyer - 1] < agewant)
+          age[pd.vintage - 1][pd.supplier - 1][pd.buyer - 1] = agewant;
+        K(pd.buyer) += pd.units * dim_mach;
+        CapitalStock(1, pd.buyer) += pd.value;
+        CapitalInTransit(pd.buyer) -= pd.value;
+        pending_deliveries.erase(pending_deliveries.begin() + idx);
+      }
+      else
+      {
+        ++idx;
+      }
+    }
+  }
+
   for (j = 1; j <= N2; j++)
   {
-    K(j) += EI(2, j) - scrap_age(j);
-    CapitalStock(1, j) += deltaCapitalStock(2, j);
+    // Hold: a delayed order produced last period reaches its normal delivery date now; keep its
+    // expansion units/value out of productive capacity and installed capital (its units were already
+    // removed from gtemp at production, so the gtemp->g copy below excludes them automatically).
+    double skip_units = 0.0;
+    double skip_value = 0.0;
+    if (flag_recovery_delivery_delay == 1)
+    {
+      for (size_t idx = 0; idx < pending_deliveries.size(); ++idx)
+      {
+        if (pending_deliveries[idx].buyer == j && pending_deliveries[idx].delivery == t + 1)
+        {
+          skip_units += pending_deliveries[idx].units;
+          skip_value += pending_deliveries[idx].value;
+        }
+      }
+    }
+
+    K(j) += EI(2, j) - skip_units * dim_mach - scrap_age(j);
+    CapitalStock(1, j) += deltaCapitalStock(2, j) - skip_value;
+    CapitalInTransit(j) += skip_value;
     for (i = 1; i <= N1; i++)
     {
       for (tt = t0; tt <= t; tt++)
@@ -5625,6 +5703,59 @@ void PRODMACH(void)
     }
   }
 
+  // Reconstruction machine-delivery delay: after all output/capital-shock adjustments are final,
+  // hold an eligible firm's surviving expansion units out of gtemp and queue them for t+2 delivery.
+  // Payment, K-firm revenue, Investment_2 and current-period deltaCapitalStock are left untouched.
+  if (flag_recovery_delivery_delay == 1)
+  {
+    for (j = 1; j <= N2; j++)
+    {
+      if (recon_elig_lag(j) != 1.0 || exiting_2(j) == 1 || EI(1, j) <= 0.0)
+        continue;
+
+      diag_recon_total_orders++;
+
+      double p = recon_Saff_lag(j);
+      if (p < 0.0)
+        p = 0.0;
+      if (p > 1.0)
+        p = 1.0;
+
+      bool delay;
+      if (p <= recovery_delay_eps)
+        delay = false;
+      else if (p >= 1.0 - recovery_delay_eps)
+        delay = true;
+      else
+        delay = (ran1(p_seed) < p);
+
+      if (!delay)
+        continue;
+
+      int supp = int(fornit(j));
+      double units = EI(1, j) / dim_mach;
+      double avail = gtemp[t - 1][supp - 1][j - 1];
+      if (units > avail)
+        units = avail;
+      if (units <= 0.0)
+        continue;
+
+      gtemp[t - 1][supp - 1][j - 1] -= units;
+
+      PendingDelivery pd;
+      pd.buyer = j;
+      pd.supplier = supp;
+      pd.vintage = t;
+      pd.delivery = t + 2;
+      pd.units = units;
+      pd.value = units * g_price[t - 1][supp - 1][j - 1];
+      pending_deliveries.push_back(pd);
+
+      diag_recon_delayed_orders++;
+      diag_recon_delayed_value += pd.value;
+    }
+  }
+
   EN_DEM();
 
   Errors.close();
@@ -7095,7 +7226,7 @@ void PROFIT(void)
   // C-firms which exit due to negative equity, inability to make payments or low market share are prepared for exit
   for (j = 1; j <= N2; j++)
   {
-    NW_2(1, j) = CapitalStock(1, j) + deltaCapitalStock(1, j) + Inventories(1, j) + Deposits_2(1, j) - Loans_2(1, j);
+    NW_2(1, j) = CapitalStock(1, j) + deltaCapitalStock(1, j) + CapitalInTransit(j) + Inventories(1, j) + Deposits_2(1, j) - Loans_2(1, j);
     if (NW_2(1, j) < 0 && exit_payments2(j) == 0 && exiting_2(j) == 0 && exit_marketshare2(j) == 0)
     {
       exit_equity2(j) = 1;
@@ -8321,8 +8452,20 @@ void ENTRYEXIT(void)
       n_mach(j) = 0;
       K(j) = 0;
       // First subtract the capital stock previously held by the exiting firm
-      Injection_2(j) -= (CapitalStock(1, j) + deltaCapitalStock(1, j));
+      Injection_2(j) -= (CapitalStock(1, j) + deltaCapitalStock(1, j) + CapitalInTransit(j));
       CapitalStock(1, j) = 0;
+      // Discard any in-transit reconstruction deliveries so the entrant reusing this index never receives them
+      if (flag_recovery_delivery_delay == 1)
+      {
+        CapitalInTransit(j) = 0.0;
+        for (size_t idx = 0; idx < pending_deliveries.size();)
+        {
+          if (pending_deliveries[idx].buyer == j)
+            pending_deliveries.erase(pending_deliveries.begin() + idx);
+          else
+            ++idx;
+        }
+      }
       // Clear the exiting firms' entries in the frequency arrays
       n_mach_resid = n_mach_entry(j);
       for (i = 1; i <= N1; i++)
@@ -9684,7 +9827,7 @@ void SFC_CHECK(void)
   // Compare stock and flow measures of C-firm net worth
   for (i = 1; i <= N2; i++)
   {
-    NW_2(1, i) = CapitalStock(1, i) + deltaCapitalStock(1, i) + Inventories(1, i) + Deposits_2(1, i) - Loans_2(1, i);
+    NW_2(1, i) = CapitalStock(1, i) + deltaCapitalStock(1, i) + CapitalInTransit(i) + Inventories(1, i) + Deposits_2(1, i) - Loans_2(1, i);
     NW_2_c(i) = NW_2(2, i) + Pi2(i) + baddebt_2(i) + Injection_2(i) - Dividends_2(i) - Taxes_2(i) - Taxes_CO2_2(i) - Loss_Capital(i) - Loss_Inventories(i) - RelocationCosts_2(i) + sub_Rec(i);
   }
   deviation = fabs((NW_2_c.Sum() - NW_2.Row(1).Sum()) / NW_2_c.Sum());
@@ -9781,7 +9924,7 @@ void SFC_CHECK(void)
 
   // Sum of all sectoral net worths should be equal to nominal value of tangible assets in the economy
   NWSum = NW_h(1) + NW_1.Row(1).Sum() + NW_2.Row(1).Sum() + NW_b.Row(1).Sum() + NW_e(1) + NW_cb(1) + NW_gov(1) + NW_f(1) + NW_reloc(1);
-  RealAssets = CapitalStock.Row(1).Sum() + deltaCapitalStock.Row(1).Sum() + Inventories.Row(1).Sum() + CapitalStock_e(1) + K_pub_total;
+  RealAssets = CapitalStock.Row(1).Sum() + deltaCapitalStock.Row(1).Sum() + CapitalInTransit.Sum() + Inventories.Row(1).Sum() + CapitalStock_e(1) + K_pub_total;
   deviation = fabs((NWSum - RealAssets) / RealAssets);
   if (deviation > regionalaccountingtolerance)
   {
@@ -10195,6 +10338,16 @@ void OVERBOOST(void)
       for (j = 1; j <= N2 && flag == 0; j++)
       {
         if (g[tt - 1][i - 1][j - 1] > 0 || gtemp[tt - 1][i - 1][j - 1] > 0)
+          flag = 1;
+      }
+    }
+    // A vintage referenced by an in-transit delivery is still active even though its machines
+    // are temporarily out of gtemp; dropping it would hide them on reinsertion.
+    if (flag == 0 && flag_recovery_delivery_delay == 1)
+    {
+      for (size_t idx = 0; idx < pending_deliveries.size() && flag == 0; ++idx)
+      {
+        if (pending_deliveries[idx].vintage == tt)
           flag = 1;
       }
     }

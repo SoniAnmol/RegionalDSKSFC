@@ -343,6 +343,12 @@ extern double GRecPaid_total;
 extern double TREC_total;
 extern double GovPurchases_Rec;
 
+// Recovery machine-delivery delay
+extern int flag_recovery_delivery_delay;
+extern RowVector recon_elig;
+extern RowVector recon_Saff;
+extern RowVector CapitalInTransit;
+
 // Capital accumulation needed for per-firm capital restoration (all already extern'd above)
 
 #endif
