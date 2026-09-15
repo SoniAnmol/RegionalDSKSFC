@@ -1647,7 +1647,6 @@ void SETPARAMS(const rapidjson::Document &inputs)
 
   // Regional labour market flags (1=on, 0=off)
   flag_regional_labor = getFlagIntMobility("flag_regional_labor", 0);
-  flag_ls_distribution = getFlagIntMobility("flag_ls_distribution", 0);
 
   // Regional purchasing-preference (home-bias) mechanism.
   // flag_regional_bias: 0 = baseline (no regional preference); 1 = perceived non-regional price penalty.
@@ -11276,17 +11275,17 @@ void SAVE(void)
         target.width(60);
         target << GT_topup_rg[region - 1]; // 37: GT_topup_rg (Top-up Grant from CG)
         target.width(60);
-        target << reg_H1[region - 1]; // 40: H1 ( Herfindahl index K-firms)
+        target << reg_H1[region - 1]; // 38: H1 ( Herfindahl index K-firms)
         target.width(60);
-        target << reg_H2[region - 1]; // 41: H2 ( Herfindahl index C-firms)
+        target << reg_H2[region - 1]; // 39: H2 ( Herfindahl index C-firms)
         target.width(60);
-        target << reg_w[region - 1]; // 42: reg_w (Regional wage rate; income/benefit/migration use)
+        target << reg_w[region - 1]; // 40: reg_w (Regional wage rate; income/benefit/migration use)
         target.width(60);
-        target << reg_YD[region - 1]; // 43: reg_YD (Regional disposable income, decomposition)
+        target << reg_YD[region - 1]; // 41: reg_YD (Regional disposable income, decomposition)
         target.width(60);
-        target << reg_C[region - 1]; // 44: reg_C (Regional consumption, decomposition)
+        target << reg_C[region - 1]; // 42: reg_C (Regional consumption, decomposition)
         target.width(60);
-        target << ((LS > 0) ? reg_LS[region - 1] / LS : 0.0); // 45: LS_region_share (sigma_r)
+        target << ((LS > 0) ? reg_LS[region - 1] / LS : 0.0); // 43: LS_region_share (sigma_r)
         {
           int rgi = region - 1;
           double mb = reg_mach_buy_local[rgi] + reg_mach_buy_import[rgi];

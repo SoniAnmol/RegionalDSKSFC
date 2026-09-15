@@ -484,7 +484,6 @@
       "flag_regional_mobility": 1,
       "flag_firm_relocation": 1,
       "flag_regional_labor": 1,
-      "flag_ls_distribution": 0,
       "flag_regional_bias": 0
     }
   ],

@@ -42,7 +42,7 @@ extern std::vector<double> reg_w, reg_w_past, reg_U_past, reg_Am_past, reg_YD, r
 extern std::vector<double> Dh_region_share, reg_Dh, reg_Dh_lag, reg_Dh_pre_migration, reg_Dh_post_migration;
 extern std::vector<double> reg_ME_out, reg_UN, reg_U_rate, reg_Benefits;
 extern double diag_reg_C_unallocated;
-extern int flag_regional_labor, flag_ls_distribution;
+extern int flag_regional_labor;
 extern double chi_w, dwage_max;
 extern double Emiss1_TOT, Emiss2_TOT, Emiss_en, Cum_emissions, LS, LD;
 // Forward declare firm-level matrices

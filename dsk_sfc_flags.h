@@ -145,10 +145,6 @@ int flag_regional_labor; // Switches the regionalised labour market on or off
                          // = 1 on: regional labour supply is a state LS_r = LS * LS_region_share[r]
                          //         driven by exogenous shares sigma_r (with per-region unemployment)
 
-int flag_ls_distribution; // Reserved switch for the regional labour-supply-share distribution mode
-                          // = 0 [BASELINE] use LS_region_share as provided/normalised
-                          // = 1 reserved for future alternative share-distribution schemes
-
 int flag_regional_mobility; // Flag to enable/disable regional mobility
                             // 1=on
                             // 0=off
