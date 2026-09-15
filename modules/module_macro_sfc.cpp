@@ -40,11 +40,31 @@ static void UPDATE_UNEMPLOYMENT_RATES(void)
 			}
 		}
 
-		double reg_LD_rd = 0;
-		double reg_LD_en = 0;
+		double reg_LD_rd = 0.0;
+		double reg_LD_en = 0.0;
+
+		// When the regional labour market is active, R&D labour belongs
+		// to the region of the K-firm actually employing it.
+		if (flag_regional_labor == 1)
+		{
+			for (int ii = 1; ii <= N1; ++ii)
+			{
+				if (region_firm_assignment_K[ii - 1] == rr)
+				{
+					reg_LD_rd += Ld1rd(ii);
+				}
+			}
+		}
+		else if (total_LD_firms > 0)
+		{
+			// Preserve legacy regional decomposition when regional labour is inactive.
+			reg_LD_rd = LD1rdtot * (reg_LD_firms / total_LD_firms);
+		}
+
+		// Energy employment remains national and is still allocated provisionally
+		// by the regional production-labour share.
 		if (total_LD_firms > 0)
 		{
-			reg_LD_rd = LD1rdtot * (reg_LD_firms / total_LD_firms);
 			reg_LD_en = LDentot * (reg_LD_firms / total_LD_firms);
 		}
 
@@ -134,8 +154,21 @@ void LABOR(void)
 					prod_LD_r += Ld2(jj);
 
 			// Apportion national R&D + energy labour to region r by production-labour share
-			double share_r = (total_prod_LD > 0) ? prod_LD_r / total_prod_LD : 1.0 / NR;
-			double reg_LD_rd_r = LD1rdtot * share_r;
+			double reg_LD_rd_r = 0.0;
+
+			for (int ii = 1; ii <= N1; ++ii)
+			{
+				if (region_firm_assignment_K[ii - 1] == rr)
+				{
+					reg_LD_rd_r += Ld1rd(ii);
+				}
+			}
+
+			// Energy labour remains provisionally allocated by production-labour share.
+			double share_r = (total_prod_LD > 0)
+								 ? prod_LD_r / total_prod_LD
+								 : 1.0 / NR;
+
 			double reg_LD_en_r = LDentot * share_r;
 
 			// Regional labour supply (state) and labour available for production:
@@ -703,7 +736,7 @@ void REGIONAL_UPDATE(void)
 					reg_A2_weight += S2(1, jj);
 				}
 			}
-			
+
 			// Calculate regional average productivities
 			reg_Am1[rr - 1] = (reg_A1_weight > 0) ? reg_A1_sum / reg_A1_weight : 0;
 			reg_Am2[rr - 1] = (reg_A2_weight > 0) ? reg_A2_sum / reg_A2_weight : 0;
@@ -721,12 +754,30 @@ void REGIONAL_UPDATE(void)
 			// Regional labour SUPPLY is set separately below from sigma_r (state), not from demand.
 			double reg_LD_firms = reg_Ld1[rr - 1] + reg_Ld2[rr - 1];
 			double total_LD_firms = LD1tot + LD2tot;
-			double reg_LD_rd = 0;
-			double reg_LD_en = 0;
+
+			double reg_LD_rd = 0.0;
+			double reg_LD_en = 0.0;
+
+			if (flag_regional_labor == 1)
+			{
+				for (int ii = 1; ii <= N1; ++ii)
+				{
+					if (region_firm_assignment_K[ii - 1] == rr)
+					{
+						reg_LD_rd += Ld1rd(ii);
+					}
+				}
+			}
+			else if (total_LD_firms > 0)
+			{
+				reg_LD_rd =
+					LD1rdtot * (reg_LD_firms / total_LD_firms);
+			}
+
 			if (total_LD_firms > 0)
 			{
-				reg_LD_rd = LD1rdtot * (reg_LD_firms / total_LD_firms);
-				reg_LD_en = LDentot * (reg_LD_firms / total_LD_firms);
+				reg_LD_en =
+					LDentot * (reg_LD_firms / total_LD_firms);
 			}
 			double reg_LD_total = reg_LD_firms + reg_LD_rd + reg_LD_en;
 			reg_LD_totals[rr - 1] = reg_LD_total;

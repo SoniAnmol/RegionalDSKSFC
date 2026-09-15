@@ -106,6 +106,7 @@ extern double LD1rdtot;
 extern double LDentot;
 extern RowVector Ld1;
 extern RowVector Ld2;
+extern RowVector Ld1rd;
 extern double LSe;
 extern double LS;
 extern double LD;
