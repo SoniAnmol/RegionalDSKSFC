@@ -22,7 +22,12 @@ int drawRegionBiasedCFirm(int seller_region, double eta)
   {
     W += (region_firm_assignment_C[j - 1] == seller_region) ? 1.0 : w_nonlocal;
   }
-  double u = ran1(p_seed) * W;
+  double draw = ran1(p_seed);
+  // If all weights underflowed (e.g. huge eta and an empty own region), fall back to the uniform
+  // baseline draw, reusing the same random number to keep one RNG draw per brochure.
+  if (!(W > 0.0) || !std::isfinite(W))
+    return int(draw * N1 * N2) % N2 + 1;
+  double u = draw * W;
   double cum = 0.0;
   for (int j = 1; j <= N2; j++)
   {
@@ -6419,8 +6424,16 @@ void COMPET2(void)
       }
       else
       {
+        // Visibility weights unusable: revert to the ordinary national economic allocation
+        // (normalised f_hat), not a uniform allocation.
+        double fhat_sum = 0.0;
         for (j = 1; j <= N2; j++)
-          f2_reg[rr](1, j) = 1.0 / N2r;
+          fhat_sum += f_hat[j];
+        if (fhat_sum > 0.0)
+        {
+          for (j = 1; j <= N2; j++)
+            f2_reg[rr](1, j) = f_hat[j] / fhat_sum;
+        }
       }
     }
 
@@ -6467,6 +6480,20 @@ void COMPET2(void)
       {
         for (j = 1; j <= N2; j++)
           f2_reg[rr](1, j) /= s1;
+      }
+      else
+      {
+        // Region row fully zeroed by exits: revert to national economic shares over survivors
+        // (f2(2,j) > 0), so the region still has positive supplier weights in ALLOC().
+        double fhat_sum = 0.0;
+        for (j = 1; j <= N2; j++)
+          if (f2(2, j) > 0.0)
+            fhat_sum += f_hat[j];
+        if (fhat_sum > 0.0)
+        {
+          for (j = 1; j <= N2; j++)
+            f2_reg[rr](1, j) = (f2(2, j) > 0.0) ? (f_hat[j] / fhat_sum) : 0.0;
+        }
       }
     }
     for (j = 1; j <= N2; j++)
