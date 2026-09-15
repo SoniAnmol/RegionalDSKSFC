@@ -3445,7 +3445,7 @@ void MOBILITY_COMPUTATION(void)
       diag_sum_LS_region_share_next += diag_LS_region_share_next[r];
     }
 
-    // Phase 5B: no migration expenditure; regional deposits carry over unchanged.
+    //  no migration expenditure; regional deposits carry over unchanged.
     diag_migration_expenditure_from_households = 0.0;
     diag_migration_service_revenue_C_total = 0.0;
     diag_migration_closure_residual = 0.0;
@@ -3468,7 +3468,7 @@ void MOBILITY_COMPUTATION(void)
     return;
   }
 
-  // ========== ZERO OUT DIAGNOSTIC VECTORS AT PERIOD START ==========
+  //  ZERO OUT DIAGNOSTIC VECTORS AT PERIOD START
   for (int o = 0; o < NR; ++o)
   {
     diag_V_region[o] = 0.0;
@@ -3500,7 +3500,7 @@ void MOBILITY_COMPUTATION(void)
   diag_sum_M_out = 0.0;
   diag_sum_M_in = 0.0;
 
-  // ========== Compute unemployed pool per region ==========
+  //  Compute unemployed pool per region
   std::vector<double> UN_region(NR, 0.0); // Unemployed search pool
   for (int o = 0; o < NR; ++o)
   {
@@ -3508,28 +3508,37 @@ void MOBILITY_COMPUTATION(void)
     UN_region[o] = max(0.0, reg_LS[o] - L_region_o);
   }
 
-  // ========== Compute regional utility V_region[r] ==========
+  //  Compute regional utility V_region[r]
   // V_r = beta_w * ln(omega_r) - beta_u * ln(max(u_r, u_min)) + beta_prot * K_prot_r + beta_pub * K_pub_r
   // omega_r = real wage = nominal_wage / CPI
 
   for (int r = 0; r < NR; ++r)
   {
     // Regional real wage when regional labour market is active, else national proxy
-    double wage_r = (flag_regional_labor == 1 && (int)reg_w.size() == NR) ? reg_w[r] : w(1);
+    double wage_r = nextRegionalWage(r + 1);
     double omega_r = (cpi(1) > 0) ? wage_r / cpi(1) : wage_r;
     double u_r = reg_U[r];
 
-    // Log-wage utility (beta_w_mig > 0)
-    double v_wage = (omega_r > 0) ? beta_w_mig * log(omega_r) : 0.0;
+    double v_wage =
+        (omega_r > 0) ? beta_w_mig * log(omega_r) : 0.0;
 
-    // Unemployment disutility (beta_u_mig > 0 means lower unemployment is better)
     double u_clamp = max(u_r, u_min_mig);
-    double v_unemp = -beta_u_mig * log(u_clamp); // Negative because higher unemployment = worse
+    double v_unemp = -beta_u_mig * log(u_clamp);
 
-    diag_V_region[r] = v_wage + v_unemp;
+    double K_prot_r =
+        ((int)K_adapt_rg.size() == NR) ? K_adapt_rg[r] : 0.0;
+
+    double K_public_r =
+        ((int)K_pub_rg.size() == NR) ? K_pub_rg[r] : 0.0;
+
+    double v_prot = beta_prot_mig * K_prot_r;
+    double v_pub = beta_pub_mig * K_public_r;
+
+    diag_V_region[r] =
+        v_wage + v_unemp + v_prot + v_pub;
   }
 
-  // ========== Compute monetary moving costs MC_mig[o][d] ==========
+  //  Compute monetary moving costs MC_mig[o][d]
   for (int o = 0; o < NR; ++o)
   {
     double w_o_lag = (flag_regional_labor == 1 && (int)reg_w.size() == NR) ? reg_w[o] : w(2);

@@ -1185,7 +1185,10 @@ void RG_BLOCK_SP(void)
 	{
 		double share = (total_reg_LS > 0) ? reg_LS[rr] / total_reg_LS : 1.0 / NR;
 		double unemployed_r = national_unemployed * share;
-		SP_rg[rr] = unemployed_r * w(2) * wu_rg[rr];
+
+		const double wage_r = currentRegionalWage(rr + 1);
+
+		SP_rg[rr] = unemployed_r * wage_r * wu_rg[rr];
 		SP_total += SP_rg[rr];
 	}
 
