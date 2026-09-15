@@ -8180,12 +8180,22 @@ void ENTRYEXIT(void)
       scrap_age(j) = 0;
       deltaCapitalStock(1, j) = 0;
       // Set the newly entering firm's cost, mark-up and price
+      int region_j = 0;
+
+      if (NR > 0 &&
+          static_cast<int>(region_firm_assignment_C.size()) == N2)
+      {
+        region_j = region_firm_assignment_C[j - 1];
+      }
+
+      const double wage_j = currentRegionalWage(region_j);
+
       c2(j) = 0;
       for (i = 1; i <= N1; i++)
       {
         for (tt = t0; tt <= t; tt++)
         {
-          c2(j) += (w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
+          c2(j) += (wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
         }
       }
       mu2(1, j) = mi2;
