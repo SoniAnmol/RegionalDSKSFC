@@ -4581,7 +4581,20 @@ void INVEST(void)
 
     Ktrig(j) = ROUND((K(j) - scrap_age(j)) / dim_mach) * dim_mach;
 
-    if (Kd(j) >= Ktrig(j))
+    // Reconstruction capacity already ordered but still in transit is committed, not yet productive:
+    // net it out of desired capacity so the firm does not re-order the same expansion (K excludes it).
+    double pending_capacity = 0.0;
+    if (flag_recovery_delivery_delay == 1)
+    {
+      for (const auto &pd : pending_deliveries)
+      {
+        if (pd.buyer == j && pd.delivery > t)
+          pending_capacity += pd.units * dim_mach;
+      }
+    }
+    double Kd_invest = std::max(0.0, Kd(j) - pending_capacity);
+
+    if (Kd_invest >= Ktrig(j))
     {
       if (I_max > 0)
       {
@@ -4594,16 +4607,16 @@ void INVEST(void)
       }
       else
       {
-        K_top = Kd(j) + 1;
+        K_top = Kd_invest + 1;
       }
 
-      if (Kd(j) > K_top)
+      if (Kd_invest > K_top)
       {
         EId(j) = K_top - Ktrig(j);
       }
       else
       {
-        EId(j) = floor((Kd(j) - (K(j) - scrap_age(j))) / dim_mach) * dim_mach;
+        EId(j) = floor((Kd_invest - (K(j) - scrap_age(j))) / dim_mach) * dim_mach;
       }
     }
     else
