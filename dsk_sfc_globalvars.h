@@ -297,16 +297,21 @@ Matrix f2;                   // C-firms' market share
 RowVector E2;                // C-firms' competitiveness
 // Regional home-bias (flag_regional_bias) structures.
 // f2_reg[r] mirrors the full 3xN2 structure of national f2 (row1 current, row2 lag,
-// row3 lag2) but holds region r's buyer-specific C-firm market shares under perceived
-// effective prices. reg_cons_share holds the normalised regional consumption-budget
-// weights s_r (from reg_Dh, with population/equal fallbacks). Diagnostics are aggregate
-// validation-only quantities and never feed back into model behaviour.
+// row3 lag2) but holds region r's region-specific household C-firm allocation/market
+// shares. The mechanism populating it depends on flag_regional_bias: under flag 1 the
+// rows follow a per-region perceived-effective-price replicator; under flag 2 they are
+// the visibility-weighted (exposure) shares built from the national economic shares.
+// reg_cons_share holds the normalised regional consumption-budget weights s_r (from
+// reg_Dh, with population/equal fallbacks). Diagnostics are aggregate validation-only
+// quantities and never feed back into model behaviour.
 std::vector<Matrix> f2_reg;             // Region-by-firm C-firm market shares (NR matrices, each 3xN2)
 std::vector<double> reg_cons_share;     // Normalised regional consumption-budget weights s_r
 double diag_hh_local_cons_share;        // Share of household consumption spent on same-region C-firms
 double diag_kfirm_local_supplier_share; // Share of C-firms whose selected K-firm is same-region
 double diag_wedge_cmarket;              // Average effective-price wedge applied in the C-firm (household) market
 double diag_wedge_kmarket;              // Average effective-price wedge applied in the K-firm market
+double diag_brochure_local_draws;       // Same-region brochure draws this period (flag 2 exposure diagnostic)
+double diag_brochure_total_draws;       // Total brochure draws this period (flag 2 exposure diagnostic)
 // Inter-regional trade accumulators (nominal value, per period). Machine flows use K-firm supplier
 // identity (always available); consumption flows require regional home-bias allocation to be active.
 std::vector<double> reg_mach_buy_local;   // Machines bought by region r from same-region K-firms

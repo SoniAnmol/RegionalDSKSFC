@@ -154,6 +154,10 @@ int flag_regional_bias; // Switches the regional purchasing-preference (home-bia
                         // = 1 on: non-regional suppliers receive a perceived effective-price penalty
                         //         (households -> C-firms; C-firms -> K-firms). Perceived prices only;
                         //         actual payments, revenues and stock-flow accounting are unchanged.
+                        // = 2 on: regional exposure/search friction (no price wedge). K-firm brochures
+                        //         preferentially reach same-region C-firms (eta_K_search); household demand
+                        //         is visibility-weighted toward same-region C-firms (eta_H_search). Supplier
+                        //         choice still uses posted prices/economic criteria; no monetary flow created.
 
 int flag_firm_relocation; // Switches firm regional relocation on or off
                           // = 0 [BASELINE] off: firm regional locations remain fixed
