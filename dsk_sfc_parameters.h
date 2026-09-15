@@ -47,6 +47,13 @@ double tau_regional;        // Regional home-bias wedge: proportional perceived 
                             // NOTE: this is a PERCEIVED price wedge used only in supplier/consumption
                             // evaluation. It is NOT a transaction payment, tax, transfer or transport cost,
                             // and it has no effect when flag_regional_bias == 0. Requires tau_regional >= 0.
+                            // Used only by flag_regional_bias == 1.
+double eta_K_search;        // Regional exposure bias in K-firm brochure delivery (flag_regional_bias == 2).
+                            // Same-region C-firms get relative weight exp(eta_K_search) in the brochure draw.
+                            // eta_K_search == 0 recovers the uniform draw. Requires eta_K_search >= 0.
+double eta_H_search;        // Regional visibility bias in household consumption allocation (flag_regional_bias == 2).
+                            // Same-region C-firms get relative weight exp(eta_H_search) in region shares.
+                            // eta_H_search == 0 recovers the national allocation. Requires eta_H_search >= 0.
 double psi1;                // Wage sensitivity to inflation
 double psi2;                // Wage sensitivity to productivity
 double psi3;                // Wage sensitivity to unemployment

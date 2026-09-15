@@ -297,16 +297,21 @@ Matrix f2;                   // C-firms' market share
 RowVector E2;                // C-firms' competitiveness
 // Regional home-bias (flag_regional_bias) structures.
 // f2_reg[r] mirrors the full 3xN2 structure of national f2 (row1 current, row2 lag,
-// row3 lag2) but holds region r's buyer-specific C-firm market shares under perceived
-// effective prices. reg_cons_share holds the normalised regional consumption-budget
-// weights s_r (from reg_Dh, with population/equal fallbacks). Diagnostics are aggregate
-// validation-only quantities and never feed back into model behaviour.
+// row3 lag2) but holds region r's region-specific household C-firm allocation/market
+// shares. The mechanism populating it depends on flag_regional_bias: under flag 1 the
+// rows follow a per-region perceived-effective-price replicator; under flag 2 they are
+// the visibility-weighted (exposure) shares built from the national economic shares.
+// reg_cons_share holds the normalised regional consumption-budget weights s_r (from
+// reg_Dh, with population/equal fallbacks). Diagnostics are aggregate validation-only
+// quantities and never feed back into model behaviour.
 std::vector<Matrix> f2_reg;             // Region-by-firm C-firm market shares (NR matrices, each 3xN2)
 std::vector<double> reg_cons_share;     // Normalised regional consumption-budget weights s_r
 double diag_hh_local_cons_share;        // Share of household consumption spent on same-region C-firms
 double diag_kfirm_local_supplier_share; // Share of C-firms whose selected K-firm is same-region
 double diag_wedge_cmarket;              // Average effective-price wedge applied in the C-firm (household) market
 double diag_wedge_kmarket;              // Average effective-price wedge applied in the K-firm market
+double diag_brochure_local_draws;       // Same-region brochure draws this period (flag 2 exposure diagnostic)
+double diag_brochure_total_draws;       // Total brochure draws this period (flag 2 exposure diagnostic)
 // Inter-regional trade accumulators (nominal value, per period). Machine flows use K-firm supplier
 // identity (always available); consumption flows require regional home-bias allocation to be active.
 std::vector<double> reg_mach_buy_local;   // Machines bought by region r from same-region K-firms
@@ -660,8 +665,8 @@ std::vector<double> reg_GDP_n;                   // Regional nominal GDP
 std::vector<double> reg_LS;                      // Regional labor supply
 std::vector<double> LS_region_share;             // STATE: regional labour-supply share sigma_r (rolled from _next each period)
 std::vector<double> LS_region_share_next;        // STATE: next-period regional labour-supply share (written by migration)
-std::vector<double> reg_w;                       // Regional wage rate (income/benefit/migration-utility use; firms still pay national wage)
-std::vector<double> reg_w_past;                  // Lagged regional wage rate
+std::vector<double> reg_w;                       // Current regional wage state determined by the regional wage-setting rule
+std::vector<double> reg_w_past;                  // Lagged regional wage used for current-period production costs and wage payments
 std::vector<double> reg_U_past;                  // Lagged regional unemployment rate (for regional Phillips curve)
 std::vector<double> reg_Am_past;                 // Lagged regional mean productivity (for regional Phillips curve)
 std::vector<double> reg_YD;                      // Regional household disposable income
@@ -759,7 +764,30 @@ RowVector affected_indicator;     // 1 if firm's shock >= d_bar_rec this period 
 RowVector affected_indicator_lag; // Lagged affected indicator (size N2, carry-forwarded in SETVARS)
 double GRecPaid_total;            // National sum of GRecPaid_rg
 double TREC_total;                // National sum of TREC_rg
-double GovPurchases_Rec;          // K-firm revenue from recovery machine orders (for SFC)
+
+// Recovery machine-delivery delay state (active when flag_recovery_delivery_delay == 1)
+RowVector recon_elig;       // 1 if C-firm received recovery disbursement this period (size N2)
+RowVector recon_elig_lag;   // Lagged eligibility marker (carry-forwarded in SETVARS)
+RowVector recon_Saff;       // Snapshot of Saff_rg_lag at disbursement (size N2)
+RowVector recon_Saff_lag;   // Lagged snapshot (carry-forwarded in SETVARS)
+RowVector CapitalInTransit; // Per-C-firm value of delayed reconstruction machines awaiting delivery (persistent stock)
+
+// One outstanding delayed reconstruction machine delivery; queued so overlapping orders never overwrite.
+struct PendingDelivery
+{
+    int buyer;    // C-firm index (1-based)
+    int supplier; // K-firm supplier index at order time (1-based)
+    int vintage;  // production-period index
+    int delivery; // scheduled delivery period (= vintage + 2)
+    double units; // held machine units (I-units)
+    double value; // held nominal value (units * production-period price)
+};
+std::vector<PendingDelivery> pending_deliveries;
+const double recovery_delay_eps = 1e-12; // RNG deadband for the Bernoulli delay draw
+long diag_recon_total_orders = 0;        // cumulative eligible reconstruction expansion orders
+long diag_recon_delayed_orders = 0;      // cumulative orders given the extra delivery delay
+double diag_recon_delayed_value = 0.0;   // cumulative nominal value delayed
+double GovPurchases_Rec;                 // K-firm revenue from recovery machine orders (for SFC)
 
 double GRANTPOOL;       // National grant pool (gamma_bar * Taxes)
 double REV_rg_total;    // Sum of regional revenues

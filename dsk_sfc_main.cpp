@@ -1,6 +1,127 @@
 #include "dsk_sfc_include.h"
 using namespace std;
 
+double perceivedRegionalPrice(double actual_price, int buyer_region, int seller_region,
+                              int flag, double tau)
+{
+  if (flag == 1 && buyer_region != seller_region)
+  {
+    return actual_price * (1.0 + tau);
+  }
+  return actual_price;
+}
+
+// Region-biased brochure recipient sampler (flag_regional_bias == 2). Draws one C-firm with
+// same-region relative weight exp(eta) using a single ran1 draw. Local firms get weight 1 and
+// non-local firms weight exp(-eta): identical categorical probabilities without overflow at large eta.
+int drawRegionBiasedCFirm(int seller_region, double eta)
+{
+  double w_nonlocal = exp(-eta);
+  double W = 0.0;
+  for (int j = 1; j <= N2; j++)
+  {
+    W += (region_firm_assignment_C[j - 1] == seller_region) ? 1.0 : w_nonlocal;
+  }
+  double draw = ran1(p_seed);
+  // If all weights underflowed (e.g. huge eta and an empty own region), fall back to the uniform
+  // baseline draw, reusing the same random number to keep one RNG draw per brochure.
+  if (!(W > 0.0) || !std::isfinite(W))
+    return int(draw * N1 * N2) % N2 + 1;
+  double u = draw * W;
+  double cum = 0.0;
+  for (int j = 1; j <= N2; j++)
+  {
+    cum += (region_firm_assignment_C[j - 1] == seller_region) ? 1.0 : w_nonlocal;
+    if (u < cum)
+      return j;
+  }
+  return N2; // numerical guard against floating-point round-off at the upper edge
+}
+
+// Regional consumption-budget weights s_r, shared by flag_regional_bias 1 and 2.
+// Primary source reg_Dh, then population share LS_region_share, then equal shares.
+void updateRegionalConsumptionShares(void)
+{
+  double sumDh = 0.0;
+  bool dh_ok = ((int)reg_Dh.size() == NR);
+  if (dh_ok)
+  {
+    for (int rr = 0; rr < NR; rr++)
+    {
+      double v = reg_Dh[rr];
+      if (!std::isfinite(v) || v < 0.0)
+      {
+        dh_ok = false;
+        break;
+      }
+      sumDh += v;
+    }
+  }
+  if (dh_ok && sumDh > 0.0)
+  {
+    for (int rr = 0; rr < NR; rr++)
+      reg_cons_share[rr] = reg_Dh[rr] / sumDh;
+    return;
+  }
+
+  double sumLs = 0.0;
+  bool ls_ok = ((int)LS_region_share.size() == NR);
+  if (ls_ok)
+  {
+    for (int rr = 0; rr < NR; rr++)
+    {
+      double v = LS_region_share[rr];
+      if (!std::isfinite(v) || v < 0.0)
+      {
+        ls_ok = false;
+        break;
+      }
+      sumLs += v;
+    }
+  }
+  if (ls_ok && sumLs > 0.0)
+  {
+    for (int rr = 0; rr < NR; rr++)
+      reg_cons_share[rr] = LS_region_share[rr] / sumLs;
+    return;
+  }
+
+  for (int rr = 0; rr < NR; rr++)
+    reg_cons_share[rr] = 1.0 / NR;
+}
+
+// Regional wage used for current-period production and wage payments.
+// reg_w_past is the regional analogue of the national w(2).
+double currentRegionalWage(int region_id)
+{
+  if (flag_regional_labor == 1 &&
+      NR > 0 &&
+      region_id >= 1 &&
+      region_id <= NR &&
+      static_cast<int>(reg_w_past.size()) == NR)
+  {
+    return reg_w_past[region_id - 1];
+  }
+
+  return w(2);
+}
+
+// Regional wage used for forward-looking / next-period decisions.
+// reg_w is the regional analogue of the newly determined national w(1).
+double nextRegionalWage(int region_id)
+{
+  if (flag_regional_labor == 1 &&
+      NR > 0 &&
+      region_id >= 1 &&
+      region_id <= NR &&
+      static_cast<int>(reg_w.size()) == NR)
+  {
+    return reg_w[region_id - 1];
+  }
+
+  return w(1);
+}
+
 int main(int argc, char *argv[])
 {
   CLI::App app{"DSK_SFC, the Dystopian Schumpeter meeting Keynes Stock Flow Consistent model"};
@@ -603,6 +724,14 @@ int main(int argc, char *argv[])
     cout << "End of simulation loop" << endl;
   }
 
+  if (flag_recovery_delivery_delay == 1)
+  {
+    std::cerr << "[RECOVERY-DELAY] eligible reconstruction orders=" << diag_recon_total_orders
+              << " delayed=" << diag_recon_delayed_orders
+              << " delayed_value=" << diag_recon_delayed_value
+              << " still_in_transit=" << pending_deliveries.size() << std::endl;
+  }
+
   if (NR > 0)
   {
     for (auto &stream : region_resultsexp_streams)
@@ -817,6 +946,7 @@ void SETPARAMS(const rapidjson::Document &inputs)
 
   // Adaptation parameters (backward-compatible defaults when flag_adaptation == 0)
   flag_adaptation = inputs["flags"][0].HasMember("flag_adaptation") ? inputs["flags"][0]["flag_adaptation"].GetInt() : 0;
+  flag_recovery_delivery_delay = inputs["flags"][0].HasMember("flag_recovery_delivery_delay") ? inputs["flags"][0]["flag_recovery_delivery_delay"].GetInt() : 0;
   delta_adapt = inputs["params"][0].HasMember("delta_adapt") ? inputs["params"][0]["delta_adapt"].GetDouble() : 0.05;
   phi_adapt = inputs["params"][0].HasMember("phi_adapt") ? inputs["params"][0]["phi_adapt"].GetDouble() : 1.0;
   omega_floor_adapt = inputs["params"][0].HasMember("omega_floor_adapt") ? inputs["params"][0]["omega_floor_adapt"].GetDouble() : 0.05;
@@ -1605,14 +1735,16 @@ void SETPARAMS(const rapidjson::Document &inputs)
 
   // Regional labour market flags (1=on, 0=off)
   flag_regional_labor = getFlagIntMobility("flag_regional_labor", 0);
-  flag_ls_distribution = getFlagIntMobility("flag_ls_distribution", 0);
 
   // Regional purchasing-preference (home-bias) mechanism.
-  // flag_regional_bias: 0 = baseline (no regional preference); 1 = perceived non-regional price penalty.
-  // tau_regional: proportional PERCEIVED non-regional purchasing-cost wedge (>= 0). This affects supplier
-  // evaluation only; actual payments always use posted prices p1/p2. No financial flow is created by it.
+  // flag_regional_bias: 0 = baseline (no regional preference); 1 = perceived non-regional price penalty;
+  //                     2 = regional exposure/search friction (no price wedge).
+  // tau_regional: proportional PERCEIVED non-regional purchasing-cost wedge (>= 0), flag 1 only. This affects
+  // supplier evaluation only; actual payments always use posted prices p1/p2. No financial flow is created by it.
+  // eta_K_search / eta_H_search: regional exposure/visibility biases (>= 0), flag 2 only. They change who is
+  // encountered/considered, not posted prices, so no financial flow is created by them either.
   flag_regional_bias = getFlagIntMobility("flag_regional_bias", 0);
-  if (flag_regional_bias != 0 && flag_regional_bias != 1)
+  if (flag_regional_bias != 0 && flag_regional_bias != 1 && flag_regional_bias != 2)
   {
     ofstream Errors(errorfilename, ios::app);
     std::cerr << "[WARN] flag_regional_bias invalid (" << flag_regional_bias << "); clamping to 0" << std::endl;
@@ -1629,10 +1761,30 @@ void SETPARAMS(const rapidjson::Document &inputs)
     Errors.close();
     tau_regional = 0.0;
   }
+  eta_K_search = getDoubleParam("eta_K_search", 0.0);
+  if (eta_K_search < 0.0)
+  {
+    ofstream Errors(errorfilename, ios::app);
+    std::cerr << "[WARN] eta_K_search negative (" << eta_K_search << "); clamping to 0.0" << std::endl;
+    Errors << "[WARN] eta_K_search negative (" << eta_K_search << "); clamping to 0.0" << std::endl;
+    Errors.close();
+    eta_K_search = 0.0;
+  }
+  eta_H_search = getDoubleParam("eta_H_search", 0.0);
+  if (eta_H_search < 0.0)
+  {
+    ofstream Errors(errorfilename, ios::app);
+    std::cerr << "[WARN] eta_H_search negative (" << eta_H_search << "); clamping to 0.0" << std::endl;
+    Errors << "[WARN] eta_H_search negative (" << eta_H_search << "); clamping to 0.0" << std::endl;
+    Errors.close();
+    eta_H_search = 0.0;
+  }
   if (verbose)
   {
     std::cerr << "[DEBUG] Regional bias loaded: flag_regional_bias=" << flag_regional_bias
-              << ", tau_regional=" << tau_regional << std::endl;
+              << ", tau_regional=" << tau_regional
+              << ", eta_K_search=" << eta_K_search
+              << ", eta_H_search=" << eta_H_search << std::endl;
   }
 
   // Regional wage-setting parameters (active when flag_regional_labor == 1)
@@ -2223,6 +2375,19 @@ void RESIZE(void)
   affected_indicator = 0.0;
   affected_indicator_lag.ReSize(N2);
   affected_indicator_lag = 0.0;
+
+  // Recovery machine-delivery delay state (N2-sized) and empty pending queue
+  recon_elig.ReSize(N2);
+  recon_elig = 0.0;
+  recon_elig_lag.ReSize(N2);
+  recon_elig_lag = 0.0;
+  recon_Saff.ReSize(N2);
+  recon_Saff = 0.0;
+  recon_Saff_lag.ReSize(N2);
+  recon_Saff_lag = 0.0;
+  CapitalInTransit.ReSize(N2);
+  CapitalInTransit = 0.0;
+  pending_deliveries.clear();
 }
 
 void INITIALIZE(int Exseed)
@@ -2981,6 +3146,19 @@ void SETVARS(void)
     }
   }
 
+  // Recovery delivery-delay eligibility: carry the disbursement marker/snapshot one period forward
+  // (grant is spendable next period), then reset. CapitalInTransit and the pending queue persist.
+  if (flag_recovery_delivery_delay == 1)
+  {
+    for (int jj = 1; jj <= N2; jj++)
+    {
+      recon_elig_lag(jj) = recon_elig(jj);
+      recon_Saff_lag(jj) = recon_Saff(jj);
+      recon_elig(jj) = 0.0;
+      recon_Saff(jj) = 0.0;
+    }
+  }
+
   // Relocation bank side
   for (i = 1; i <= NB; i++)
   {
@@ -3243,6 +3421,16 @@ void MACH(void)
   // Determine production cost and selling price for K-firms
   for (i = 1; i <= N1; i++)
   {
+    int region_i = 0;
+
+    if (NR > 0 &&
+        static_cast<int>(region_firm_assignment_K.size()) == N1)
+    {
+      region_i = region_firm_assignment_K[i - 1];
+    }
+
+    const double wage_i = currentRegionalWage(region_i);
+
     for (tt = t0; tt <= t; tt++)
     {
       if (A(tt, i) > 0 & A_en(tt, i) > 0)
@@ -3257,14 +3445,14 @@ void MACH(void)
       }
     }
 
-    c1(i) = w(2) / ((1 - shocks_labprod1(i)) * A1p(i) * a) + c_en(2) / ((1 - shocks_eneff1(i)) * A1p_en(i)) + t_CO2 * A1p_ef(i) / ((1 - shocks_eneff1(i)) * A1p_en(i));
+    c1(i) = wage_i / ((1 - shocks_labprod1(i)) * A1p(i) * a) + c_en(2) / ((1 - shocks_eneff1(i)) * A1p_en(i)) + t_CO2 * A1p_ef(i) / ((1 - shocks_eneff1(i)) * A1p_en(i));
     if (pass_1(i) == 1)
     {
       c1p(i) = c1(i);
     }
     else
     {
-      c1p(i) = w(2) / ((1 - shocks_labprod1(i)) * A1p(i) * a) + c_en_preshock / ((1 - shocks_eneff1(i)) * A1p_en(i)) + t_CO2 * A1p_ef(i) / ((1 - shocks_eneff1(i)) * A1p_en(i));
+      c1p(i) = wage_i / ((1 - shocks_labprod1(i)) * A1p(i) * a) + c_en_preshock / ((1 - shocks_eneff1(i)) * A1p_en(i)) + t_CO2 * A1p_ef(i) / ((1 - shocks_eneff1(i)) * A1p_en(i));
     }
 
     rnd = ran1(p_seed);
@@ -3280,10 +3468,53 @@ void MACH(void)
   }
 
   // C-firms receive capital ordered in the last period
+  // Pre-pass: install delayed reconstruction deliveries scheduled for this period, restoring their
+  // original-vintage machines to gtemp before the productive vintage arrays are rebuilt below.
+  if (flag_recovery_delivery_delay == 1 && !pending_deliveries.empty())
+  {
+    for (size_t idx = 0; idx < pending_deliveries.size();)
+    {
+      PendingDelivery pd = pending_deliveries[idx];
+      if (pd.delivery == t)
+      {
+        gtemp[pd.vintage - 1][pd.supplier - 1][pd.buyer - 1] += pd.units;
+        int agewant = t - pd.vintage; // preserve production-age semantics across transit
+        if (age[pd.vintage - 1][pd.supplier - 1][pd.buyer - 1] < agewant)
+          age[pd.vintage - 1][pd.supplier - 1][pd.buyer - 1] = agewant;
+        K(pd.buyer) += pd.units * dim_mach;
+        CapitalStock(1, pd.buyer) += pd.value;
+        CapitalInTransit(pd.buyer) -= pd.value;
+        pending_deliveries.erase(pending_deliveries.begin() + idx);
+      }
+      else
+      {
+        ++idx;
+      }
+    }
+  }
+
   for (j = 1; j <= N2; j++)
   {
-    K(j) += EI(2, j) - scrap_age(j);
-    CapitalStock(1, j) += deltaCapitalStock(2, j);
+    // Hold: a delayed order produced last period reaches its normal delivery date now; keep its
+    // expansion units/value out of productive capacity and installed capital (its units were already
+    // removed from gtemp at production, so the gtemp->g copy below excludes them automatically).
+    double skip_units = 0.0;
+    double skip_value = 0.0;
+    if (flag_recovery_delivery_delay == 1)
+    {
+      for (size_t idx = 0; idx < pending_deliveries.size(); ++idx)
+      {
+        if (pending_deliveries[idx].buyer == j && pending_deliveries[idx].delivery == t + 1)
+        {
+          skip_units += pending_deliveries[idx].units;
+          skip_value += pending_deliveries[idx].value;
+        }
+      }
+    }
+
+    K(j) += EI(2, j) - skip_units * dim_mach - scrap_age(j);
+    CapitalStock(1, j) += deltaCapitalStock(2, j) - skip_value;
+    CapitalInTransit(j) += skip_value;
     for (i = 1; i <= N1; i++)
     {
       for (tt = t0; tt <= t; tt++)
@@ -3300,6 +3531,16 @@ void MACH(void)
   // C-firms determine cost of production, revise mark-up and set their price
   for (j = 1; j <= N2; j++)
   {
+    int region_j = 0;
+
+    if (NR > 0 &&
+        static_cast<int>(region_firm_assignment_C.size()) == N2)
+    {
+      region_j = region_firm_assignment_C[j - 1];
+    }
+
+    const double wage_j = currentRegionalWage(region_j);
+
     n_mach(j) = K(j) / dim_mach;
     for (i = 1; i <= N1; i++)
     {
@@ -3307,14 +3548,14 @@ void MACH(void)
       {
         if (n_mach(j) > 0)
         {
-          c2(j) += (w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
+          c2(j) += (wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
           if (pass_2(j) == 1)
           {
-            c2p(j) += (w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
+            c2p(j) += (wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
           }
           else
           {
-            c2p(j) += (w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en_preshock / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
+            c2p(j) += (wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en_preshock / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
           }
           A2(j) += (1 - shocks_labprod2(j)) * A(tt, i) * g[tt - 1][i - 1][j - 1] / n_mach(j);
           A2_en(j) += (1 - shocks_eneff2(j)) * A_en(tt, i) * g[tt - 1][i - 1][j - 1] / n_mach(j);
@@ -3383,7 +3624,7 @@ void MOBILITY_COMPUTATION(void)
       diag_sum_LS_region_share_next += diag_LS_region_share_next[r];
     }
 
-    // Phase 5B: no migration expenditure; regional deposits carry over unchanged.
+    //  no migration expenditure; regional deposits carry over unchanged.
     diag_migration_expenditure_from_households = 0.0;
     diag_migration_service_revenue_C_total = 0.0;
     diag_migration_closure_residual = 0.0;
@@ -3406,7 +3647,7 @@ void MOBILITY_COMPUTATION(void)
     return;
   }
 
-  // ========== ZERO OUT DIAGNOSTIC VECTORS AT PERIOD START ==========
+  //  ZERO OUT DIAGNOSTIC VECTORS AT PERIOD START
   for (int o = 0; o < NR; ++o)
   {
     diag_V_region[o] = 0.0;
@@ -3438,7 +3679,7 @@ void MOBILITY_COMPUTATION(void)
   diag_sum_M_out = 0.0;
   diag_sum_M_in = 0.0;
 
-  // ========== Compute unemployed pool per region ==========
+  //  Compute unemployed pool per region
   std::vector<double> UN_region(NR, 0.0); // Unemployed search pool
   for (int o = 0; o < NR; ++o)
   {
@@ -3446,32 +3687,40 @@ void MOBILITY_COMPUTATION(void)
     UN_region[o] = max(0.0, reg_LS[o] - L_region_o);
   }
 
-  // ========== Compute regional utility V_region[r] ==========
+  //  Compute regional utility V_region[r]
   // V_r = beta_w * ln(omega_r) - beta_u * ln(max(u_r, u_min)) + beta_prot * K_prot_r + beta_pub * K_pub_r
   // omega_r = real wage = nominal_wage / CPI
 
   for (int r = 0; r < NR; ++r)
   {
     // Regional real wage when regional labour market is active, else national proxy
-    double wage_r = (flag_regional_labor == 1 && (int)reg_w.size() == NR) ? reg_w[r] : w(1);
+    double wage_r = nextRegionalWage(r + 1);
     double omega_r = (cpi(1) > 0) ? wage_r / cpi(1) : wage_r;
     double u_r = reg_U[r];
 
-    // Log-wage utility (beta_w_mig > 0)
-    double v_wage = (omega_r > 0) ? beta_w_mig * log(omega_r) : 0.0;
+    double v_wage =
+        (omega_r > 0) ? beta_w_mig * log(omega_r) : 0.0;
 
-    // Unemployment disutility (beta_u_mig > 0 means lower unemployment is better)
     double u_clamp = max(u_r, u_min_mig);
-    double v_unemp = -beta_u_mig * log(u_clamp); // Negative because higher unemployment = worse
+    double v_unemp = -beta_u_mig * log(u_clamp);
 
-    diag_V_region[r] = v_wage + v_unemp;
+    double K_prot_r =
+        ((int)K_adapt_rg.size() == NR) ? K_adapt_rg[r] : 0.0;
+
+    double K_public_r =
+        ((int)K_pub_rg.size() == NR) ? K_pub_rg[r] : 0.0;
+
+    double v_prot = beta_prot_mig * K_prot_r;
+    double v_pub = beta_pub_mig * K_public_r;
+
+    diag_V_region[r] =
+        v_wage + v_unemp + v_prot + v_pub;
   }
 
-  // ========== Compute monetary moving costs MC_mig[o][d] ==========
+  //  Compute monetary moving costs MC_mig[o][d]
   for (int o = 0; o < NR; ++o)
   {
-    double w_o_lag = (flag_regional_labor == 1 && (int)reg_w.size() == NR) ? reg_w[o] : w(2);
-
+    double w_o_lag = currentRegionalWage(o + 1);
     double u_o_lag = ((int)reg_U_rate.size() == NR) ? reg_U_rate[o] : reg_U[o];
 
     w_o_lag = std::max(0.0, w_o_lag);
@@ -4180,6 +4429,8 @@ void BROCHURE(void)
 
   ftot = 0;
   nclient = 0;
+  diag_brochure_local_draws = 0.0;
+  diag_brochure_total_draws = 0.0;
 
   for (j = 1; j <= N2; j++)
   {
@@ -4205,10 +4456,30 @@ void BROCHURE(void)
       newbroch++;
     }
 
+    // flag_regional_bias == 2: bias new-brochure recipients toward the K-firm's own region
+    // (exposure friction). One ran1 draw per brochure like the baseline; the baseline branch is
+    // kept explicit so the RNG stream stays bit-identical to flag 0/1 when exposure is inactive.
+    bool exposure_k_active = (flag_regional_bias == 2 && eta_K_search > 1e-12 && NR > 0 &&
+                              static_cast<int>(region_firm_assignment_C.size()) == N2 &&
+                              static_cast<int>(region_firm_assignment_K.size()) == N1);
+    int seller_region_i = (NR > 0 && static_cast<int>(region_firm_assignment_K.size()) == N1)
+                              ? region_firm_assignment_K[i - 1]
+                              : 0;
+
     while (newbroch > 0)
     {
-      rni = int(ran1(p_seed) * N1 * N2) % N2 + 1;
+      if (exposure_k_active)
+        rni = drawRegionBiasedCFirm(seller_region_i, eta_K_search);
+      else
+        rni = int(ran1(p_seed) * N1 * N2) % N2 + 1;
       Match(rni, i) = 1;
+      // Exposure diagnostic: count draws before Match is collapsed to the chosen supplier.
+      if (flag_regional_bias == 2 && seller_region_i >= 1)
+      {
+        diag_brochure_total_draws += 1.0;
+        if (region_firm_assignment_C[rni - 1] == seller_region_i)
+          diag_brochure_local_draws += 1.0;
+      }
       newbroch--;
     }
   }
@@ -4217,6 +4488,15 @@ void BROCHURE(void)
 
   for (j = 1; j <= N2; j++)
   {
+    int region_j = 0;
+
+    if (NR > 0 &&
+        static_cast<int>(region_firm_assignment_C.size()) == N2)
+    {
+      region_j = region_firm_assignment_C[j - 1];
+    }
+
+    const double wage_j = currentRegionalWage(region_j);
     indforn = int(fornit(j));
     for (i = 1; i <= N1; i++)
     {
@@ -4224,9 +4504,9 @@ void BROCHURE(void)
       {
         // Apply a perceived non-regional purchasing-cost wedge to the machine PRICE only.
         // This affects supplier evaluation; the selected C-firm still pays the posted price p1.
-        // The operating-cost term (labour/energy/carbon)*b is a physical property of the
-        // machine and is never wedged. When the mechanism is inactive the effective prices
-        // equal the posted prices, so the comparison reproduces the baseline exactly.
+        // Operating costs are not wedged: labour is evaluated at the buyer C-firm's
+        // regional wage, while energy efficiency and carbon intensity come from the machine.
+        // When the regional mechanisms are inactive, the comparison reproduces the baseline.
         double p1_cand = p1(i);
         double p1_inc = p1(indforn);
         if (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0)
@@ -4235,7 +4515,7 @@ void BROCHURE(void)
           p1_cand = perceivedRegionalPrice(p1(i), buyer_region, region_firm_assignment_K[i - 1], flag_regional_bias, tau_regional);
           p1_inc = perceivedRegionalPrice(p1(indforn), buyer_region, region_firm_assignment_K[indforn - 1], flag_regional_bias, tau_regional);
         }
-        if (Match(j, i) == 1 && p1_cand + (w(2) / A1(i) + c_en(2) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b < p1_inc + (w(2) / A1(indforn) + c_en(2) / A1_en(indforn) + t_CO2 * A1_ef(indforn) / A1_en(indforn)) * b)
+        if (Match(j, i) == 1 && p1_cand + (wage_j / A1(i) + c_en(2) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b < p1_inc + (wage_j / A1(indforn) + c_en(2) / A1_en(indforn) + t_CO2 * A1_ef(indforn) / A1_en(indforn)) * b)
         {
           indforn = i;
         }
@@ -4301,7 +4581,20 @@ void INVEST(void)
 
     Ktrig(j) = ROUND((K(j) - scrap_age(j)) / dim_mach) * dim_mach;
 
-    if (Kd(j) >= Ktrig(j))
+    // Reconstruction capacity already ordered but still in transit is committed, not yet productive:
+    // net it out of desired capacity so the firm does not re-order the same expansion (K excludes it).
+    double pending_capacity = 0.0;
+    if (flag_recovery_delivery_delay == 1)
+    {
+      for (const auto &pd : pending_deliveries)
+      {
+        if (pd.buyer == j && pd.delivery > t)
+          pending_capacity += pd.units * dim_mach;
+      }
+    }
+    double Kd_invest = std::max(0.0, Kd(j) - pending_capacity);
+
+    if (Kd_invest >= Ktrig(j))
     {
       if (I_max > 0)
       {
@@ -4314,16 +4607,16 @@ void INVEST(void)
       }
       else
       {
-        K_top = Kd(j) + 1;
+        K_top = Kd_invest + 1;
       }
 
-      if (Kd(j) > K_top)
+      if (Kd_invest > K_top)
       {
         EId(j) = K_top - Ktrig(j);
       }
       else
       {
-        EId(j) = floor((Kd(j) - (K(j) - scrap_age(j))) / dim_mach) * dim_mach;
+        EId(j) = floor((Kd_invest - (K(j) - scrap_age(j))) / dim_mach) * dim_mach;
       }
     }
     else
@@ -4331,7 +4624,7 @@ void INVEST(void)
       EId(j) = 0;
     }
 
-    if (SId(j) == 0 && EId(j) == 0 && marker_age(j) == 1)
+    if (SId(j) == 0 && EId(j) == 0 && marker_age(j) == 1 && pending_capacity < dim_mach)
     {
       EId(j) = dim_mach;
     }
@@ -4361,6 +4654,16 @@ void INVEST(void)
 void SCRAPPING(void)
 {
   ofstream Errors(errorfilename, ios::app);
+  int region_j = 0;
+
+  if (NR > 0 &&
+      static_cast<int>(region_firm_assignment_C.size()) == N2)
+  {
+    region_j = region_firm_assignment_C[j - 1];
+  }
+
+  const double wage_j = currentRegionalWage(region_j);
+
   K_temp(j) = K(j) / dim_mach;
   indforn = int(fornit(j));
   // C-firms determine which machines should be scrapped due to age and/or due to superior tech being available
@@ -4376,13 +4679,15 @@ void SCRAPPING(void)
         if (flag_scrap_age == 1)
         {
           g_pb[tt - 1][i - 1][j - 1] = min(g[tt - 1][i - 1][j - 1], (K_temp(j) - 1));
-          C_pb[tt - 1][i - 1][j - 1] = C(tt, i);
+          C_pb[tt - 1][i - 1][j - 1] =
+              wage_j / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
           scrap_age(j) += dim_mach * g_pb[tt - 1][i - 1][j - 1];
         }
         else
         {
           g_pb[tt - 1][i - 1][j - 1] = min(g[tt - 1][i - 1][j - 1], (K_temp(j) - 1));
-          C_pb[tt - 1][i - 1][j - 1] = C(tt, i);
+          C_pb[tt - 1][i - 1][j - 1] =
+              wage_j / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
           SId(j) += dim_mach * g_pb[tt - 1][i - 1][j - 1];
           SId_age(j) += dim_mach * g_pb[tt - 1][i - 1][j - 1];
           if (SId(j) == 0 && K_temp(j) == 1)
@@ -4395,9 +4700,9 @@ void SCRAPPING(void)
 
       if (g[tt - 1][i - 1][j - 1] > 0 && g_pb[tt - 1][i - 1][j - 1] == 0 && A(tt, i) < A1(indforn))
       {
-        if (w(2) > 0 && A(tt, i) > 0 && A1(indforn) > 0 && A1_en(indforn) > 0 && A_en(tt, i) > 0)
+        if (wage_j > 0 && A(tt, i) > 0 && A1(indforn) > 0 && A1_en(indforn) > 0 && A_en(tt, i) > 0)
         {
-          payback = p1(indforn) / (w(2) / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i) - w(2) / A1(indforn) - c_en(2) / A1_en(indforn) - t_CO2 * A1_ef(indforn) / A1_en(indforn));
+          payback = p1(indforn) / (wage_j / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i) - wage_j / A1(indforn) - c_en(2) / A1_en(indforn) - t_CO2 * A1_ef(indforn) / A1_en(indforn));
         }
         else
         {
@@ -4409,7 +4714,8 @@ void SCRAPPING(void)
         if (payback <= b && payback > 0)
         {
           g_pb[tt - 1][i - 1][j - 1] = g[tt - 1][i - 1][j - 1];
-          C_pb[tt - 1][i - 1][j - 1] = C(tt, i);
+          C_pb[tt - 1][i - 1][j - 1] =
+              wage_j / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
           SId(j) += dim_mach * g_pb[tt - 1][i - 1][j - 1];
           SId_cost(j) += dim_mach * g_pb[tt - 1][i - 1][j - 1];
         }
@@ -4423,6 +4729,16 @@ void SCRAPPING(void)
 void COSTPROD(void)
 {
   ofstream Errors(errorfilename, ios::app);
+
+  int region_j = 0;
+
+  if (NR > 0 &&
+      static_cast<int>(region_firm_assignment_C.size()) == N2)
+  {
+    region_j = region_firm_assignment_C[j - 1];
+  }
+
+  const double wage_j = currentRegionalWage(region_j);
 
   // C-firms determine effective production cost based on desired production; most efficient machines used first
   nmachprod = ceil(Qd(j) / dim_mach);
@@ -4439,9 +4755,9 @@ void COSTPROD(void)
     {
       for (tt = t0; tt <= t; tt++)
       {
-        if (g_c[tt - 1][i - 1][j - 1] > 0 && (w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i)) < cmin)
+        if (g_c[tt - 1][i - 1][j - 1] > 0 && (wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i)) < cmin)
         {
-          cmin = w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
+          cmin = wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
           imin = i;
           jmin = j;
           tmin = tt;
@@ -4456,7 +4772,7 @@ void COSTPROD(void)
         A2e(j) += (1 - shocks_labprod2(j)) * A(tmin, imin) * nmp_temp / nmachprod;
         A2e_en(j) += (1 - shocks_eneff2(j)) * A_en(tmin, imin) * nmp_temp / nmachprod;
         A2e_ef(j) += A_ef(tmin, imin) * nmp_temp / nmachprod;
-        c2e(j) += (w(2) / ((1 - shocks_labprod2(j)) * A(tmin, imin)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin)) + t_CO2 * A_ef(tmin, imin) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin))) * nmp_temp / nmachprod;
+        c2e(j) += (wage_j / ((1 - shocks_labprod2(j)) * A(tmin, imin)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin)) + t_CO2 * A_ef(tmin, imin) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin))) * nmp_temp / nmachprod;
         g_c[tmin - 1][imin - 1][jmin - 1] -= nmp_temp;
         nmp_temp = 0;
       }
@@ -4465,7 +4781,7 @@ void COSTPROD(void)
         A2e(j) += (1 - shocks_labprod2(j)) * A(tmin, imin) * g_c[tmin - 1][imin - 1][jmin - 1] / nmachprod;
         A2e_en(j) += (1 - shocks_eneff2(j)) * A_en(tmin, imin) * g_c[tmin - 1][imin - 1][jmin - 1] / nmachprod;
         A2e_ef(j) += A_ef(tmin, imin) * g_c[tmin - 1][imin - 1][jmin - 1] / nmachprod;
-        c2e(j) += (w(2) / ((1 - shocks_labprod2(j)) * A(tmin, imin)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin)) + t_CO2 * A_ef(tmin, imin) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin))) * g_c[tmin - 1][imin - 1][jmin - 1] / nmachprod;
+        c2e(j) += (wage_j / ((1 - shocks_labprod2(j)) * A(tmin, imin)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin)) + t_CO2 * A_ef(tmin, imin) / ((1 - shocks_eneff2(j)) * A_en(tmin, imin))) * g_c[tmin - 1][imin - 1][jmin - 1] / nmachprod;
         nmp_temp -= g_c[tmin - 1][imin - 1][jmin - 1];
         g_c[tmin - 1][imin - 1][jmin - 1] = 0;
       }
@@ -5400,6 +5716,59 @@ void PRODMACH(void)
     }
   }
 
+  // Reconstruction machine-delivery delay: after all output/capital-shock adjustments are final,
+  // hold an eligible firm's surviving expansion units out of gtemp and queue them for t+2 delivery.
+  // Payment, K-firm revenue, Investment_2 and current-period deltaCapitalStock are left untouched.
+  if (flag_recovery_delivery_delay == 1)
+  {
+    for (j = 1; j <= N2; j++)
+    {
+      if (recon_elig_lag(j) != 1.0 || exiting_2(j) == 1 || EI(1, j) <= 0.0)
+        continue;
+
+      diag_recon_total_orders++;
+
+      double p = recon_Saff_lag(j);
+      if (p < 0.0)
+        p = 0.0;
+      if (p > 1.0)
+        p = 1.0;
+
+      bool delay;
+      if (p <= recovery_delay_eps)
+        delay = false;
+      else if (p >= 1.0 - recovery_delay_eps)
+        delay = true;
+      else
+        delay = (ran1(p_seed) < p);
+
+      if (!delay)
+        continue;
+
+      int supp = int(fornit(j));
+      double units = EI(1, j) / dim_mach;
+      double avail = gtemp[t - 1][supp - 1][j - 1];
+      if (units > avail)
+        units = avail;
+      if (units <= 0.0)
+        continue;
+
+      gtemp[t - 1][supp - 1][j - 1] -= units;
+
+      PendingDelivery pd;
+      pd.buyer = j;
+      pd.supplier = supp;
+      pd.vintage = t;
+      pd.delivery = t + 2;
+      pd.units = units;
+      pd.value = units * g_price[t - 1][supp - 1][j - 1];
+      pending_deliveries.push_back(pd);
+
+      diag_recon_delayed_orders++;
+      diag_recon_delayed_value += pd.value;
+    }
+  }
+
   EN_DEM();
 
   Errors.close();
@@ -5408,6 +5777,17 @@ void PRODMACH(void)
 void ADJUSTEMISSENLAB(void)
 {
   ofstream Errors(errorfilename, ios::app);
+
+  int region_j = 0;
+
+  if (NR > 0 &&
+      static_cast<int>(region_firm_assignment_C.size()) == N2)
+  {
+    region_j = region_firm_assignment_C[j - 1];
+  }
+
+  const double wage_j = currentRegionalWage(region_j);
+
   nmachprod = ceil(Q2(j) / dim_mach);
   nmp_temp = nmachprod;
 
@@ -5422,9 +5802,9 @@ void ADJUSTEMISSENLAB(void)
     {
       for (tt = t0; tt <= t; tt++)
       {
-        if (g_c2[tt - 1][i - 1][j - 1] > 0 && (w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i)) < cmin)
+        if (g_c2[tt - 1][i - 1][j - 1] > 0 && (wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i)) < cmin)
         {
-          cmin = w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
+          cmin = wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
           imin = i;
           jmin = j;
           tmin = tt;
@@ -5495,9 +5875,9 @@ void ADJUSTEMISSENLAB(void)
       {
         for (tt = t0; tt <= t; tt++)
         {
-          if (g_c3[tt - 1][i - 1][j - 1] > 0 && (w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i)) < cmin)
+          if (g_c3[tt - 1][i - 1][j - 1] > 0 && (wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i)) < cmin)
           {
-            cmin = w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
+            cmin = wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
             imin = i;
             jmin = j;
             tmin = tt;
@@ -5689,7 +6069,18 @@ void PAY_LAB_INV(void)
   for (j = 1; j <= N2; j++)
   {
     sendingBank = BankingSupplier_2(j);
-    Wages_2(j) = w(2) * (Ld2(j));
+    int region_id = 0;
+
+    if (NR > 0 &&
+        static_cast<int>(region_firm_assignment_C.size()) == N2)
+    {
+      region_id = region_firm_assignment_C[j - 1];
+    }
+
+    const double wage_j = currentRegionalWage(region_id);
+
+    Wages_2(j) = wage_j * Ld2(j);
+
     if (Deposits_2(1, j) >= Wages_2(j))
     {
       Deposits_2(1, j) -= Wages_2(j);
@@ -5802,7 +6193,18 @@ void PAY_LAB_INV(void)
   for (i = 1; i <= N1; i++)
   {
     sendingBank = BankingSupplier_1(i);
-    Wages_1(i) = w(2) * (Ld1(i) + Ld1rd(i));
+    int region_id = 0;
+
+    if (NR > 0 &&
+        static_cast<int>(region_firm_assignment_K.size()) == N1)
+    {
+      region_id = region_firm_assignment_K[i - 1];
+    }
+
+    const double wage_i = currentRegionalWage(region_id);
+
+    Wages_1(i) = wage_i * (Ld1(i) + Ld1rd(i));
+
     if (Deposits_1(1, i) >= Wages_1(i))
     {
       Deposits_1(1, i) -= Wages_1(i);
@@ -5975,10 +6377,13 @@ void COMPET2(void)
     exit(EXIT_FAILURE);
   }
 
-  // Regional home-bias is active only when the flag is on, the wedge is materially
-  // positive, and the model is regionalised. Otherwise the original national
-  // quasi-replicator update below runs unchanged (exact baseline nesting).
-  bool regional_active = (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0);
+  // Regional home-bias is active when the flag is on and the model is regionalised. Flag 1 uses a
+  // perceived-price wedge (needs tau_regional > 0); flag 2 uses a household visibility/exposure bias
+  // (needs eta_H_search > 0). When neither is active the original national quasi-replicator runs
+  // unchanged (exact baseline nesting).
+  bool wedge_hh_active = (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0);
+  bool exposure_hh_active = (flag_regional_bias == 2 && eta_H_search > 1e-12 && NR > 0);
+  bool regional_active = wedge_hh_active || exposure_hh_active;
 
   if (!regional_active)
   {
@@ -6010,9 +6415,9 @@ void COMPET2(void)
       ftot(3) += f2(3, j);
     }
   }
-  else
+  else if (wedge_hh_active)
   {
-    // ----- REGIONAL HOME-BIAS: buyer-region-specific quasi-replicator -----
+    // ----- REGIONAL HOME-BIAS (flag 1): buyer-region-specific perceived-price replicator -----
     // Households in region r perceive an effective price for C-firm c that is inflated
     // by tau_regional when c is located in another region. Each region runs its own
     // replicator on its own market-share row f2_reg[r], using the existing unweighted
@@ -6020,58 +6425,8 @@ void COMPET2(void)
     // The national f2(1,c) is then the consumption-budget-weighted aggregate of the
     // regional rows; national exit/markup/timing continue to use national f2.
 
-    // Regional consumption-budget weights s_r: primary reg_Dh, then population share
-    // (LS_region_share), then equal shares. Weights are sanitised and normalised.
-    {
-      double sumDh = 0.0;
-      bool dh_ok = ((int)reg_Dh.size() == NR);
-      if (dh_ok)
-      {
-        for (int rr = 0; rr < NR; rr++)
-        {
-          double v = reg_Dh[rr];
-          if (!std::isfinite(v) || v < 0.0)
-          {
-            dh_ok = false;
-            break;
-          }
-          sumDh += v;
-        }
-      }
-      if (dh_ok && sumDh > 0.0)
-      {
-        for (int rr = 0; rr < NR; rr++)
-          reg_cons_share[rr] = reg_Dh[rr] / sumDh;
-      }
-      else
-      {
-        double sumLs = 0.0;
-        bool ls_ok = ((int)LS_region_share.size() == NR);
-        if (ls_ok)
-        {
-          for (int rr = 0; rr < NR; rr++)
-          {
-            double v = LS_region_share[rr];
-            if (!std::isfinite(v) || v < 0.0)
-            {
-              ls_ok = false;
-              break;
-            }
-            sumLs += v;
-          }
-        }
-        if (ls_ok && sumLs > 0.0)
-        {
-          for (int rr = 0; rr < NR; rr++)
-            reg_cons_share[rr] = LS_region_share[rr] / sumLs;
-        }
-        else
-        {
-          for (int rr = 0; rr < NR; rr++)
-            reg_cons_share[rr] = 1.0 / NR;
-        }
-      }
-    }
+    // Regional consumption-budget weights s_r (shared with flag 2).
+    updateRegionalConsumptionShares();
 
     // Region-specific replicator: update each f2_reg[r] current row (row 1) from its lag (row 2).
     for (int rr = 0; rr < NR; rr++)
@@ -6171,6 +6526,126 @@ void COMPET2(void)
           }
         }
       }
+      ftot(1) += f2(1, j);
+      ftot(2) += f2(2, j);
+      ftot(3) += f2(3, j);
+    }
+  }
+  else
+  {
+    // ----- REGIONAL EXPOSURE/SEARCH (flag 2): household visibility-weighted shares -----
+    // No price wedge. First compute the ordinary national economic quasi-replicator on posted
+    // prices (f_hat). Each region then weights f_hat by a visibility factor A_rj (same-region firms
+    // favoured) and renormalises to a proper share row. National f2 is the budget-weighted aggregate
+    // of these region rows, so market share stays the aggregation of actual regional demand shares.
+    std::vector<double> f_hat(N2 + 1, 0.0);
+    for (j = 1; j <= N2; j++)
+      f_hat[j] = f2(2, j) * ((2 * omega3) / (1 + exp((-chi) * ((E2(j) - Em2(1)) / Em2(1)))) + (1 - omega3));
+
+    // Regional consumption-budget weights s_r (shared with flag 1).
+    updateRegionalConsumptionShares();
+
+    // Region rows: visibility-weight f_hat (local weight 1, non-local exp(-eta_H_search); identical
+    // categorical probabilities without overflow) and normalise per region BEFORE aggregation.
+    double w_nl = exp(-eta_H_search);
+    for (int rr = 0; rr < NR; rr++)
+    {
+      int region_id = rr + 1;
+      double gsum = 0.0;
+      for (j = 1; j <= N2; j++)
+      {
+        double a = (region_firm_assignment_C[j - 1] == region_id) ? 1.0 : w_nl;
+        double v = a * f_hat[j];
+        if (!std::isfinite(v) || v < 0.0)
+          v = 0.0;
+        f2_reg[rr](1, j) = v;
+        gsum += v;
+      }
+      if (gsum > 0.0)
+      {
+        for (j = 1; j <= N2; j++)
+          f2_reg[rr](1, j) /= gsum;
+      }
+      else
+      {
+        // Visibility weights unusable: revert to the ordinary national economic allocation
+        // (normalised f_hat), not a uniform allocation.
+        double fhat_sum = 0.0;
+        for (j = 1; j <= N2; j++)
+          fhat_sum += f_hat[j];
+        if (fhat_sum > 0.0)
+        {
+          for (j = 1; j <= N2; j++)
+            f2_reg[rr](1, j) = f_hat[j] / fhat_sum;
+        }
+      }
+    }
+
+    // National f2(1,c) = budget-weighted aggregate of the normalised region rows; apply the exit
+    // threshold to this aggregate and zero any exiting firm across every regional row.
+    for (j = 1; j <= N2; j++)
+    {
+      double agg = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+        agg += reg_cons_share[rr] * f2_reg[rr](1, j);
+      f2(1, j) = agg;
+
+      if (f2(1, j) <= (1 / (N2r * 500)))
+      {
+        f2(1, j) = 0;
+        f2(2, j) = 0;
+        f2(3, j) = 0;
+        for (int rr = 0; rr < NR; rr++)
+        {
+          f2_reg[rr](1, j) = 0;
+          f2_reg[rr](2, j) = 0;
+          f2_reg[rr](3, j) = 0;
+        }
+        if (exiting_2(j) == 0 && exit_payments2(j) == 0 && exit_marketshare2(j) == 0)
+        {
+          exit_marketshare2(j) = 1;
+          int rr = region_firm_assignment_C[j - 1];
+          if (rr >= 1 && rr <= NR)
+          {
+            reg_exit_marketshare2[rr - 1] += 1.0;
+          }
+        }
+      }
+    }
+
+    // Post-exit: renormalise surviving region rows and RECOMPUTE national f2 from them so that
+    // national market share remains exactly the budget-weighted aggregate of regional demand shares.
+    for (int rr = 0; rr < NR; rr++)
+    {
+      double s1 = 0.0;
+      for (j = 1; j <= N2; j++)
+        s1 += f2_reg[rr](1, j);
+      if (s1 > 0.0)
+      {
+        for (j = 1; j <= N2; j++)
+          f2_reg[rr](1, j) /= s1;
+      }
+      else
+      {
+        // Region row fully zeroed by exits: revert to national economic shares over survivors
+        // (f2(2,j) > 0), so the region still has positive supplier weights in ALLOC().
+        double fhat_sum = 0.0;
+        for (j = 1; j <= N2; j++)
+          if (f2(2, j) > 0.0)
+            fhat_sum += f_hat[j];
+        if (fhat_sum > 0.0)
+        {
+          for (j = 1; j <= N2; j++)
+            f2_reg[rr](1, j) = (f2(2, j) > 0.0) ? (f_hat[j] / fhat_sum) : 0.0;
+        }
+      }
+    }
+    for (j = 1; j <= N2; j++)
+    {
+      double agg = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+        agg += reg_cons_share[rr] * f2_reg[rr](1, j);
+      f2(1, j) = agg;
       ftot(1) += f2(1, j);
       ftot(2) += f2(2, j);
       ftot(3) += f2(3, j);
@@ -6764,7 +7239,7 @@ void PROFIT(void)
   // C-firms which exit due to negative equity, inability to make payments or low market share are prepared for exit
   for (j = 1; j <= N2; j++)
   {
-    NW_2(1, j) = CapitalStock(1, j) + deltaCapitalStock(1, j) + Inventories(1, j) + Deposits_2(1, j) - Loans_2(1, j);
+    NW_2(1, j) = CapitalStock(1, j) + deltaCapitalStock(1, j) + CapitalInTransit(j) + Inventories(1, j) + Deposits_2(1, j) - Loans_2(1, j);
     if (NW_2(1, j) < 0 && exit_payments2(j) == 0 && exiting_2(j) == 0 && exit_marketshare2(j) == 0)
     {
       exit_equity2(j) = 1;
@@ -6991,7 +7466,12 @@ void ALLOC(void)
     Q2temp(j) = Q2(j) + N(2, j);
   }
 
-  bool regional_active = (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0);
+  // Regional consumption allocation runs for either home-bias mechanism: flag 1 (perceived-price
+  // wedge) or flag 2 (household visibility/exposure bias). The wedge diagnostic below is accumulated
+  // only under flag 1, so diag_wedge_cmarket stays 0 under flag 2 by construction.
+  bool wedge_hh_active = (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0);
+  bool exposure_hh_active = (flag_regional_bias == 2 && eta_H_search > 1e-12 && NR > 0);
+  bool regional_active = wedge_hh_active || exposure_hh_active;
 
   if (!regional_active)
   {
@@ -7250,7 +7730,7 @@ void ALLOC(void)
           tot_real += q;
           if (region_firm_assignment_C[j - 1] == region_id)
             local_real += q;
-          else
+          else if (wedge_hh_active)
             wedge_num += q * tau_regional;
         }
       }
@@ -7985,8 +8465,20 @@ void ENTRYEXIT(void)
       n_mach(j) = 0;
       K(j) = 0;
       // First subtract the capital stock previously held by the exiting firm
-      Injection_2(j) -= (CapitalStock(1, j) + deltaCapitalStock(1, j));
+      Injection_2(j) -= (CapitalStock(1, j) + deltaCapitalStock(1, j) + CapitalInTransit(j));
       CapitalStock(1, j) = 0;
+      // Discard any in-transit reconstruction deliveries so the entrant reusing this index never receives them
+      if (flag_recovery_delivery_delay == 1)
+      {
+        CapitalInTransit(j) = 0.0;
+        for (size_t idx = 0; idx < pending_deliveries.size();)
+        {
+          if (pending_deliveries[idx].buyer == j)
+            pending_deliveries.erase(pending_deliveries.begin() + idx);
+          else
+            ++idx;
+        }
+      }
       // Clear the exiting firms' entries in the frequency arrays
       n_mach_resid = n_mach_entry(j);
       for (i = 1; i <= N1; i++)
@@ -8053,12 +8545,22 @@ void ENTRYEXIT(void)
       scrap_age(j) = 0;
       deltaCapitalStock(1, j) = 0;
       // Set the newly entering firm's cost, mark-up and price
+      int region_j = 0;
+
+      if (NR > 0 &&
+          static_cast<int>(region_firm_assignment_C.size()) == N2)
+      {
+        region_j = region_firm_assignment_C[j - 1];
+      }
+
+      const double wage_j = currentRegionalWage(region_j);
+
       c2(j) = 0;
       for (i = 1; i <= N1; i++)
       {
         for (tt = t0; tt <= t; tt++)
         {
-          c2(j) += (w(2) / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
+          c2(j) += (wage_j / ((1 - shocks_labprod2(j)) * A(tt, i)) + c_en(2) / ((1 - shocks_eneff2(j)) * A_en(tt, i)) + t_CO2 * A_ef(tt, i) / ((1 - shocks_eneff2(j)) * A_en(tt, i))) * g[tt - 1][i - 1][j - 1] / n_mach(j);
         }
       }
       mu2(1, j) = mi2;
@@ -8265,6 +8767,44 @@ void TECHANGEND(void)
 
   for (i = 1; i <= N1; i++)
   {
+    int region_i = 0;
+
+    if (NR > 0 &&
+        static_cast<int>(region_firm_assignment_K.size()) == N1)
+    {
+      region_i = region_firm_assignment_K[i - 1];
+    }
+
+    const double wage_i_next = nextRegionalWage(region_i);
+    double wage_client_next = 0.0;
+    int client_count = 0;
+
+    for (int jj = 1; jj <= N2; ++jj)
+    {
+      if (Match(jj, i) == 1)
+      {
+        int region_j = 0;
+
+        if (NR > 0 &&
+            static_cast<int>(region_firm_assignment_C.size()) == N2)
+        {
+          region_j = region_firm_assignment_C[jj - 1];
+        }
+
+        wage_client_next += nextRegionalWage(region_j);
+        client_count++;
+      }
+    }
+
+    if (client_count > 0)
+    {
+      wage_client_next /= client_count;
+    }
+    else
+    {
+      wage_client_next = w(1);
+    }
+
     // K-firms determine R&D spending and associated labour demand
     RD(1, i) = nu * S1(i);
     if (S1(i) == 0)
@@ -8278,14 +8818,16 @@ void TECHANGEND(void)
       }
     }
 
-    if (w(1) > 0)
+    if (wage_i_next > 0)
     {
-      Ld1rd(i) = RD(1, i) / w(1);
+      Ld1rd(i) = RD(1, i) / wage_i_next;
     }
     else
     {
-      std::cerr << "\n\n ERROR: w=0 in period " << t << endl;
-      Errors << "\n w=0 in period " << t << endl;
+      std::cerr << "\n\n ERROR: regional wage=0 in period " << t
+                << " for K-firm " << i << endl;
+      Errors << "\n Regional wage=0 in period " << t
+             << " for K-firm " << i << endl;
       exit(EXIT_FAILURE);
     }
 
@@ -8530,7 +9072,13 @@ void TECHANGEND(void)
     }
 
     // If the imitated technology is superior, adopt it
-    if (((1 + mi1) * (w(1) / (A1pimm(i) * a) + c_en(1) / EEp_imm(i) + t_CO2 * EFp_imm(i) / EEp_imm(i))) + (w(1) / A1imm(i) + c_en(1) / EE_imm(i) + t_CO2 * EF_imm(i) / EE_imm(i)) * b < ((1 + mi1) * (w(1) / (A1p(i) * a) + c_en(1) / A1p_en(i) + t_CO2 * A1p_ef(i) / A1p_en(i)) + (w(1) / A1(i) + c_en(1) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b))
+    if (
+        (1 + mi1) *
+                (wage_i_next / (A1pimm(i) * a) + c_en(1) / EEp_imm(i) + t_CO2 * EFp_imm(i) / EEp_imm(i)) +
+            (wage_client_next / A1imm(i) + c_en(1) / EE_imm(i) + t_CO2 * EF_imm(i) / EE_imm(i)) * b <
+        (1 + mi1) *
+                (wage_i_next / (A1p(i) * a) + c_en(1) / A1p_en(i) + t_CO2 * A1p_ef(i) / A1p_en(i)) +
+            (wage_client_next / A1(i) + c_en(1) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b)
     {
       A1(i) = A1imm(i);
       A1p(i) = A1pimm(i);
@@ -8541,7 +9089,13 @@ void TECHANGEND(void)
     }
 
     // If the innovated technology is superior, adopt it
-    if (((1 + mi1) * (w(1) / (A1pinn(i) * a) + c_en(1) / EEp_inn(i) + t_CO2 * EFp_inn(i) / EEp_inn(i))) + (w(1) / A1inn(i) + c_en(1) / EE_inn(i) + t_CO2 * EF_inn(i) / EE_inn(i)) * b < ((1 + mi1) * (w(1) / (A1p(i) * a) + c_en(1) / A1p_en(i) + t_CO2 * A1p_ef(i) / A1p_en(i)) + (w(1) / A1(i) + c_en(1) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b))
+    if (
+        (1 + mi1) *
+                (wage_i_next / (A1pinn(i) * a) + c_en(1) / EEp_inn(i) + t_CO2 * EFp_inn(i) / EEp_inn(i)) +
+            (wage_client_next / A1inn(i) + c_en(1) / EE_inn(i) + t_CO2 * EF_inn(i) / EE_inn(i)) * b <
+        (1 + mi1) *
+                (wage_i_next / (A1p(i) * a) + c_en(1) / A1p_en(i) + t_CO2 * A1p_ef(i) / A1p_en(i)) +
+            (wage_client_next / A1(i) + c_en(1) / A1_en(i) + t_CO2 * A1_ef(i) / A1_en(i)) * b)
     {
       A1(i) = A1inn(i);
       A1p(i) = A1pinn(i);
@@ -9286,7 +9840,7 @@ void SFC_CHECK(void)
   // Compare stock and flow measures of C-firm net worth
   for (i = 1; i <= N2; i++)
   {
-    NW_2(1, i) = CapitalStock(1, i) + deltaCapitalStock(1, i) + Inventories(1, i) + Deposits_2(1, i) - Loans_2(1, i);
+    NW_2(1, i) = CapitalStock(1, i) + deltaCapitalStock(1, i) + CapitalInTransit(i) + Inventories(1, i) + Deposits_2(1, i) - Loans_2(1, i);
     NW_2_c(i) = NW_2(2, i) + Pi2(i) + baddebt_2(i) + Injection_2(i) - Dividends_2(i) - Taxes_2(i) - Taxes_CO2_2(i) - Loss_Capital(i) - Loss_Inventories(i) - RelocationCosts_2(i) + sub_Rec(i);
   }
   deviation = fabs((NW_2_c.Sum() - NW_2.Row(1).Sum()) / NW_2_c.Sum());
@@ -9383,7 +9937,7 @@ void SFC_CHECK(void)
 
   // Sum of all sectoral net worths should be equal to nominal value of tangible assets in the economy
   NWSum = NW_h(1) + NW_1.Row(1).Sum() + NW_2.Row(1).Sum() + NW_b.Row(1).Sum() + NW_e(1) + NW_cb(1) + NW_gov(1) + NW_f(1) + NW_reloc(1);
-  RealAssets = CapitalStock.Row(1).Sum() + deltaCapitalStock.Row(1).Sum() + Inventories.Row(1).Sum() + CapitalStock_e(1) + K_pub_total;
+  RealAssets = CapitalStock.Row(1).Sum() + deltaCapitalStock.Row(1).Sum() + CapitalInTransit.Sum() + Inventories.Row(1).Sum() + CapitalStock_e(1) + K_pub_total;
   deviation = fabs((NWSum - RealAssets) / RealAssets);
   if (deviation > regionalaccountingtolerance)
   {
@@ -9405,6 +9959,30 @@ void REGIONAL_CONSISTENCY_CHECK(void)
 
   ofstream Errors(errorfilename, ios::app);
   double regional_sum, national_value, deviation;
+
+  // Check Wages: regional wage receipts should sum to national household wages
+  regional_sum = 0.0;
+
+  for (int rr = 0; rr < NR; ++rr)
+  {
+    regional_sum += reg_Wages[rr];
+  }
+
+  national_value = Wages;
+  deviation = fabs(regional_sum - national_value);
+
+  if (fabs(national_value) > 1e-10)
+  {
+    deviation /= fabs(national_value);
+  }
+
+  if (deviation > regionalaccountingtolerance)
+  {
+    Errors << "Period " << t
+           << ": Regional Wages sum (" << regional_sum
+           << ") does not match national Wages (" << national_value
+           << "), deviation = " << deviation << endl;
+  }
 
   // Check GDP_n: Sum of regional GDP_n should equal national GDP_n(1)
   regional_sum = 0;
@@ -9773,6 +10351,16 @@ void OVERBOOST(void)
       for (j = 1; j <= N2 && flag == 0; j++)
       {
         if (g[tt - 1][i - 1][j - 1] > 0 || gtemp[tt - 1][i - 1][j - 1] > 0)
+          flag = 1;
+      }
+    }
+    // A vintage referenced by an in-transit delivery is still active even though its machines
+    // are temporarily out of gtemp; dropping it would hide them on reinsertion.
+    if (flag == 0 && flag_recovery_delivery_delay == 1)
+    {
+      for (size_t idx = 0; idx < pending_deliveries.size() && flag == 0; ++idx)
+      {
+        if (pending_deliveries[idx].vintage == tt)
           flag = 1;
       }
     }
@@ -11055,17 +11643,17 @@ void SAVE(void)
         target.width(60);
         target << GT_topup_rg[region - 1]; // 37: GT_topup_rg (Top-up Grant from CG)
         target.width(60);
-        target << reg_H1[region - 1]; // 40: H1 ( Herfindahl index K-firms)
+        target << reg_H1[region - 1]; // 38: H1 ( Herfindahl index K-firms)
         target.width(60);
-        target << reg_H2[region - 1]; // 41: H2 ( Herfindahl index C-firms)
+        target << reg_H2[region - 1]; // 39: H2 ( Herfindahl index C-firms)
         target.width(60);
-        target << reg_w[region - 1]; // 42: reg_w (Regional wage rate; income/benefit/migration use)
+        target << reg_w[region - 1]; // 40: reg_w (Regional wage rate; income/benefit/migration use)
         target.width(60);
-        target << reg_YD[region - 1]; // 43: reg_YD (Regional disposable income, decomposition)
+        target << reg_YD[region - 1]; // 41: reg_YD (Regional disposable income, decomposition)
         target.width(60);
-        target << reg_C[region - 1]; // 44: reg_C (Regional consumption, decomposition)
+        target << reg_C[region - 1]; // 42: reg_C (Regional consumption, decomposition)
         target.width(60);
-        target << ((LS > 0) ? reg_LS[region - 1] / LS : 0.0); // 45: LS_region_share (sigma_r)
+        target << ((LS > 0) ? reg_LS[region - 1] / LS : 0.0); // 43: LS_region_share (sigma_r)
         {
           int rgi = region - 1;
           double mb = reg_mach_buy_local[rgi] + reg_mach_buy_import[rgi];

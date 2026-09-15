@@ -40,11 +40,31 @@ static void UPDATE_UNEMPLOYMENT_RATES(void)
 			}
 		}
 
-		double reg_LD_rd = 0;
-		double reg_LD_en = 0;
+		double reg_LD_rd = 0.0;
+		double reg_LD_en = 0.0;
+
+		// When the regional labour market is active, R&D labour belongs
+		// to the region of the K-firm actually employing it.
+		if (flag_regional_labor == 1)
+		{
+			for (int ii = 1; ii <= N1; ++ii)
+			{
+				if (region_firm_assignment_K[ii - 1] == rr)
+				{
+					reg_LD_rd += Ld1rd(ii);
+				}
+			}
+		}
+		else if (total_LD_firms > 0)
+		{
+			// Preserve legacy regional decomposition when regional labour is inactive.
+			reg_LD_rd = LD1rdtot * (reg_LD_firms / total_LD_firms);
+		}
+
+		// Energy employment remains national and is still allocated provisionally
+		// by the regional production-labour share.
 		if (total_LD_firms > 0)
 		{
-			reg_LD_rd = LD1rdtot * (reg_LD_firms / total_LD_firms);
 			reg_LD_en = LDentot * (reg_LD_firms / total_LD_firms);
 		}
 
@@ -134,8 +154,21 @@ void LABOR(void)
 					prod_LD_r += Ld2(jj);
 
 			// Apportion national R&D + energy labour to region r by production-labour share
-			double share_r = (total_prod_LD > 0) ? prod_LD_r / total_prod_LD : 1.0 / NR;
-			double reg_LD_rd_r = LD1rdtot * share_r;
+			double reg_LD_rd_r = 0.0;
+
+			for (int ii = 1; ii <= N1; ++ii)
+			{
+				if (region_firm_assignment_K[ii - 1] == rr)
+				{
+					reg_LD_rd_r += Ld1rd(ii);
+				}
+			}
+
+			// Energy labour remains provisionally allocated by production-labour share.
+			double share_r = (total_prod_LD > 0)
+								 ? prod_LD_r / total_prod_LD
+								 : 1.0 / NR;
+
 			double reg_LD_en_r = LDentot * share_r;
 
 			// Regional labour supply (state) and labour available for production:
@@ -563,11 +596,36 @@ void REGIONAL_UPDATE(void)
 				// NW_2 = CapitalStock + deltaCapitalStock + Inventories + Deposits_2 - Loans_2.
 				// NW_2(1,jj) is only updated in ENTRYEXIT and not refreshed after
 				// BANKING/BAILOUT/SETTLEMENT modify the balance-sheet components.
-				reg_NW2[rr - 1] += CapitalStock(1, jj) + deltaCapitalStock(1, jj) + Inventories(1, jj) + Deposits_2(1, jj) - Loans_2(1, jj);
+				reg_NW2[rr - 1] += CapitalStock(1, jj) + deltaCapitalStock(1, jj) + CapitalInTransit(jj) + Inventories(1, jj) + Deposits_2(1, jj) - Loans_2(1, jj);
 				reg_Deposits2[rr - 1] += Deposits_2(1, jj);
 				reg_CapitalStock2[rr - 1] += CapitalStock(1, jj);
 				reg_Dividends_2[rr - 1] += Dividends_2(jj); // Aggregate dividends for C-firms
 				reg_CreditDemand_all[rr - 1] += CreditDemand(jj);
+			}
+		}
+
+		// Reallocate actually paid energy-sector wages after resetting reg_Wages.
+		// Use the same regional energy-production shares as PAY_LAB_INV.
+		if (Wages_en > 0)
+		{
+			double total_energy_production = 0.0;
+
+			for (int rr = 0; rr < NR; ++rr)
+			{
+				total_energy_production += reg_Q_ge[rr] + reg_Q_de[rr];
+			}
+
+			if (total_energy_production > 0)
+			{
+				for (int rr = 0; rr < NR; ++rr)
+				{
+					double region_energy_share =
+						(reg_Q_ge[rr] + reg_Q_de[rr]) /
+						total_energy_production;
+
+					reg_Wages[rr] +=
+						Wages_en * region_energy_share;
+				}
 			}
 		}
 
@@ -696,12 +754,30 @@ void REGIONAL_UPDATE(void)
 			// Regional labour SUPPLY is set separately below from sigma_r (state), not from demand.
 			double reg_LD_firms = reg_Ld1[rr - 1] + reg_Ld2[rr - 1];
 			double total_LD_firms = LD1tot + LD2tot;
-			double reg_LD_rd = 0;
-			double reg_LD_en = 0;
+
+			double reg_LD_rd = 0.0;
+			double reg_LD_en = 0.0;
+
+			if (flag_regional_labor == 1)
+			{
+				for (int ii = 1; ii <= N1; ++ii)
+				{
+					if (region_firm_assignment_K[ii - 1] == rr)
+					{
+						reg_LD_rd += Ld1rd(ii);
+					}
+				}
+			}
+			else if (total_LD_firms > 0)
+			{
+				reg_LD_rd =
+					LD1rdtot * (reg_LD_firms / total_LD_firms);
+			}
+
 			if (total_LD_firms > 0)
 			{
-				reg_LD_rd = LD1rdtot * (reg_LD_firms / total_LD_firms);
-				reg_LD_en = LDentot * (reg_LD_firms / total_LD_firms);
+				reg_LD_en =
+					LDentot * (reg_LD_firms / total_LD_firms);
 			}
 			double reg_LD_total = reg_LD_firms + reg_LD_rd + reg_LD_en;
 			reg_LD_totals[rr - 1] = reg_LD_total;
@@ -761,7 +837,7 @@ void REGIONAL_UPDATE(void)
 			}
 		}
 
-		// ===== Phase 4 / 5B: regional disposable income, consumption, deposits =====
+		// regional disposable income, consumption, deposits
 		// True regional household accounts. Households now hold regional deposits
 		// (reg_Dh) that accumulate disposable income minus consumption. reg_C is an
 		// accounting decomposition of national Consumption by disposable-income share.
@@ -805,7 +881,7 @@ void REGIONAL_UPDATE(void)
 			double sum_raw = 0.0;
 			for (int rr = 0; rr < NR; ++rr)
 			{
-				// 1. Desired regional consumption (by disposable-income share)
+				// Desired regional consumption (by disposable-income share)
 				double share;
 				if (total_reg_YD > 1e-12)
 					share = reg_YD[rr] / total_reg_YD;
@@ -815,18 +891,18 @@ void REGIONAL_UPDATE(void)
 				if (desired_r < 0.0)
 					desired_r = 0.0; // no negative consumption
 
-				// 2. Available household resources before migration
+				// Available household resources before migration
 				double resources_r = reg_Dh_lag[rr] + reg_YD[rr];
 				if (resources_r < 0.0)
 					resources_r = 0.0;
 
-				// 3. Cap regional consumption at available resources
+				// Cap regional consumption at available resources
 				double c_raw = (desired_r < resources_r) ? desired_r : resources_r;
 				reg_C_raw[rr] = c_raw;
 				sum_raw += c_raw;
 			}
 
-			// 4. Rescale raw consumption to national Consumption only if feasible
+			// Rescale raw consumption to national Consumption only if feasible
 			//    (scaling DOWN). If raw resources fall short, keep the feasible
 			//    expenditure and record the unallocated national consumption.
 			diag_reg_C_unallocated = 0.0;
@@ -843,7 +919,7 @@ void REGIONAL_UPDATE(void)
 				diag_reg_C_unallocated = Consumption - sum_raw;
 			}
 
-			// 5. Pre-migration regional deposits (income/consumption applied)
+			// Pre-migration regional deposits (income/consumption applied)
 			for (int rr = 0; rr < NR; ++rr)
 			{
 				reg_Dh_pre_migration[rr] = reg_Dh_lag[rr] + reg_YD[rr] - reg_C[rr];
@@ -898,12 +974,7 @@ void WAGE(void)
 		w(1) = w_min;
 	}
 
-	// ===== Phase 3A: regional wage setting (income/benefit/migration use) =====
-	// Firms still pay the national wage; reg_w feeds household income, benefits
-	// and migration utility only (cost-side routing is Phase 3B, postponed).
-	//   wdot_reg_r = pi* + psi1(pi - pi*) + psi2*dAm_r - psi3*du_r
-	//   wdot_r     = chi_w*wdot_nat + (1 - chi_w)*wdot_reg_r,  |wdot_r| <= dwage_max
-	//   reg_w[r]   = reg_w_past[r] * (1 + wdot_r)
+	// Regional wage setting
 	if (flag_regional_labor == 1 && NR > 0 &&
 		(int)reg_w.size() == NR && (int)reg_w_past.size() == NR &&
 		(int)reg_U.size() == NR && (int)reg_U_past.size() == NR &&
@@ -1190,7 +1261,10 @@ void RG_BLOCK_SP(void)
 	{
 		double share = (total_reg_LS > 0) ? reg_LS[rr] / total_reg_LS : 1.0 / NR;
 		double unemployed_r = national_unemployed * share;
-		SP_rg[rr] = unemployed_r * w(2) * wu_rg[rr];
+
+		const double wage_r = currentRegionalWage(rr + 1);
+
+		SP_rg[rr] = unemployed_r * wage_r * wu_rg[rr];
 		SP_total += SP_rg[rr];
 	}
 
@@ -1394,6 +1468,14 @@ void RG_BLOCK_FISCAL(void)
 					if (region_firm_assignment_C[jj - 1] == rr && affected_indicator_lag(jj) == 1.0 && exiting_2(jj) == 0)
 					{
 						sub_Rec(jj) = share;
+						// Delivery-delay eligibility: mark on the actual disbursement and snapshot the
+						// responsible disaster's damage (Saff_rg_lag drives the obligation being paid here).
+						if (flag_recovery_delivery_delay == 1)
+						{
+							recon_elig(jj) = 1.0;
+							double s = Saff_rg_lag[rr - 1];
+							recon_Saff(jj) = (s < 0.0) ? 0.0 : (s > 1.0 ? 1.0 : s);
+						}
 					}
 				}
 			}

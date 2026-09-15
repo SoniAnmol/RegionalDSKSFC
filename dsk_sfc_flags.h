@@ -145,10 +145,6 @@ int flag_regional_labor; // Switches the regionalised labour market on or off
                          // = 1 on: regional labour supply is a state LS_r = LS * LS_region_share[r]
                          //         driven by exogenous shares sigma_r (with per-region unemployment)
 
-int flag_ls_distribution; // Reserved switch for the regional labour-supply-share distribution mode
-                          // = 0 [BASELINE] use LS_region_share as provided/normalised
-                          // = 1 reserved for future alternative share-distribution schemes
-
 int flag_regional_mobility; // Flag to enable/disable regional mobility
                             // 1=on
                             // 0=off
@@ -158,9 +154,20 @@ int flag_regional_bias; // Switches the regional purchasing-preference (home-bia
                         // = 1 on: non-regional suppliers receive a perceived effective-price penalty
                         //         (households -> C-firms; C-firms -> K-firms). Perceived prices only;
                         //         actual payments, revenues and stock-flow accounting are unchanged.
+                        // = 2 on: regional exposure/search friction (no price wedge). K-firm brochures
+                        //         preferentially reach same-region C-firms (eta_K_search); household demand
+                        //         is visibility-weighted toward same-region C-firms (eta_H_search). Supplier
+                        //         choice still uses posted prices/economic criteria; no monetary flow created.
 
 int flag_firm_relocation; // Switches firm regional relocation on or off
                           // = 0 [BASELINE] off: firm regional locations remain fixed
                           // = 1 on: K- and C-firms may reconsider their region
+
+int flag_recovery_delivery_delay; // Post-disaster reconstruction machine-delivery delay
+                                  // = 0 [BASELINE] off: model runs exactly as before (no extra RNG)
+                                  // = 1 on: a recovery-supported C-firm's reconstruction-associated expansion
+                                  //         order may face one extra delivery period (t+2 instead of t+1) with
+                                  //         probability = clamp(snapshotted Saff_rg_lag, 0, 1). Requires
+                                  //         flag_adaptation in {2,3} and flag_capshocks > 0 to be active.
 
 #endif
