@@ -159,6 +159,15 @@ int flag_regional_bias; // Switches the regional purchasing-preference (home-bia
                         //         is visibility-weighted toward same-region C-firms (eta_H_search). Supplier
                         //         choice still uses posted prices/economic criteria; no monetary flow created.
 
+int flag_regional_imitation; // Switches the regional imitation-target bias on or off
+                             // = 0 [BASELINE] off: original DSK imitation-target selection (inverse
+                             //         technological distance) with no regional weighting
+                             // = 1 on: cross-region K-firms have their technological distance inflated by
+                             //         epsilon_regional_imitation before it is inverted into an imitation
+                             //         weight, biasing imitation toward same-region K-firms. Affects only the
+                             //         conditional target choice P(j|imitation); the probability that
+                             //         imitation occurs, R&D allocation and copied technology are unchanged.
+
 int flag_firm_relocation; // Switches firm regional relocation on or off
                           // = 0 [BASELINE] off: firm regional locations remain fixed
                           // = 1 on: K- and C-firms may reconsider their region

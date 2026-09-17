@@ -6,117 +6,122 @@ int N1f; // Number of foreign firms
 int N2;  // Number of C-firms
 int T;   // Simulation periods
 
-double varphi;              // Maximum bonds to Loans ratio of banks
-double nu;                  // Fraction of revenue devoted to R&D
-double xi;                  // Divides R&D expenditure between innovation and imitation
-double o1;                  // Effectiveness of R&D expenditure on innovation
-double o2;                  // Effectiveness of R&D expenditure on imitation
-double uu11;                // In DSK Case: Lower bound on machine productivity changes due to R&D; in K+S case: Suppport of uniform distribution for exogenous process innovation
-double uu21;                // In DSK Case: Upper bound on machine productivity changes due to R&D; in K+S case: Suppport of uniform distribution for exogenous product innovation
-double uu12;                // In DSK Case: Lower bound on own productivity changes due to R&D
-double uu22;                // In DSK Case: Upper bound on own productivity changes due to R&D
-double uu31;                // Lower bound on energy efficiency changes due to R&D; C-firms
-double uu41;                // Upper bound on energy efficiency changes due to R&D; C-firms
-double uu32;                // Lower bound on energy efficiency changes due to R&D; K-firms
-double uu42;                // Upper bound on energy efficiency changes due to R&D; K-firms
-double uu51;                // Lower bound on environmental friendliness changes due to R&D; C-firms
-double uu61;                // Upper bound on environmental friendliness changes due to R&D; C-firms
-double uu52;                // Lower bound on environmental friendliness changes due to R&D; K-firms
-double uu62;                // Upper bound on environmental friendliness changes due to R&D; K-firms
-double uinf;                // Lower bound on exogenous changes in technological frontier
-double usup;                // Upper bound on exogenous changes in technological frontier
-double b_a11;               // Parameter alpha for Beta distribution governing machine productivity innovation
-double b_a12;               // Parameter alpha for Beta distribution governing own productivity innovation
-double b_a1_shock;          // Parameter alpha incorporating climate shock to R&D
-double b_b11;               // Parameter beta for Beta distribution governing machine productivity innovation
-double b_b12;               // Parameter beta for Beta distribution governing own productivity innovation
-double b_a2;                // Parameter alpha for Beta distribution governing energy efficiency innovation
-double b_a2_shock;          // Parameter alpha incorporating climate shock to R&D
-double b_b2;                // Parameter beta for Beta distribution governing energy efficiency innovation
-double b_a3;                // in DSK: Parameter alpha for Beta distribution governing environmental friendliness innovation; in K+S: Parameter alpha for Beta distribution governing change in technological frontier
-double b_a3_shock;          // Parameter alpha incorporating climate shock to R&D
-double b_b3;                // in DSK: Parameter beta for Beta distribution governing environmental friendliness innovation; in K+S: Parameter beta for Beta distribution governing change in technological frontier
-double mi1;                 // Mark-up K-Firms
-double mi2;                 // Initial Mark-up C-firms
-double Gamma;               // Determining number of potential new clients contacted by K-firms
-double chi;                 // Governing replicator dynamics of C-firm market share
-double omega1;              // Weight of relative price in C-firm competitiveness
-double omega2;              // Weight of unsatisfied demand in C-firm competitiveness
-double tau_regional;        // Regional home-bias wedge: proportional perceived non-regional purchasing-cost
-                            // wedge applied to buyers evaluating suppliers in a different region.
-                            // NOTE: this is a PERCEIVED price wedge used only in supplier/consumption
-                            // evaluation. It is NOT a transaction payment, tax, transfer or transport cost,
-                            // and it has no effect when flag_regional_bias == 0. Requires tau_regional >= 0.
-                            // Used only by flag_regional_bias == 1.
-double eta_K_search;        // Regional exposure bias in K-firm brochure delivery (flag_regional_bias == 2).
-                            // Same-region C-firms get relative weight exp(eta_K_search) in the brochure draw.
-                            // eta_K_search == 0 recovers the uniform draw. Requires eta_K_search >= 0.
-double eta_H_search;        // Regional visibility bias in household consumption allocation (flag_regional_bias == 2).
-                            // Same-region C-firms get relative weight exp(eta_H_search) in region shares.
-                            // eta_H_search == 0 recovers the national allocation. Requires eta_H_search >= 0.
-double psi1;                // Wage sensitivity to inflation
-double psi2;                // Wage sensitivity to productivity
-double psi3;                // Wage sensitivity to unemployment
-double deltami2;            // Sensitivity of C-firm mark-up to change in market share
-double w_min;               // Subsistence wage
-double pmin;                // lower bound on prices
-double theta;               // Probability of being able to re-set price (K-firms and C-firms)
-double u;                   // C-firms' desired capacity utilisation
-double alfa;                // Persistence of C-firms' adaptive expectations
-double b;                   // Pay-back period for new technologies
-double dim_mach;            // Output producible by 1 machine
-double agemax;              // Maximum lifespan of machine tools
-double a;                   // scaling factor for labour productivity in K-Sector
-double credit_multiplier;   // Governing banks' credit supply
-double beta_basel;          // Sensitivity of credit supply to defaults
-double bankmarkdown;        // Banks' markdown on deposit interest rate
-double centralbankmarkdown; // CB's markdown on reserve interest rate
-double d1;                  // K-firm dividend payout rate
-double d2;                  // C-firm dividend payout rate
-double db;                  // Bank dividend payout rate
-double repayment_share;     // Loan repayment share
-double bonds_share;         // Gov. bond repayment share
-double pareto_a;            // Alpha parameter for pareto distribution function
-double pareto_k;            // K parameter for pareto distribution function
-double pareto_p;            // P parameter for pareto distribution function
-double d_cpi_target;        // Inflation target
-double ustar;               // Target unemployment
-double w1sup;               // Upper bound on distribution governing deposits transferred to newly entering K-firms
-double w1inf;               // Lower bound on distribution governing deposits transferred to newly entering K-firms
-double w2sup;               // Upper bound on distribution governing deposits transferred to newly entering C-firms
-double w2inf;               // Lower bound on distribution governing deposits transferred to newly entering C-firms
-double k_const;             // Governing interest rates charged to individual bank borrowers
-double aliqw;               // Tax rate on wages
-double taylor1;             // Taylor rule inflation sensitivity
-double taylor2;             // Taylor rule unemployment sensitivity
-double bondsmarkdown;       // Markdown on gov. bond interest rate
-double mdw;                 // Maximum variation in factors governing changes in wage
-double phi2;                // Governing maximum amount of loans demanded by C-firms
-double b1sup;               // Upper bound on distribution of net worth of bailed-out banks
-double b1inf;               // Lower bound on distribution of net worth of bailed-out banks
-double b2sup;               // Upper bound on distribution of net worth of bailed-out banks (for case when all banks have failed)
-double b2inf;               // Lower bound on distribution of net worth of bailed-out banks (for case when all banks have failed)
-double aliq;                // Tax rate on firm profits
-double aliqb;               // Tax rate on bank profits
-double wu;                  // Unemployment benefit rate
-double r_base;              // Taylor rule intercept
-double de;                  // Dividend payout rate energy sector
-double a1;                  // Propensity to consume out of wage & benefit income
-double a2;                  // Propensity to consume out of dividend & interest income
-double a3;                  // Propensity to consume out of wealth (deposits)
-double u_low;               // Lower bound for unemployment rate in computing rate of change (to avoid dividing by 0)
-double f2_entry_min;        // Minimum market share for entering C-firms
-double kappa;               // Persistence of long-run average mean productivity change
-double taylor;              // Persistence parameter for CB rate adjustment
-double omicron;             // Desired inventory to output ratio for C-firms
-double I_max;               // Maximum desired expansion investment as % of current capital stock
-double persistence;         // Persistence of one-off climate shocks
-double omega3;              // Minimum market share (as % of previous share) remaining post-replicator
-double d_f;                 // Share of fossil fuel cost transfered to households
-double g_ls;                // Growth rate of labour force
-double aliqe;               // Rate of tax on excess energy/fossil fuel profit during energy price shock
-double tre;                 // Household transfer payment rate during energy price shock
-double passthrough;         // Probability that a firm will pass through the energy price shock
+double varphi;                     // Maximum bonds to Loans ratio of banks
+double nu;                         // Fraction of revenue devoted to R&D
+double xi;                         // Divides R&D expenditure between innovation and imitation
+double o1;                         // Effectiveness of R&D expenditure on innovation
+double o2;                         // Effectiveness of R&D expenditure on imitation
+double uu11;                       // In DSK Case: Lower bound on machine productivity changes due to R&D; in K+S case: Suppport of uniform distribution for exogenous process innovation
+double uu21;                       // In DSK Case: Upper bound on machine productivity changes due to R&D; in K+S case: Suppport of uniform distribution for exogenous product innovation
+double uu12;                       // In DSK Case: Lower bound on own productivity changes due to R&D
+double uu22;                       // In DSK Case: Upper bound on own productivity changes due to R&D
+double uu31;                       // Lower bound on energy efficiency changes due to R&D; C-firms
+double uu41;                       // Upper bound on energy efficiency changes due to R&D; C-firms
+double uu32;                       // Lower bound on energy efficiency changes due to R&D; K-firms
+double uu42;                       // Upper bound on energy efficiency changes due to R&D; K-firms
+double uu51;                       // Lower bound on environmental friendliness changes due to R&D; C-firms
+double uu61;                       // Upper bound on environmental friendliness changes due to R&D; C-firms
+double uu52;                       // Lower bound on environmental friendliness changes due to R&D; K-firms
+double uu62;                       // Upper bound on environmental friendliness changes due to R&D; K-firms
+double uinf;                       // Lower bound on exogenous changes in technological frontier
+double usup;                       // Upper bound on exogenous changes in technological frontier
+double b_a11;                      // Parameter alpha for Beta distribution governing machine productivity innovation
+double b_a12;                      // Parameter alpha for Beta distribution governing own productivity innovation
+double b_a1_shock;                 // Parameter alpha incorporating climate shock to R&D
+double b_b11;                      // Parameter beta for Beta distribution governing machine productivity innovation
+double b_b12;                      // Parameter beta for Beta distribution governing own productivity innovation
+double b_a2;                       // Parameter alpha for Beta distribution governing energy efficiency innovation
+double b_a2_shock;                 // Parameter alpha incorporating climate shock to R&D
+double b_b2;                       // Parameter beta for Beta distribution governing energy efficiency innovation
+double b_a3;                       // in DSK: Parameter alpha for Beta distribution governing environmental friendliness innovation; in K+S: Parameter alpha for Beta distribution governing change in technological frontier
+double b_a3_shock;                 // Parameter alpha incorporating climate shock to R&D
+double b_b3;                       // in DSK: Parameter beta for Beta distribution governing environmental friendliness innovation; in K+S: Parameter beta for Beta distribution governing change in technological frontier
+double mi1;                        // Mark-up K-Firms
+double mi2;                        // Initial Mark-up C-firms
+double Gamma;                      // Determining number of potential new clients contacted by K-firms
+double chi;                        // Governing replicator dynamics of C-firm market share
+double omega1;                     // Weight of relative price in C-firm competitiveness
+double omega2;                     // Weight of unsatisfied demand in C-firm competitiveness
+double tau_regional;               // Regional home-bias wedge: proportional perceived non-regional purchasing-cost
+                                   // wedge applied to buyers evaluating suppliers in a different region.
+                                   // NOTE: this is a PERCEIVED price wedge used only in supplier/consumption
+                                   // evaluation. It is NOT a transaction payment, tax, transfer or transport cost,
+                                   // and it has no effect when flag_regional_bias == 0. Requires tau_regional >= 0.
+                                   // Used only by flag_regional_bias == 1.
+double eta_K_search;               // Regional exposure bias in K-firm brochure delivery (flag_regional_bias == 2).
+                                   // Same-region C-firms get relative weight exp(eta_K_search) in the brochure draw.
+                                   // eta_K_search == 0 recovers the uniform draw. Requires eta_K_search >= 0.
+double eta_H_search;               // Regional visibility bias in household consumption allocation (flag_regional_bias == 2).
+                                   // Same-region C-firms get relative weight exp(eta_H_search) in region shares.
+                                   // eta_H_search == 0 recovers the national allocation. Requires eta_H_search >= 0.
+double epsilon_regional_imitation; // Regional imitation-bias factor applied to the technological distance of
+                                   // cross-region K-firms during imitation-target selection (flag_regional_imitation == 1).
+                                   // A same-region firm keeps distance d_ij; a cross-region firm gets epsilon*d_ij, so its
+                                   // imitation weight 1/(epsilon*d_ij) is scaled by 1/epsilon. Requires epsilon >= 1.
+                                   // epsilon == 1.0 recovers the original target probabilities even when the flag is active.
+double psi1;                       // Wage sensitivity to inflation
+double psi2;                       // Wage sensitivity to productivity
+double psi3;                       // Wage sensitivity to unemployment
+double deltami2;                   // Sensitivity of C-firm mark-up to change in market share
+double w_min;                      // Subsistence wage
+double pmin;                       // lower bound on prices
+double theta;                      // Probability of being able to re-set price (K-firms and C-firms)
+double u;                          // C-firms' desired capacity utilisation
+double alfa;                       // Persistence of C-firms' adaptive expectations
+double b;                          // Pay-back period for new technologies
+double dim_mach;                   // Output producible by 1 machine
+double agemax;                     // Maximum lifespan of machine tools
+double a;                          // scaling factor for labour productivity in K-Sector
+double credit_multiplier;          // Governing banks' credit supply
+double beta_basel;                 // Sensitivity of credit supply to defaults
+double bankmarkdown;               // Banks' markdown on deposit interest rate
+double centralbankmarkdown;        // CB's markdown on reserve interest rate
+double d1;                         // K-firm dividend payout rate
+double d2;                         // C-firm dividend payout rate
+double db;                         // Bank dividend payout rate
+double repayment_share;            // Loan repayment share
+double bonds_share;                // Gov. bond repayment share
+double pareto_a;                   // Alpha parameter for pareto distribution function
+double pareto_k;                   // K parameter for pareto distribution function
+double pareto_p;                   // P parameter for pareto distribution function
+double d_cpi_target;               // Inflation target
+double ustar;                      // Target unemployment
+double w1sup;                      // Upper bound on distribution governing deposits transferred to newly entering K-firms
+double w1inf;                      // Lower bound on distribution governing deposits transferred to newly entering K-firms
+double w2sup;                      // Upper bound on distribution governing deposits transferred to newly entering C-firms
+double w2inf;                      // Lower bound on distribution governing deposits transferred to newly entering C-firms
+double k_const;                    // Governing interest rates charged to individual bank borrowers
+double aliqw;                      // Tax rate on wages
+double taylor1;                    // Taylor rule inflation sensitivity
+double taylor2;                    // Taylor rule unemployment sensitivity
+double bondsmarkdown;              // Markdown on gov. bond interest rate
+double mdw;                        // Maximum variation in factors governing changes in wage
+double phi2;                       // Governing maximum amount of loans demanded by C-firms
+double b1sup;                      // Upper bound on distribution of net worth of bailed-out banks
+double b1inf;                      // Lower bound on distribution of net worth of bailed-out banks
+double b2sup;                      // Upper bound on distribution of net worth of bailed-out banks (for case when all banks have failed)
+double b2inf;                      // Lower bound on distribution of net worth of bailed-out banks (for case when all banks have failed)
+double aliq;                       // Tax rate on firm profits
+double aliqb;                      // Tax rate on bank profits
+double wu;                         // Unemployment benefit rate
+double r_base;                     // Taylor rule intercept
+double de;                         // Dividend payout rate energy sector
+double a1;                         // Propensity to consume out of wage & benefit income
+double a2;                         // Propensity to consume out of dividend & interest income
+double a3;                         // Propensity to consume out of wealth (deposits)
+double u_low;                      // Lower bound for unemployment rate in computing rate of change (to avoid dividing by 0)
+double f2_entry_min;               // Minimum market share for entering C-firms
+double kappa;                      // Persistence of long-run average mean productivity change
+double taylor;                     // Persistence parameter for CB rate adjustment
+double omicron;                    // Desired inventory to output ratio for C-firms
+double I_max;                      // Maximum desired expansion investment as % of current capital stock
+double persistence;                // Persistence of one-off climate shocks
+double omega3;                     // Minimum market share (as % of previous share) remaining post-replicator
+double d_f;                        // Share of fossil fuel cost transfered to households
+double g_ls;                       // Growth rate of labour force
+double aliqe;                      // Rate of tax on excess energy/fossil fuel profit during energy price shock
+double tre;                        // Household transfer payment rate during energy price shock
+double passthrough;                // Probability that a firm will pass through the energy price shock
 
 double share_RD_en;       // Share of energy sector revenues devoted to R&D
 double share_de_0;        // Share of energy R&D devoted to dirty energy

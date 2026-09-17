@@ -401,41 +401,46 @@ std::vector<std::vector<double>> g_secondhand_p;       // Prices of machines to 
 std::vector<std::vector<int>> age_secondhand;          // Age of machines to be sold on second-hand market
 
 // K-firms
-RowVector p1;                      // Prices of K-firms
-RowVector BankingSupplier_1;       // K-firms' suppliers of banking services
-Matrix BankMatch_1;                // Matrix matching K-firms to banks
-RowVector baddebt_1;               // Bad debt of exiting K-firms
-RowVector A1;                      // Productivity of machines produced by K-firm
-RowVector A1p;                     // Productivity of K-firm production technique
-RowVector A1_en;                   // Energy Efficiency of machines produced by K-firm
-RowVector A1_ef;                   // Environmental Friendliness of machines produced by K-firm
-RowVector A1p_en;                  // Energy Efficiency of K-firm production technique
-RowVector A1p_ef;                  // Environmental Friendliness of K-firm production technique
-Matrix A_en;                       // Matrix containing energy efficiencies of existing machine tools
-Matrix A_ef;                       // Matrix containing environmental friendliness of existing machine tools
-Matrix A;                          // Matrix containing productivities of existing machine tools
-Matrix C;                          // Matrix containing cost of existing machine tools
-Matrix C_secondhand;               // Matrix containing cost of machine tools available on secondhand market
-RowVector c1;                      // Production cost of K-firms
-Matrix f1;                         // Market share of K-firms
-RowVector Q1;                      // Quantity produced by K-firms
-RowVector Td;                      // Technological distance
-RowVector Tdw;                     // Technological distance to foreign firms
-Matrix Match;                      // Matrix matching K-firms to customers
-RowVector S1;                      // Revenues of K-firms
-RowVector Sales1;                  // Temporary storage for revenues of K-firms
-double A1top;                      // Maximum productivity of machines produced
-double A1ptop;                     // Maximum productivity of K-firm production process
-RowVector A1f;                     // Productivity of machines produced by foreign firms
-RowVector A1pf;                    // Productivity of production process used by foreign firms
-double A1_en_top;                  // Maximum energy efficiency of machines produced
-double A1p_en_top;                 // Maximum energy efficiency of K-firm production process
-double A1_ef_top;                  // Maximum environmental friendliness of machines produced
-double A1p_ef_top;                 // Maximum environmental friendliness of K-firm production process
-Matrix RD;                         // K-firms' R&D expenditures
-RowVector Ld1rd;                   // Labour demand for R&D
-RowVector Inn;                     // Indicates whether K-firm innovates
-RowVector Imm;                     // Indicates whether K-firm imitates
+RowVector p1;                // Prices of K-firms
+RowVector BankingSupplier_1; // K-firms' suppliers of banking services
+Matrix BankMatch_1;          // Matrix matching K-firms to banks
+RowVector baddebt_1;         // Bad debt of exiting K-firms
+RowVector A1;                // Productivity of machines produced by K-firm
+RowVector A1p;               // Productivity of K-firm production technique
+RowVector A1_en;             // Energy Efficiency of machines produced by K-firm
+RowVector A1_ef;             // Environmental Friendliness of machines produced by K-firm
+RowVector A1p_en;            // Energy Efficiency of K-firm production technique
+RowVector A1p_ef;            // Environmental Friendliness of K-firm production technique
+Matrix A_en;                 // Matrix containing energy efficiencies of existing machine tools
+Matrix A_ef;                 // Matrix containing environmental friendliness of existing machine tools
+Matrix A;                    // Matrix containing productivities of existing machine tools
+Matrix C;                    // Matrix containing cost of existing machine tools
+Matrix C_secondhand;         // Matrix containing cost of machine tools available on secondhand market
+RowVector c1;                // Production cost of K-firms
+Matrix f1;                   // Market share of K-firms
+RowVector Q1;                // Quantity produced by K-firms
+RowVector Td;                // Technological distance
+RowVector Tdw;               // Technological distance to foreign firms
+Matrix Match;                // Matrix matching K-firms to customers
+RowVector S1;                // Revenues of K-firms
+RowVector Sales1;            // Temporary storage for revenues of K-firms
+double A1top;                // Maximum productivity of machines produced
+double A1ptop;               // Maximum productivity of K-firm production process
+RowVector A1f;               // Productivity of machines produced by foreign firms
+RowVector A1pf;              // Productivity of production process used by foreign firms
+double A1_en_top;            // Maximum energy efficiency of machines produced
+double A1p_en_top;           // Maximum energy efficiency of K-firm production process
+double A1_ef_top;            // Maximum environmental friendliness of machines produced
+double A1p_ef_top;           // Maximum environmental friendliness of K-firm production process
+Matrix RD;                   // K-firms' R&D expenditures
+RowVector Ld1rd;             // Labour demand for R&D
+RowVector Inn;               // Indicates whether K-firm innovates
+RowVector Imm;               // Indicates whether K-firm imitates
+// Regional imitation diagnostics (flag_regional_imitation == 1): cumulative counts of successful
+// imitation-target selections split by whether target shares the imitator's current region.
+long imit_events_total = 0;        // Cumulative successful imitation-target selections
+long imit_events_local = 0;        // Cumulative same-region imitation-target selections
+long imit_events_cross = 0;        // Cumulative cross-region imitation-target selections
 RowVector A1inn;                   // Productivity of innovated machine
 RowVector A1pinn;                  // Productivity of innovated production process
 RowVector A1imm;                   // Productivity of imitated machine

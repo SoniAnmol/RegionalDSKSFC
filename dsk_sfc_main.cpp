@@ -1787,6 +1787,35 @@ void SETPARAMS(const rapidjson::Document &inputs)
               << ", eta_H_search=" << eta_H_search << std::endl;
   }
 
+  // Regional imitation-target bias mechanism.
+  // flag_regional_imitation: 0 = baseline original imitation-target selection; 1 = cross-region K-firms have
+  //                          their technological distance inflated by epsilon_regional_imitation before it is
+  //                          inverted into an imitation weight. Affects only P(j | imitation).
+  // epsilon_regional_imitation: distance-inflation factor (>= 1) for cross-region targets. 1.0 is neutral.
+  flag_regional_imitation = getFlagIntMobility("flag_regional_imitation", 0);
+  if (flag_regional_imitation != 0 && flag_regional_imitation != 1)
+  {
+    ofstream Errors(errorfilename, ios::app);
+    std::cerr << "[WARN] flag_regional_imitation invalid (" << flag_regional_imitation << "); clamping to 0" << std::endl;
+    Errors << "[WARN] flag_regional_imitation invalid (" << flag_regional_imitation << "); clamping to 0" << std::endl;
+    Errors.close();
+    flag_regional_imitation = 0;
+  }
+  epsilon_regional_imitation = getDoubleParam("epsilon_regional_imitation", 1.0);
+  if (epsilon_regional_imitation < 1.0)
+  {
+    ofstream Errors(errorfilename, ios::app);
+    std::cerr << "[WARN] epsilon_regional_imitation < 1 (" << epsilon_regional_imitation << "); clamping to 1.0" << std::endl;
+    Errors << "[WARN] epsilon_regional_imitation < 1 (" << epsilon_regional_imitation << "); clamping to 1.0" << std::endl;
+    Errors.close();
+    epsilon_regional_imitation = 1.0;
+  }
+  if (verbose)
+  {
+    std::cerr << "[DEBUG] Regional imitation loaded: flag_regional_imitation=" << flag_regional_imitation
+              << ", epsilon_regional_imitation=" << epsilon_regional_imitation << std::endl;
+  }
+
   // Regional wage-setting parameters (active when flag_regional_labor == 1)
   chi_w = getDoubleParam("chi_w", 1.0);         // 1.0 -> fully national wage growth (baseline-preserving default)
   dwage_max = getDoubleParam("dwage_max", 0.5); // symmetric bound on per-period regional wage growth
@@ -8741,6 +8770,11 @@ void TECHANGEND(void)
 {
   ofstream Errors(errorfilename, ios::app);
 
+  // Per-period regional imitation diagnostics (flag_regional_imitation == 1).
+  long imit_period_total = 0;
+  long imit_period_local = 0;
+  long imit_period_cross = 0;
+
   // Endogenous technological change
   Inn = 0;
   Imm = 0;
@@ -9021,10 +9055,20 @@ void TECHANGEND(void)
       Tdtot = 0;
       for (ii = 1; ii <= N1; ii++)
       {
-        Td.element(ii) = sqrt(((A1(ii) - A1(i)) * (A1(ii) - A1(i))) + ((A1p(ii) - A1p(i)) * (A1p(ii) - A1p(i))) + ((A1_en(ii) - A1_en(i)) * (A1_en(ii) - A1_en(i))) + ((A1_ef(ii) - A1_ef(i)) * (A1_ef(ii) - A1_ef(i))) + ((A1p_en(ii) - A1p_en(i)) * (A1p_en(ii) - A1p_en(i))) + ((A1p_ef(ii) - A1p_ef(i)) * (A1p_ef(ii) - A1p_ef(i))));
-        if (Td.element(ii) > 0)
+        double distance = sqrt(((A1(ii) - A1(i)) * (A1(ii) - A1(i))) + ((A1p(ii) - A1p(i)) * (A1p(ii) - A1p(i))) + ((A1_en(ii) - A1_en(i)) * (A1_en(ii) - A1_en(i))) + ((A1_ef(ii) - A1_ef(i)) * (A1_ef(ii) - A1_ef(i))) + ((A1p_en(ii) - A1p_en(i)) * (A1p_en(ii) - A1p_en(i))) + ((A1p_ef(ii) - A1p_ef(i)) * (A1p_ef(ii) - A1p_ef(i))));
+        // Regional imitation bias: inflate the distance to cross-region targets so their imitation weight
+        // 1/(epsilon*d) is scaled by 1/epsilon; same-region and zero-distance targets are unaffected.
+        if (flag_regional_imitation == 1 &&
+            epsilon_regional_imitation > 1.0 &&
+            NR > 1 &&
+            static_cast<int>(region_firm_assignment_K.size()) == N1 &&
+            region_firm_assignment_K[i - 1] != region_firm_assignment_K[ii - 1])
         {
-          Td.element(ii) = 1 / Td.element(ii);
+          distance *= epsilon_regional_imitation;
+        }
+        if (distance > 0)
+        {
+          Td.element(ii) = 1 / distance;
         }
         else
         {
@@ -9038,6 +9082,7 @@ void TECHANGEND(void)
         Td.element(ii) += Td.element(ii - 1);
       }
       rnd = ran1(p_seed);
+      int selected_ii = 0;
       for (ii = 1; ii <= N1; ii++)
       {
         if (rnd <= Td.element(ii) && rnd > Td.element(ii - 1))
@@ -9048,7 +9093,28 @@ void TECHANGEND(void)
           EEp_imm(i) = A1p_en(ii);
           EF_imm(i) = A1_ef(ii);
           EFp_imm(i) = A1p_ef(ii);
+          selected_ii = ii;
         }
+      }
+
+      // Regional imitation diagnostics (non-monetary): classify the selected target by shared region.
+      if (flag_regional_imitation == 1 &&
+          selected_ii >= 1 &&
+          NR > 1 &&
+          static_cast<int>(region_firm_assignment_K.size()) == N1)
+      {
+        imit_events_total++;
+        if (region_firm_assignment_K[i - 1] == region_firm_assignment_K[selected_ii - 1])
+        {
+          imit_events_local++;
+          imit_period_local++;
+        }
+        else
+        {
+          imit_events_cross++;
+          imit_period_cross++;
+        }
+        imit_period_total++;
       }
 
       if (A1pimm(i) == 0 || A1imm(i) == 0 || A1p(i) == 0 || A1(i) == 0)
@@ -9115,6 +9181,17 @@ void TECHANGEND(void)
   }
 
   LD1rdtot = Ld1rd.Sum();
+
+  // Report this period's regional imitation split and same-region share to the run log (flag only).
+  if (flag_regional_imitation == 1 && imit_period_total > 0)
+  {
+    double local_share = static_cast<double>(imit_period_local) / static_cast<double>(imit_period_total);
+    Errors << "[IMIT_DIAG] t=" << t
+           << " total=" << imit_period_total
+           << " local=" << imit_period_local
+           << " cross=" << imit_period_cross
+           << " local_share=" << local_share << std::endl;
+  }
 
   // Determine the best technologies in the system post-R&D
   A1top = A1(1);
