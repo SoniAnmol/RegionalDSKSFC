@@ -43,6 +43,8 @@ columns:
   - name: RegGov_PlannedAdapt
   - name: RegGov_BaseGrant
   - name: RegGov_TopupGrant
+  - name: Q1tot
+  - name: Q2tot
   - name: H1
   - name: H2
   - name: reg_w

@@ -1718,7 +1718,7 @@ void SETPARAMS(const rapidjson::Document &inputs)
   };
 
   // Labour inter-regional relocation flag
-  flag_regional_mobility = getFlagIntMobility("flag_regional_mobility", 0);
+  flag_labour_mobility = getFlagIntMobility("flag_labour_mobility", 0);
 
   // Firm inter-regional relocation flag
   flag_firm_relocation = getFlagIntMobility("flag_firm_relocation", 0);
@@ -3632,7 +3632,7 @@ void MACH(void)
 
 void MOBILITY_COMPUTATION(void)
 {
-  if (NR <= 0 || flag_regional_mobility == 0)
+  if (NR <= 0 || flag_labour_mobility == 0)
   {
     // Mobility disabled: no migration
     for (int r = 0; r < NR; ++r)
@@ -11719,6 +11719,10 @@ void SAVE(void)
         target << GT_base_rg[region - 1]; // 36: GT_base_rg (Base Grant from CG)
         target.width(60);
         target << GT_topup_rg[region - 1]; // 37: GT_topup_rg (Top-up Grant from CG)
+        target.width(60);
+        target << reg_Q1tot[region - 1]; // 61: reg_Q1tot (Regional K-firm output)
+        target.width(60);
+        target << reg_Q2tot[region - 1]; // 62: reg_Q2tot (Regional C-firm output)
         target.width(60);
         target << reg_H1[region - 1]; // 38: H1 ( Herfindahl index K-firms)
         target.width(60);

@@ -145,9 +145,9 @@ int flag_regional_labor; // Switches the regionalised labour market on or off
                          // = 1 on: regional labour supply is a state LS_r = LS * LS_region_share[r]
                          //         driven by exogenous shares sigma_r (with per-region unemployment)
 
-int flag_regional_mobility; // Flag to enable/disable regional mobility
-                            // 1=on
-                            // 0=off
+int flag_labour_mobility; // Flag to enable/disable regional mobility
+                          // 0=off
+                          // 1=on
 
 int flag_regional_bias; // Switches the regional purchasing-preference (home-bias) mechanism on or off
                         // = 0 [BASELINE] off: buyers perceive posted prices; national market allocation

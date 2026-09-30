@@ -484,7 +484,7 @@
       "flag_scrap_age": 1,
       "flag_uniformshocks": 1,
       "flag_desc": 0,
-      "flag_regional_mobility": 1,
+      "flag_labour_mobility": 1,
       "flag_firm_relocation": 1,
       "flag_regional_labor": 1,
       "flag_regional_imitation": 0,
