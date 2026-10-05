@@ -51,9 +51,10 @@ double tau_regional;               // Regional home-bias wedge: proportional per
 double eta_K_search;               // Regional exposure bias in K-firm brochure delivery (flag_regional_bias == 2).
                                    // Same-region C-firms get relative weight exp(eta_K_search) in the brochure draw.
                                    // eta_K_search == 0 recovers the uniform draw. Requires eta_K_search >= 0.
-double eta_H_search;               // Regional visibility bias in household consumption allocation (flag_regional_bias == 2).
-                                   // Same-region C-firms get relative weight exp(eta_H_search) in region shares.
-                                   // eta_H_search == 0 recovers the national allocation. Requires eta_H_search >= 0.
+double eta_H_search;               // DEPRECATED for household allocation: flag_regional_bias == 2 now uses a
+                                   // deterministic local-first C-firm search with national fallback (no
+                                   // visibility weight). This parameter no longer affects household C-good
+                                   // allocation; retained only for input compatibility. Requires >= 0.
 double epsilon_regional_imitation; // Regional imitation-bias factor applied to the technological distance of
                                    // cross-region K-firms during imitation-target selection (flag_regional_imitation == 1).
                                    // A same-region firm keeps distance d_ij; a cross-region firm gets epsilon*d_ij, so its

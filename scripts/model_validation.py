@@ -998,7 +998,62 @@ for scenario in scenario_results.keys():
     )
 
 
+# %% Regional unemployment
 
+compare_regional_trends(
+    metric="Unemployment",
+    scenario_results=scenario_results,
+    region_meta=region_meta,
+    scenario_num="scenario_1",
+    metric_label="Unemployment",
+    window=None,
+    output=OUTPUT,
+    tmin=600,
+    tmax=700,
+    ci_std=1,
+)
+# %% Regioanl real GDP
+compare_regional_trends(
+    metric="GDP_r",
+    scenario_results=scenario_results,
+    region_meta=region_meta,
+    scenario_num="scenario_1",
+    metric_label="real GDP",
+    window=None,
+    output=OUTPUT,
+    tmin=600,
+    tmax=700,
+    ci_std=1,
+)
+# %% Mean productivity across K & C Firms
+
+compare_regional_trends(
+    metric="Am",
+    scenario_results=scenario_results,
+    region_meta=region_meta,
+    scenario_num="scenario_1",
+    metric_label="Mean Productivity",
+    window=None,
+    output=OUTPUT,
+    tmin=600,
+    tmax=700,
+    ci_std=1,
+)
+
+# %% Population
+
+compare_regional_trends(
+    metric="LS",
+    scenario_results=scenario_results,
+    region_meta=region_meta,
+    scenario_num="scenario_1",
+    metric_label="Population",
+    window=None,
+    output=OUTPUT,
+    tmin=600,
+    tmax=700,
+    ci_std=1,
+)
 
 # %% K Firm output across regions
 # plot_regional_metric(
@@ -1258,4 +1313,171 @@ cross_summary = cross_ts[cross_ts["t"] > (tmax - WINDOW)].groupby("scenario")[["
 print(f"Mean cross-regional trade over last {WINDOW} periods:")
 print(cross_summary.round(2).to_string())
 
+# %%
+# Diagnostic: bilateral local share vs reported import share
+diag = trade_df[trade_df["scenario"] == 1].copy()
+regions_diag = sorted(diag["region"].unique())
+
+cons_cols = [f"cons_buy_from_R{s}" for s in regions_diag]
+
+diag["bilat_total"] = diag[cons_cols].sum(axis=1)
+diag["bilat_local"] = np.nan
+
+for r in regions_diag:
+    mask = diag["region"] == r
+    diag.loc[mask, "bilat_local"] = diag.loc[
+        mask, f"cons_buy_from_R{r}"
+    ]
+
+diag["local_share_bilat"] = (
+    diag["bilat_local"] /
+    diag["bilat_total"].replace(0, np.nan)
+)
+
+diag["local_share_reported"] = 1.0 - diag["cons_import_share"]
+
+diag["share_gap"] = (
+    diag["local_share_bilat"] -
+    diag["local_share_reported"]
+)
+
+print("\n=== Bilateral accounting consistency ===")
+print(
+    diag.groupby("region")[
+        ["local_share_bilat",
+         "local_share_reported",
+         "share_gap"]
+    ].mean()
+)
+
+print(
+    "\nMaximum absolute gap:",
+    diag["share_gap"].abs().max()
+)
+
+local_ts = (
+    diag.groupby(["t", "region"])["local_share_bilat"]
+    .mean()
+    .unstack()
+)
+
+print(
+    local_ts.loc[
+        local_ts.index.isin(
+            [1, 2, 5, 10, 25, 50, 100, 200, 300, 500, 700]
+        )
+    ]
+)
+
+local_ts.plot(
+    figsize=(8, 4),
+    title="Realised local consumption share"
+)
+plt.axhline(1/3, linestyle="--")
+plt.ylabel("local purchase share")
+plt.show()
+
+# %%
+cols = [
+    "region",
+    "t",
+    "run",
+    "local_share_bilat",
+    "local_share_reported",
+    "share_gap",
+    "cons_import_share",
+]
+
+print(diag[cols].isna().groupby(diag["region"]).sum())
+
+for r in sorted(diag["region"].unique()):
+    sub = diag[diag["region"] == r].copy()
+
+    both = sub[
+        sub["local_share_bilat"].notna()
+        & sub["local_share_reported"].notna()
+    ]
+
+    print(f"\nRegion {r}")
+    print("all rows:", len(sub))
+    print("rows with both:", len(both))
+
+    print(
+        "mean bilateral, same mask:",
+        both["local_share_bilat"].mean()
+    )
+
+    print(
+        "mean reported, same mask:",
+        both["local_share_reported"].mean()
+    )
+
+    print(
+        "mean gap, same mask:",
+        (
+            both["local_share_bilat"]
+            - both["local_share_reported"]
+        ).mean()
+    )
+
+    print(
+        both[
+            [
+                "t",
+                "run",
+                "local_share_bilat",
+                "local_share_reported",
+                "cons_import_share",
+            ]
+        ].head(10)
+    )
+
+r = 1
+run = sorted(diag["run"].unique())[0]
+
+one = diag[
+    (diag["region"] == r)
+    & (diag["run"] == run)
+][
+    [
+        "t",
+        "local_share_bilat",
+        "local_share_reported",
+        "cons_import_share",
+        "cons_buy_from_R1",
+        "cons_buy_from_R2",
+        "cons_buy_from_R3",
+    ]
+].sort_values("t")
+
+print(one.loc[one["t"].isin([1, 50, 100, 150, 200, 300, 500, 700])])
+# %%
+test = trade_df[
+    (trade_df["scenario"] == 1) &
+    (trade_df["run"] == 1)
+].copy()
+
+cons_cols = [
+    "cons_buy_from_R1",
+    "cons_buy_from_R2",
+    "cons_buy_from_R3",
+]
+
+test["bilat_total"] = test[cons_cols].sum(axis=1)
+
+cols = [
+    "t",
+    "region",
+    "bilat_total",
+    "reg_YD",
+    "reg_C",
+    "LS_region_share",
+]
+
+print(
+    test[
+        (test["t"] >= 70) &
+        (test["t"] <= 120)
+    ][cols].to_string(index=False)
+)
 # %%

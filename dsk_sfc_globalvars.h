@@ -676,6 +676,8 @@ std::vector<double> reg_U_past;                  // Lagged regional unemployment
 std::vector<double> reg_Am_past;                 // Lagged regional mean productivity (for regional Phillips curve)
 std::vector<double> reg_YD;                      // Regional household disposable income
 std::vector<double> reg_C;                       // Regional household consumption (accounting decomposition of national C)
+std::vector<double> reg_Cons_demand;             // Regional household nominal consumption demand BEFORE C-firm rationing (flag-2 local-first search; sums to Cons)
+std::vector<double> reg_YD_lag;                  // Lagged regional disposable income (predetermined share for the flag-2 regional consumption-demand split)
 // Regional household deposits (true state) and migration liquidity (Phase 5B)
 std::vector<double> Dh_region_share;       // Initial regional household deposit shares (defaults to LS_region_share)
 std::vector<double> reg_Dh;                // STATE: regional household deposits (current)

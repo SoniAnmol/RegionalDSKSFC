@@ -29,6 +29,7 @@ void PAY_LAB_INV(void);                // Wages and investment are paid
 void CANCMACH(void);                   // Old machines are scrapped and replaced by new ones
 void COMPET2(void);                    // C-firms' market shares are determined
 void PROFIT(void);                     // Profits for firms and energy sector are determined; firms which cannot pay taxes or interest exit
+void COMPUTE_REG_CONS_DEMAND(void);    // Regional household consumption demand before ALLOC (flag-2 local-first search)
 void ALLOC(void);                      // Household consumption demand is allocated to C-firms
 void ENTRYEXIT(void);                  // Firms exit and are replaced
 void TECHANGEND(void);                 // Endogenous technological change

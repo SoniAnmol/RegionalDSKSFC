@@ -154,10 +154,10 @@ int flag_regional_bias; // Switches the regional purchasing-preference (home-bia
                         // = 1 on: non-regional suppliers receive a perceived effective-price penalty
                         //         (households -> C-firms; C-firms -> K-firms). Perceived prices only;
                         //         actual payments, revenues and stock-flow accounting are unchanged.
-                        // = 2 on: regional exposure/search friction (no price wedge). K-firm brochures
-                        //         preferentially reach same-region C-firms (eta_K_search); household demand
-                        //         is visibility-weighted toward same-region C-firms (eta_H_search). Supplier
-                        //         choice still uses posted prices/economic criteria; no monetary flow created.
+                        // = 2 on: local-first household C-firm search with national fallback. Households first search C-firms in their own region, ranked by the
+                        //         ordinary national DSK market share f2; demand unmet locally spills to the
+                        //         national market, again ranked by f2 over firms with remaining output.
+                        //         K-firm brochures preferentially reach same-region C-firms eta_K_search).
 
 int flag_regional_imitation; // Switches the regional imitation-target bias on or off
                              // = 0 [BASELINE] off: original DSK imitation-target selection (inverse

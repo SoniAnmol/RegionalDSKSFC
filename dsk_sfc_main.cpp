@@ -394,6 +394,16 @@ int main(int argc, char *argv[])
       }
     }
 
+    // Snapshot last period's regional disposable income as the predetermined share used by the
+    // flag-2 regional consumption split (C^d_r = Cons * reg_YD_lag[r] / sum reg_YD_lag).
+    if (NR > 0 && (int)reg_YD.size() == NR)
+    {
+      if ((int)reg_YD_lag.size() != NR)
+        reg_YD_lag.assign(NR, 0.0);
+      for (int rr = 0; rr < NR; rr++)
+        reg_YD_lag[rr] = reg_YD[rr];
+    }
+
     SETVARS();
     if (verbose)
     {
@@ -1738,11 +1748,12 @@ void SETPARAMS(const rapidjson::Document &inputs)
 
   // Regional purchasing-preference (home-bias) mechanism.
   // flag_regional_bias: 0 = baseline (no regional preference); 1 = perceived non-regional price penalty;
-  //                     2 = regional exposure/search friction (no price wedge).
+  //                     2 = local-first household C-firm search with national fallback (no price wedge).
   // tau_regional: proportional PERCEIVED non-regional purchasing-cost wedge (>= 0), flag 1 only. This affects
   // supplier evaluation only; actual payments always use posted prices p1/p2. No financial flow is created by it.
-  // eta_K_search / eta_H_search: regional exposure/visibility biases (>= 0), flag 2 only. They change who is
-  // encountered/considered, not posted prices, so no financial flow is created by them either.
+  // eta_K_search: regional exposure bias in K-firm brochure delivery (>= 0), flag 2 only. eta_H_search is
+  // deprecated for household allocation (flag 2 household search is now deterministic local-first) and is
+  // retained only for input compatibility. Neither changes posted prices, so no financial flow is created.
   flag_regional_bias = getFlagIntMobility("flag_regional_bias", 0);
   if (flag_regional_bias != 0 && flag_regional_bias != 1 && flag_regional_bias != 2)
   {
@@ -6406,17 +6417,15 @@ void COMPET2(void)
     exit(EXIT_FAILURE);
   }
 
-  // Regional home-bias is active when the flag is on and the model is regionalised. Flag 1 uses a
-  // perceived-price wedge (needs tau_regional > 0); flag 2 uses a household visibility/exposure bias
-  // (needs eta_H_search > 0). When neither is active the original national quasi-replicator runs
-  // unchanged (exact baseline nesting).
+  // Only flag 1 (perceived-price wedge, needs tau_regional > 0) alters the national quasi-replicator
+  // here. Flag 2 (local-first household C-firm search) leaves f2 as the ordinary national DSK market
+  // share and performs its regional search in ALLOC(), so it runs the baseline replicator below.
   bool wedge_hh_active = (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0);
-  bool exposure_hh_active = (flag_regional_bias == 2 && eta_H_search > 1e-12 && NR > 0);
-  bool regional_active = wedge_hh_active || exposure_hh_active;
+  bool regional_active = wedge_hh_active;
 
   if (!regional_active)
   {
-    // ----- BASELINE: national quasi-replicator (unchanged) -----
+    // ----- BASELINE national quasi-replicator (flag 0 and flag 2) -----
     for (j = 1; j <= N2; j++)
     {
       f2(1, j) = f2(2, j) * ((2 * omega3) / (1 + exp((-chi) * ((E2(j) - Em2(1)) / Em2(1)))) + (1 - omega3));
@@ -6454,7 +6463,7 @@ void COMPET2(void)
     // The national f2(1,c) is then the consumption-budget-weighted aggregate of the
     // regional rows; national exit/markup/timing continue to use national f2.
 
-    // Regional consumption-budget weights s_r (shared with flag 2).
+    // Regional consumption-budget weights s_r.
     updateRegionalConsumptionShares();
 
     // Region-specific replicator: update each f2_reg[r] current row (row 1) from its lag (row 2).
@@ -6555,126 +6564,6 @@ void COMPET2(void)
           }
         }
       }
-      ftot(1) += f2(1, j);
-      ftot(2) += f2(2, j);
-      ftot(3) += f2(3, j);
-    }
-  }
-  else
-  {
-    // ----- REGIONAL EXPOSURE/SEARCH (flag 2): household visibility-weighted shares -----
-    // No price wedge. First compute the ordinary national economic quasi-replicator on posted
-    // prices (f_hat). Each region then weights f_hat by a visibility factor A_rj (same-region firms
-    // favoured) and renormalises to a proper share row. National f2 is the budget-weighted aggregate
-    // of these region rows, so market share stays the aggregation of actual regional demand shares.
-    std::vector<double> f_hat(N2 + 1, 0.0);
-    for (j = 1; j <= N2; j++)
-      f_hat[j] = f2(2, j) * ((2 * omega3) / (1 + exp((-chi) * ((E2(j) - Em2(1)) / Em2(1)))) + (1 - omega3));
-
-    // Regional consumption-budget weights s_r (shared with flag 1).
-    updateRegionalConsumptionShares();
-
-    // Region rows: visibility-weight f_hat (local weight 1, non-local exp(-eta_H_search); identical
-    // categorical probabilities without overflow) and normalise per region BEFORE aggregation.
-    double w_nl = exp(-eta_H_search);
-    for (int rr = 0; rr < NR; rr++)
-    {
-      int region_id = rr + 1;
-      double gsum = 0.0;
-      for (j = 1; j <= N2; j++)
-      {
-        double a = (region_firm_assignment_C[j - 1] == region_id) ? 1.0 : w_nl;
-        double v = a * f_hat[j];
-        if (!std::isfinite(v) || v < 0.0)
-          v = 0.0;
-        f2_reg[rr](1, j) = v;
-        gsum += v;
-      }
-      if (gsum > 0.0)
-      {
-        for (j = 1; j <= N2; j++)
-          f2_reg[rr](1, j) /= gsum;
-      }
-      else
-      {
-        // Visibility weights unusable: revert to the ordinary national economic allocation
-        // (normalised f_hat), not a uniform allocation.
-        double fhat_sum = 0.0;
-        for (j = 1; j <= N2; j++)
-          fhat_sum += f_hat[j];
-        if (fhat_sum > 0.0)
-        {
-          for (j = 1; j <= N2; j++)
-            f2_reg[rr](1, j) = f_hat[j] / fhat_sum;
-        }
-      }
-    }
-
-    // National f2(1,c) = budget-weighted aggregate of the normalised region rows; apply the exit
-    // threshold to this aggregate and zero any exiting firm across every regional row.
-    for (j = 1; j <= N2; j++)
-    {
-      double agg = 0.0;
-      for (int rr = 0; rr < NR; rr++)
-        agg += reg_cons_share[rr] * f2_reg[rr](1, j);
-      f2(1, j) = agg;
-
-      if (f2(1, j) <= (1 / (N2r * 500)))
-      {
-        f2(1, j) = 0;
-        f2(2, j) = 0;
-        f2(3, j) = 0;
-        for (int rr = 0; rr < NR; rr++)
-        {
-          f2_reg[rr](1, j) = 0;
-          f2_reg[rr](2, j) = 0;
-          f2_reg[rr](3, j) = 0;
-        }
-        if (exiting_2(j) == 0 && exit_payments2(j) == 0 && exit_marketshare2(j) == 0)
-        {
-          exit_marketshare2(j) = 1;
-          int rr = region_firm_assignment_C[j - 1];
-          if (rr >= 1 && rr <= NR)
-          {
-            reg_exit_marketshare2[rr - 1] += 1.0;
-          }
-        }
-      }
-    }
-
-    // Post-exit: renormalise surviving region rows and RECOMPUTE national f2 from them so that
-    // national market share remains exactly the budget-weighted aggregate of regional demand shares.
-    for (int rr = 0; rr < NR; rr++)
-    {
-      double s1 = 0.0;
-      for (j = 1; j <= N2; j++)
-        s1 += f2_reg[rr](1, j);
-      if (s1 > 0.0)
-      {
-        for (j = 1; j <= N2; j++)
-          f2_reg[rr](1, j) /= s1;
-      }
-      else
-      {
-        // Region row fully zeroed by exits: revert to national economic shares over survivors
-        // (f2(2,j) > 0), so the region still has positive supplier weights in ALLOC().
-        double fhat_sum = 0.0;
-        for (j = 1; j <= N2; j++)
-          if (f2(2, j) > 0.0)
-            fhat_sum += f_hat[j];
-        if (fhat_sum > 0.0)
-        {
-          for (j = 1; j <= N2; j++)
-            f2_reg[rr](1, j) = (f2(2, j) > 0.0) ? (f_hat[j] / fhat_sum) : 0.0;
-        }
-      }
-    }
-    for (j = 1; j <= N2; j++)
-    {
-      double agg = 0.0;
-      for (int rr = 0; rr < NR; rr++)
-        agg += reg_cons_share[rr] * f2_reg[rr](1, j);
-      f2(1, j) = agg;
       ftot(1) += f2(1, j);
       ftot(2) += f2(2, j);
       ftot(3) += f2(3, j);
@@ -6911,6 +6800,10 @@ void PROFIT(void)
     Errors << "\n CPI < 0.01 in period " << t << endl;
     exit(EXIT_FAILURE);
   }
+
+  // Regional household consumption demand before C-firm rationing (flag-2 local-first search).
+  if (flag_regional_bias == 2 && NR > 1)
+    COMPUTE_REG_CONS_DEMAND();
 
   // Consumption takes place
   ALLOC();
@@ -7352,6 +7245,46 @@ void PROFIT(void)
   Errors.close();
 }
 
+// Regional household consumption demand before C-firm rationing (flag-2 local-first search).
+// Ex ante regional nominal budget = national Cons split by the predetermined (lagged) regional
+// disposable-income distribution: C^d_r = Cons * reg_YD_lag[r] / sum_s reg_YD_lag[s]. This leaves
+// national Cons untouched and introduces only a one-period lag in the regional decomposition.
+void COMPUTE_REG_CONS_DEMAND(void)
+{
+  if (NR <= 0)
+    return;
+  if ((int)reg_Cons_demand.size() != NR)
+    reg_Cons_demand.assign(NR, 0.0);
+  for (int rr = 0; rr < NR; rr++)
+    reg_Cons_demand[rr] = 0.0;
+  if (!(Cons > 0.0))
+    return;
+
+  std::vector<double> share(NR, 0.0);
+  double share_sum = 0.0;
+  bool have_yd = ((int)reg_YD_lag.size() == NR);
+  for (int rr = 0; rr < NR; rr++)
+  {
+    double v = have_yd ? reg_YD_lag[rr] : 0.0;
+    if (!(v > 0.0))
+      v = 0.0;
+    share[rr] = v;
+    share_sum += v;
+  }
+
+  // Before regional income history exists, decompose national demand equally across regions
+  // (1/NR) rather than reusing LS_region_share as a spending distribution.
+  if (!(share_sum > 0.0))
+  {
+    for (int rr = 0; rr < NR; rr++)
+      reg_Cons_demand[rr] = Cons / NR;
+    return;
+  }
+
+  for (int rr = 0; rr < NR; rr++)
+    reg_Cons_demand[rr] = Cons * share[rr] / share_sum;
+}
+
 void ALLOC(void)
 {
   n = 1;
@@ -7495,14 +7428,13 @@ void ALLOC(void)
     Q2temp(j) = Q2(j) + N(2, j);
   }
 
-  // Regional consumption allocation runs for either home-bias mechanism: flag 1 (perceived-price
-  // wedge) or flag 2 (household visibility/exposure bias). The wedge diagnostic below is accumulated
-  // only under flag 1, so diag_wedge_cmarket stays 0 under flag 2 by construction.
+  // Flag 1 (perceived-price wedge) runs the region-budget allocation below. Flag 2 runs a separate
+  // local-first search with national fallback. Flag 0 (and flag 2 with a single region) uses the
+  // original single national consumption market.
   bool wedge_hh_active = (flag_regional_bias == 1 && tau_regional > 1e-12 && NR > 0);
-  bool exposure_hh_active = (flag_regional_bias == 2 && eta_H_search > 1e-12 && NR > 0);
-  bool regional_active = wedge_hh_active || exposure_hh_active;
+  bool local_first_hh_active = (flag_regional_bias == 2 && NR > 1);
 
-  if (!regional_active)
+  if (!wedge_hh_active && !local_first_hh_active)
   {
     // ----- BASELINE: single national consumption market (unchanged) -----
     for (j = 1; j <= N2; j++)
@@ -7568,9 +7500,9 @@ void ALLOC(void)
       n++;
     }
   }
-  else
+  else if (wedge_hh_active)
   {
-    // ----- REGIONAL HOME-BIAS ALLOCATION -----
+    // ----- REGIONAL HOME-BIAS ALLOCATION (flag 1) -----
     // Each region r receives a nominal consumption budget Cons * s_r and spends it on
     // C-firms according to its own ex ante share row f2_reg[r]. Firms hold a single
     // physical inventory Q2temp shared across regions; when a firm's inventory binds,
@@ -7767,9 +7699,260 @@ void ALLOC(void)
       diag_wedge_cmarket = (tot_real > 0.0) ? (wedge_num / tot_real) : 0.0;
     }
   }
+  else
+  {
+    // ----- FLAG 2: local-first household C-firm search with national fallback -----
+    // Households first spend their regional consumption demand among C-firms located in their own
+    // region, ranked by the ordinary national DSK market share f2(1,j) normalised over local firms.
+    // Nominal demand that cannot be satisfied locally spills to the national market, again ranked by
+    // f2(1,j) over firms with remaining output and rationed pro rata across regions (no buyer-order
+    // priority). All purchases occur at posted prices p2(j); S2, D2 and l2 keep baseline meaning.
+    std::vector<double> Cres_r(NR, 0.0);
+    std::vector<std::vector<double>> realized(NR, std::vector<double>(N2 + 1, 0.0));
+    std::vector<char> l2_set(N2 + 1, 0); // l2(j) is fixed by the first local-round demand only
+
+    // Neutral unmet-demand index for firms that receive no first-stage demand (baseline semantics).
+    for (j = 1; j <= N2; j++)
+      l2(j) = 1.0;
+
+    for (int rr = 0; rr < NR; rr++)
+    {
+      double d = ((int)reg_Cons_demand.size() == NR) ? reg_Cons_demand[rr] : Cons / NR;
+      Cres_r[rr] = (d > 0.0) ? d : 0.0;
+    }
+
+    // ---- Stage 1: local search, each region independently over its own-region C-firms ----
+    for (int rr = 0; rr < NR; rr++)
+    {
+      int buyer_region = rr + 1;
+      std::vector<double> ls(N2 + 1, 0.0); // national f2 restricted to local firms (preserves DSK rank)
+      double lsum = 0.0;
+      for (j = 1; j <= N2; j++)
+      {
+        if (region_firm_assignment_C[j - 1] == buyer_region)
+        {
+          double w = f2(1, j);
+          if (!std::isfinite(w) || w < 0.0)
+            w = 0.0;
+          ls[j] = w;
+          lsum += w;
+        }
+      }
+      if (!(lsum > 0.0))
+        continue; // no local supplier weight: this region's demand goes entirely to the fallback
+
+      double cpi_l = 0.0;
+      for (j = 1; j <= N2; j++)
+        if (ls[j] > 0.0)
+          cpi_l += p2(j) * (ls[j] / lsum);
+
+      int rounds = 0;
+      while (Cres_r[rr] >= 1.0 && lsum > 0.0 && cpi_l > 0.0 && rounds < (N2 + 2))
+      {
+        double Cresbis = Cres_r[rr];
+        for (j = 1; j <= N2; j++)
+        {
+          if (ls[j] <= 0.0)
+            continue;
+          double desired = Cres_r[rr] / cpi_l * (ls[j] / lsum);
+          if (desired <= 0.0)
+            continue;
+
+          bool first = (l2_set[j] == 0);
+          if (first)
+          {
+            D2(1, j) += desired;
+            l2(j) = (desired <= Q2temp(j)) ? 1.0 : 1.0 + (desired - Q2temp(j));
+            l2_set[j] = 1;
+          }
+
+          if (desired <= Q2temp(j))
+          {
+            if (!first)
+              D2(1, j) += desired;
+            S2(1, j) += p2(j) * desired;
+            Cresbis -= desired * p2(j);
+            realized[rr][j] += desired;
+            Q2temp(j) -= desired;
+          }
+          else
+          {
+            double q = Q2temp(j);
+            if (!first)
+              D2(1, j) += q;
+            S2(1, j) += p2(j) * q;
+            Cresbis -= q * p2(j);
+            realized[rr][j] += q;
+            Q2temp(j) = 0.0;
+            ls[j] = 0.0; // firm exhausted: drop it from the local search set
+          }
+        }
+        Cres_r[rr] = (Cresbis > 0.0) ? Cresbis : 0.0;
+        lsum = 0.0;
+        for (j = 1; j <= N2; j++)
+          lsum += ls[j];
+        cpi_l = 0.0;
+        if (lsum > 0.0)
+          for (j = 1; j <= N2; j++)
+            if (ls[j] > 0.0)
+              cpi_l += p2(j) * (ls[j] / lsum);
+        rounds++;
+      }
+    }
+
+    // ---- Stage 2: national fallback, all residual-demand regions simultaneously (pro rata) ----
+    std::vector<std::vector<double>> g(NR, std::vector<double>(N2 + 1, 0.0));
+    std::vector<double> cpi_f(NR, 0.0);
+
+    auto buildFallback = [&]()
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        double gsum = 0.0;
+        for (j = 1; j <= N2; j++)
+        {
+          double w = (Q2temp(j) > 0.0) ? f2(1, j) : 0.0;
+          if (!std::isfinite(w) || w < 0.0)
+            w = 0.0;
+          g[rr][j] = w;
+          gsum += w;
+        }
+        cpi_f[rr] = 0.0;
+        if (gsum > 0.0)
+          for (j = 1; j <= N2; j++)
+            cpi_f[rr] += p2(j) * (g[rr][j] / gsum);
+        if (!(cpi_f[rr] > 0.0))
+          cpi_f[rr] = cpi_temp;
+      }
+    };
+    buildFallback();
+
+    auto anyFallback = [&]() -> bool
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        if (Cres_r[rr] >= 1.0)
+        {
+          double gs = 0.0;
+          for (j = 1; j <= N2; j++)
+            gs += g[rr][j];
+          if (gs > 0.0)
+            return true;
+        }
+      }
+      return false;
+    };
+
+    while (anyFallback())
+    {
+      std::vector<double> Cresbis_r = Cres_r;
+      std::vector<std::vector<double>> Xd(NR, std::vector<double>(N2 + 1, 0.0));
+      for (int rr = 0; rr < NR; rr++)
+      {
+        double gsum = 0.0;
+        for (j = 1; j <= N2; j++)
+          gsum += g[rr][j];
+        if (Cres_r[rr] >= 1.0 && gsum > 0.0 && cpi_f[rr] > 0.0)
+          for (j = 1; j <= N2; j++)
+            Xd[rr][j] = Cres_r[rr] / cpi_f[rr] * (g[rr][j] / gsum);
+      }
+
+      for (j = 1; j <= N2; j++)
+      {
+        double Xd_j = 0.0;
+        for (int rr = 0; rr < NR; rr++)
+          Xd_j += Xd[rr][j];
+        if (Xd_j <= 0.0)
+          continue;
+
+        // l2 is NOT modified in the fallback stage (set only by the first local round).
+        if (Xd_j <= Q2temp(j))
+        {
+          D2(1, j) += Xd_j;
+          for (int rr = 0; rr < NR; rr++)
+          {
+            double q = Xd[rr][j];
+            if (q <= 0.0)
+              continue;
+            S2(1, j) += p2(j) * q;
+            Cresbis_r[rr] -= q * p2(j);
+            realized[rr][j] += q;
+          }
+          Q2temp(j) -= Xd_j;
+        }
+        else
+        {
+          double ratio = (Xd_j > 0.0) ? (Q2temp(j) / Xd_j) : 0.0;
+          D2(1, j) += Q2temp(j);
+          for (int rr = 0; rr < NR; rr++)
+          {
+            double q = Xd[rr][j] * ratio;
+            if (q <= 0.0)
+              continue;
+            S2(1, j) += p2(j) * q;
+            Cresbis_r[rr] -= q * p2(j);
+            realized[rr][j] += q;
+          }
+          Q2temp(j) = 0.0;
+        }
+      }
+
+      for (int rr = 0; rr < NR; rr++)
+        Cres_r[rr] = (Cresbis_r[rr] > 0.0) ? Cresbis_r[rr] : 0.0;
+      buildFallback();
+    }
+
+    // Split realized consumption purchases into intra-regional and cross-regional flows (nominal).
+    for (int rr = 0; rr < NR; rr++)
+    {
+      int region_id = rr + 1;
+      for (j = 1; j <= N2; j++)
+      {
+        double val = realized[rr][j] * p2(j);
+        if (val <= 0.0)
+          continue;
+        int rs = region_firm_assignment_C[j - 1];
+        if (rs >= 1 && rs <= NR)
+          reg_cons_buy_from[rr][rs - 1] += val;
+        if (region_firm_assignment_C[j - 1] == region_id)
+        {
+          reg_cons_buy_local[rr] += val;
+          reg_cons_sell_local[rr] += val;
+        }
+        else
+        {
+          reg_cons_buy_import[rr] += val;
+          if (rs >= 1 && rs <= NR)
+            reg_cons_sell_export[rs - 1] += val;
+        }
+      }
+    }
+
+    // Demand-side regional diagnostic: local-purchase share (no price wedge under flag 2).
+    if (verbose)
+    {
+      double tot_real = 0.0, local_real = 0.0;
+      for (int rr = 0; rr < NR; rr++)
+      {
+        int region_id = rr + 1;
+        for (j = 1; j <= N2; j++)
+        {
+          double q = realized[rr][j];
+          if (q <= 0.0)
+            continue;
+          tot_real += q;
+          if (region_firm_assignment_C[j - 1] == region_id)
+            local_real += q;
+        }
+      }
+      diag_hh_local_cons_share = (tot_real > 0.0) ? (local_real / tot_real) : 0.0;
+      diag_wedge_cmarket = 0.0;
+    }
+  }
 
   // Nominal consumption is calculated
   Consumption = S2.Row(1).Sum();
+  double consumption_before_correction = Consumption;
   // This is done to ensure that household deposits do not become negative due to consumption (may happen due to rounding issues when liquidity constraint is binding)
   while (Consumption > Cons)
   {
@@ -7781,6 +7964,28 @@ void ALLOC(void)
       }
     }
     Consumption = S2.Row(1).Sum();
+  }
+
+  // Flag 2: rescale buyer-side consumption flows by the same correction ratio so realized regional
+  // expenditure (reg_C = sum_s reg_cons_buy_from) equals the final national Consumption deducted
+  // from household deposits.
+  if (local_first_hh_active && NR > 0)
+  {
+    double cons_scale = (consumption_before_correction > 0.0)
+                            ? (Consumption / consumption_before_correction)
+                            : 1.0;
+    if (cons_scale != 1.0)
+    {
+      for (int rr = 0; rr < NR; rr++)
+      {
+        reg_cons_buy_local[rr] *= cons_scale;
+        reg_cons_buy_import[rr] *= cons_scale;
+        reg_cons_sell_local[rr] *= cons_scale;
+        reg_cons_sell_export[rr] *= cons_scale;
+        for (int ss = 0; ss < NR; ss++)
+          reg_cons_buy_from[rr][ss] *= cons_scale;
+      }
+    }
   }
 
   // Real consumption is calculated

@@ -871,52 +871,70 @@ void REGIONAL_UPDATE(void)
 				total_reg_YD += reg_YD[rr];
 			}
 
-			// Liquidity-feasible regional consumption decomposition.
-			// Desired regional consumption follows the disposable-income share (fallback
-			// LS share) but is capped at available household resources (lagged regional
-			// deposits + disposable income), so pre-migration regional deposits can never
-			// go negative. National Consumption is never forced onto regions by making
-			// their deposits negative: any infeasible remainder is reported as a residual.
-			std::vector<double> reg_C_raw(NR, 0.0);
-			double sum_raw = 0.0;
-			for (int rr = 0; rr < NR; ++rr)
+			// Regional consumption decomposition. Flag 2 (local-first search) uses realized ex post
+			// buyer-region expenditure from the bilateral matrix so the deposit identity reflects what
+			// households actually paid in ALLOC(); other modes use the income-share decomposition.
+			if (flag_regional_bias == 2)
 			{
-				// Desired regional consumption (by disposable-income share)
-				double share;
-				if (total_reg_YD > 1e-12)
-					share = reg_YD[rr] / total_reg_YD;
-				else
-					share = ((int)LS_region_share.size() == NR) ? LS_region_share[rr] : 1.0 / NR;
-				double desired_r = Consumption * share;
-				if (desired_r < 0.0)
-					desired_r = 0.0; // no negative consumption
-
-				// Available household resources before migration
-				double resources_r = reg_Dh_lag[rr] + reg_YD[rr];
-				if (resources_r < 0.0)
-					resources_r = 0.0;
-
-				// Cap regional consumption at available resources
-				double c_raw = (desired_r < resources_r) ? desired_r : resources_r;
-				reg_C_raw[rr] = c_raw;
-				sum_raw += c_raw;
-			}
-
-			// Rescale raw consumption to national Consumption only if feasible
-			//    (scaling DOWN). If raw resources fall short, keep the feasible
-			//    expenditure and record the unallocated national consumption.
-			diag_reg_C_unallocated = 0.0;
-			if (sum_raw >= Consumption && sum_raw > 1e-12)
-			{
-				double cscale = Consumption / sum_raw;
+				diag_reg_C_unallocated = 0.0;
 				for (int rr = 0; rr < NR; ++rr)
-					reg_C[rr] = reg_C_raw[rr] * cscale;
+				{
+					double c_real = 0.0;
+					if ((int)reg_cons_buy_from.size() == NR && (int)reg_cons_buy_from[rr].size() == NR)
+						for (int ss = 0; ss < NR; ++ss)
+							c_real += reg_cons_buy_from[rr][ss];
+					reg_C[rr] = c_real;
+				}
 			}
 			else
 			{
+				// Liquidity-feasible regional consumption decomposition.
+				// Desired regional consumption follows the disposable-income share (fallback
+				// LS share) but is capped at available household resources (lagged regional
+				// deposits + disposable income), so pre-migration regional deposits can never
+				// go negative. National Consumption is never forced onto regions by making
+				// their deposits negative: any infeasible remainder is reported as a residual.
+				std::vector<double> reg_C_raw(NR, 0.0);
+				double sum_raw = 0.0;
 				for (int rr = 0; rr < NR; ++rr)
-					reg_C[rr] = reg_C_raw[rr];
-				diag_reg_C_unallocated = Consumption - sum_raw;
+				{
+					// Desired regional consumption (by disposable-income share)
+					double share;
+					if (total_reg_YD > 1e-12)
+						share = reg_YD[rr] / total_reg_YD;
+					else
+						share = ((int)LS_region_share.size() == NR) ? LS_region_share[rr] : 1.0 / NR;
+					double desired_r = Consumption * share;
+					if (desired_r < 0.0)
+						desired_r = 0.0; // no negative consumption
+
+					// Available household resources before migration
+					double resources_r = reg_Dh_lag[rr] + reg_YD[rr];
+					if (resources_r < 0.0)
+						resources_r = 0.0;
+
+					// Cap regional consumption at available resources
+					double c_raw = (desired_r < resources_r) ? desired_r : resources_r;
+					reg_C_raw[rr] = c_raw;
+					sum_raw += c_raw;
+				}
+
+				// Rescale raw consumption to national Consumption only if feasible
+				//    (scaling DOWN). If raw resources fall short, keep the feasible
+				//    expenditure and record the unallocated national consumption.
+				diag_reg_C_unallocated = 0.0;
+				if (sum_raw >= Consumption && sum_raw > 1e-12)
+				{
+					double cscale = Consumption / sum_raw;
+					for (int rr = 0; rr < NR; ++rr)
+						reg_C[rr] = reg_C_raw[rr] * cscale;
+				}
+				else
+				{
+					for (int rr = 0; rr < NR; ++rr)
+						reg_C[rr] = reg_C_raw[rr];
+					diag_reg_C_unallocated = Consumption - sum_raw;
+				}
 			}
 
 			// Pre-migration regional deposits (income/consumption applied)
