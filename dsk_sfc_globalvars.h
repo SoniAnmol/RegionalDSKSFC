@@ -438,35 +438,42 @@ RowVector Inn;               // Indicates whether K-firm innovates
 RowVector Imm;               // Indicates whether K-firm imitates
 // Regional imitation diagnostics (flag_regional_imitation == 1): cumulative counts of successful
 // imitation-target selections split by whether target shares the imitator's current region.
-long imit_events_total = 0;        // Cumulative successful imitation-target selections
-long imit_events_local = 0;        // Cumulative same-region imitation-target selections
-long imit_events_cross = 0;        // Cumulative cross-region imitation-target selections
-RowVector A1inn;                   // Productivity of innovated machine
-RowVector A1pinn;                  // Productivity of innovated production process
-RowVector A1imm;                   // Productivity of imitated machine
-RowVector A1pimm;                  // Productivity of imitated production process
-RowVector EE_inn;                  // Energy efficiency of innovated machine
-RowVector EEp_inn;                 // Energy efficiency of innovated production process
-RowVector EE_imm;                  // Energy efficiency of imitated machine
-RowVector EEp_imm;                 // Energy efficiency of imitated production process
-RowVector EF_inn;                  // Environmental friendliness of innovated machine
-RowVector EFp_inn;                 // Environmental friendliness of innovated production process
-RowVector EF_imm;                  // Environmental friendliness of imitated machine
-RowVector EFp_imm;                 // Environmental friendliness of imitated production process
-RowVector nclient;                 // K-firms' number of clients
-RowVector RDin;                    // Part of R&D expenditure devoted to innovation
-RowVector RDim;                    // Part of R&D expenditure devoted to imitation
-RowVector A1w;                     // Productivity of machines produced in rest of the world
-RowVector A1pw;                    // Productivity of production process used in rest of the world
-RowVector exiting_1;               // Indicates whether K-firm is exiting
-std::vector<double> reg_exiting_1; // Regional K-firm exits
-RowVector D1_en;                   // Energy demand of K-firms
-RowVector D1;                      // Amount of machines demanded from K-firms
-RowVector Ld1;                     // Labour demand for production of K-firms
-RowVector Emiss1;                  // Emissions of K-firms
-RowVector Pi1;                     // Profit of K-firms
-RowVector Anew;                    // Productivity of new machines after exogenous technological change
-RowVector ee1;                     // K-firm from which newly entering one will copy
+long imit_events_total = 0; // Cumulative successful imitation-target selections
+long imit_events_local = 0; // Cumulative same-region imitation-target selections
+long imit_events_cross = 0; // Cumulative cross-region imitation-target selections
+// Per-period K-firm imitation-target counts, attributed by the imitator's current region.
+// Recorded every period regardless of flag_regional_imitation (within = target same region,
+// cross = target different region). When NR <= 1 all events count as within and cross stays 0.
+std::vector<double> reg_imit_within; // Per-region within-region imitation-target selections (per period)
+std::vector<double> reg_imit_cross;  // Per-region cross-region imitation-target selections (per period)
+double imit_within_period = 0;       // Overall within-region imitation-target selections (per period)
+double imit_cross_period = 0;        // Overall cross-region imitation-target selections (per period)
+RowVector A1inn;                     // Productivity of innovated machine
+RowVector A1pinn;                    // Productivity of innovated production process
+RowVector A1imm;                     // Productivity of imitated machine
+RowVector A1pimm;                    // Productivity of imitated production process
+RowVector EE_inn;                    // Energy efficiency of innovated machine
+RowVector EEp_inn;                   // Energy efficiency of innovated production process
+RowVector EE_imm;                    // Energy efficiency of imitated machine
+RowVector EEp_imm;                   // Energy efficiency of imitated production process
+RowVector EF_inn;                    // Environmental friendliness of innovated machine
+RowVector EFp_inn;                   // Environmental friendliness of innovated production process
+RowVector EF_imm;                    // Environmental friendliness of imitated machine
+RowVector EFp_imm;                   // Environmental friendliness of imitated production process
+RowVector nclient;                   // K-firms' number of clients
+RowVector RDin;                      // Part of R&D expenditure devoted to innovation
+RowVector RDim;                      // Part of R&D expenditure devoted to imitation
+RowVector A1w;                       // Productivity of machines produced in rest of the world
+RowVector A1pw;                      // Productivity of production process used in rest of the world
+RowVector exiting_1;                 // Indicates whether K-firm is exiting
+std::vector<double> reg_exiting_1;   // Regional K-firm exits
+RowVector D1_en;                     // Energy demand of K-firms
+RowVector D1;                        // Amount of machines demanded from K-firms
+RowVector Ld1;                       // Labour demand for production of K-firms
+RowVector Emiss1;                    // Emissions of K-firms
+RowVector Pi1;                       // Profit of K-firms
+RowVector Anew;                      // Productivity of new machines after exogenous technological change
+RowVector ee1;                       // K-firm from which newly entering one will copy
 
 // Banks
 RowVector NbClient_1;            // Banks' number of K-firm clients

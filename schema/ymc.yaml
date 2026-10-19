@@ -62,4 +62,6 @@ columns:
   - name: RegGov_BaseGrant_total
   - name: RegGov_TopupGrant_total
   - name: H1
+  - name: imit_within_count
+  - name: imit_cross_count
   - name: H2

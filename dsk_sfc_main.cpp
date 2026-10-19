@@ -2294,6 +2294,8 @@ void RESIZE(void)
     reg_exit_payments2.assign(NR, 0.0);
     reg_exit_equity2.assign(NR, 0.0);
     reg_exiting_1.assign(NR, 0.0);
+    reg_imit_within.assign(NR, 0.0);
+    reg_imit_cross.assign(NR, 0.0);
     reg_Loans_2.assign(NR, 0.0);
     reg_CreditDemand_all.assign(NR, 0.0);
     reg_CreditSupply_all.assign(NR, 0.0);
@@ -3655,6 +3657,21 @@ void MOBILITY_COMPUTATION(void)
       diag_sum_M_in = 0.0;
       diag_LS_region_share[r] = (LS > 0) ? reg_LS[r] / LS : 1.0 / NR;
       diag_LS_region_share_next[r] = diag_LS_region_share[r];
+      // No mobility: everyone stays, so the choice matrix is the identity.
+      for (int d = 0; d < NR; ++d)
+      {
+        diag_pi_mig[r][d] = 0.0;
+        diag_M_mig[r][d] = 0.0;
+      }
+      diag_pi_mig[r][r] = 1.0;
+      diag_pi_mig_row_sum[r] = 1.0;
+      diag_pi_stay[r] = 1.0;
+      // Actual counts: all unemployed searchers stay in their own region.
+      double L_region_r = reg_Ld1[r] + reg_Ld2[r];
+      diag_M_mig[r][r] = max(0.0, reg_LS[r] - L_region_r);
+      diag_M_mig_row_sum[r] = diag_M_mig[r][r];
+      diag_M_out_region[r] = 0.0;
+      diag_M_in_region[r] = 0.0;
     }
     diag_sum_LS_region_share = 0.0;
     diag_sum_LS_region_share_next = 0.0;
@@ -8980,6 +8997,12 @@ void TECHANGEND(void)
   long imit_period_local = 0;
   long imit_period_cross = 0;
 
+  // Reset per-period imitation counts (recorded every period regardless of flag_regional_imitation).
+  imit_within_period = 0;
+  imit_cross_period = 0;
+  std::fill(reg_imit_within.begin(), reg_imit_within.end(), 0.0);
+  std::fill(reg_imit_cross.begin(), reg_imit_cross.end(), 0.0);
+
   // Endogenous technological change
   Inn = 0;
   Imm = 0;
@@ -9320,6 +9343,34 @@ void TECHANGEND(void)
           imit_period_cross++;
         }
         imit_period_total++;
+      }
+
+      // Per-period imitation counts, attributed by the imitator's current region. Recorded for every
+      // imitation event regardless of flag_regional_imitation. When regions are unavailable (NR <= 1 or
+      // missing assignment) the event counts as within-region and cross stays 0.
+      if (selected_ii >= 1)
+      {
+        bool regions_available = (NR > 1 &&
+                                  static_cast<int>(region_firm_assignment_K.size()) == N1);
+        bool cross = regions_available &&
+                     (region_firm_assignment_K[i - 1] != region_firm_assignment_K[selected_ii - 1]);
+        int region_i = regions_available ? region_firm_assignment_K[i - 1] : 0;
+        if (cross)
+        {
+          imit_cross_period++;
+          if (region_i >= 1 && region_i <= NR)
+          {
+            reg_imit_cross[region_i - 1]++;
+          }
+        }
+        else
+        {
+          imit_within_period++;
+          if (region_i >= 1 && region_i <= NR)
+          {
+            reg_imit_within[region_i - 1]++;
+          }
+        }
       }
 
       if (A1pimm(i) == 0 || A1imm(i) == 0 || A1p(i) == 0 || A1(i) == 0)
@@ -11954,6 +12005,10 @@ void SAVE(void)
           target << ((cb > 0.0) ? reg_cons_buy_import[rgi] / cb : 0.0); // 46: cons_import_share
           target.width(60);
           target << ((cs > 0.0) ? reg_cons_sell_export[rgi] / cs : 0.0); // 47: cons_export_share
+          target.width(60);
+          target << reg_imit_within[rgi]; // 48: within_region_imitation (per-period count)
+          target.width(60);
+          target << reg_imit_cross[rgi]; // 49: cross_region_imitation (per-period count)
           for (int ss = 0; ss < NR; ss++)
           {
             target.width(60);
@@ -11963,6 +12018,16 @@ void SAVE(void)
           {
             target.width(60);
             target << reg_cons_buy_from[rgi][ss]; // ..: cons_buy_from_R(ss+1)
+          }
+          for (int dd = 0; dd < NR; dd++)
+          {
+            target.width(60);
+            target << diag_pi_mig[rgi][dd]; // ..: mig_prob_to_R(dd+1) (origin rgi -> dest dd; diagonal = stay)
+          }
+          for (int dd = 0; dd < NR; dd++)
+          {
+            target.width(60);
+            target << diag_M_mig[rgi][dd]; // ..: mig_count_to_R(dd+1) (actual labourers; diagonal = stayers)
           }
           target << endl;
         }
@@ -12094,7 +12159,11 @@ void SAVE(void)
     inv_ymc.width(60);
     inv_ymc << H1; // 56
     inv_ymc.width(60);
-    inv_ymc << H2 << endl; // 57
+    inv_ymc << imit_within_period; // 57
+    inv_ymc.width(60);
+    inv_ymc << imit_cross_period; // 58
+    inv_ymc.width(60);
+    inv_ymc << H2 << endl; // 59
     inv_ymc.close();
   }
 }
