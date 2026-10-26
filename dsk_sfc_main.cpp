@@ -3477,7 +3477,7 @@ void MACH(void)
     {
       if (A(tt, i) > 0 & A_en(tt, i) > 0)
       {
-        C(tt, i) = w(2) / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
+        C(tt, i) = wage_i / A(tt, i) + c_en(2) / A_en(tt, i) + t_CO2 * A_ef(tt, i) / A_en(tt, i);
       }
       else
       {
