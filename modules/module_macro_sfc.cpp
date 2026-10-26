@@ -710,39 +710,80 @@ void REGIONAL_UPDATE(void)
 			reg_H2[rr - 1] = (n2 > 1) ? (reg_H2[rr - 1] - 1.0 / n2) / (1.0 - 1.0 / n2) : 0.0;
 		}
 
+		// for (int rr = 1; rr <= NR; ++rr)
+		// {
+		// 	double reg_A1_sum = 0;
+		// 	double reg_A2_sum = 0;
+		// 	double reg_A1_weight = 0;
+		// 	double reg_A2_weight = 0;
+
+		// 	// Aggregate productivity from K-firms in this region (weighted by sales)
+		// 	for (int ii = 1; ii <= N1; ++ii)
+		// 	{
+		// 		if (region_firm_assignment_K[ii - 1] == rr && nclient(ii) >= 1)
+		// 		{
+		// 			reg_A1_sum += A1p(ii) * S1(ii);
+		// 			reg_A1_weight += S1(ii);
+		// 		}
+		// 	}
+
+		// 	// Aggregate productivity from C-firms in this region (weighted by sales)
+		// 	for (int jj = 1; jj <= N2; ++jj)
+		// 	{
+		// 		if (region_firm_assignment_C[jj - 1] == rr)
+		// 		{
+		// 			reg_A2_sum += A2(jj) * S2(1, jj);
+		// 			reg_A2_weight += S2(1, jj);
+		// 		}
+		// 	}
+
+		// 	// Calculate regional average productivities
+		// 	reg_Am1[rr - 1] = (reg_A1_weight > 0) ? reg_A1_sum / reg_A1_weight : 0;
+		// 	reg_Am2[rr - 1] = (reg_A2_weight > 0) ? reg_A2_sum / reg_A2_weight : 0;
+		// 	reg_Am[rr - 1] = (reg_A1_weight + reg_A2_weight > 0)
+		// 						 ? (reg_A1_sum + reg_A2_sum) / (reg_A1_weight + reg_A2_weight)
+		// 						 : 0;
+
 		for (int rr = 1; rr <= NR; ++rr)
 		{
-			double reg_A1_sum = 0;
-			double reg_A2_sum = 0;
-			double reg_A1_weight = 0;
-			double reg_A2_weight = 0;
+			double reg_A1_sum = 0.0;
+			double reg_A2_sum = 0.0;
+			double reg_A1_count = 0.0;
+			double reg_A2_count = 0.0;
 
-			// Aggregate productivity from K-firms in this region (weighted by sales)
+			// K-firms: same productivity definition as national Am
 			for (int ii = 1; ii <= N1; ++ii)
 			{
-				if (region_firm_assignment_K[ii - 1] == rr && nclient(ii) >= 1)
+				if (region_firm_assignment_K[ii - 1] == rr)
 				{
-					reg_A1_sum += A1p(ii) * S1(ii);
-					reg_A1_weight += S1(ii);
+					reg_A1_sum += A1p(ii) * a;
+					reg_A1_count += 1.0;
 				}
 			}
 
-			// Aggregate productivity from C-firms in this region (weighted by sales)
+			// C-firms: same productivity definition as national Am
 			for (int jj = 1; jj <= N2; ++jj)
 			{
 				if (region_firm_assignment_C[jj - 1] == rr)
 				{
-					reg_A2_sum += A2(jj) * S2(1, jj);
-					reg_A2_weight += S2(1, jj);
+					reg_A2_sum += A2(jj);
+					reg_A2_count += 1.0;
 				}
 			}
 
-			// Calculate regional average productivities
-			reg_Am1[rr - 1] = (reg_A1_weight > 0) ? reg_A1_sum / reg_A1_weight : 0;
-			reg_Am2[rr - 1] = (reg_A2_weight > 0) ? reg_A2_sum / reg_A2_weight : 0;
-			reg_Am[rr - 1] = (reg_A1_weight + reg_A2_weight > 0)
-								 ? (reg_A1_sum + reg_A2_sum) / (reg_A1_weight + reg_A2_weight)
-								 : 0;
+			reg_Am1[rr - 1] = reg_A1_count > 0
+								  ? reg_A1_sum / reg_A1_count
+								  : 0.0;
+
+			reg_Am2[rr - 1] = reg_A2_count > 0
+								  ? reg_A2_sum / reg_A2_count
+								  : 0.0;
+
+			double total_count = reg_A1_count + reg_A2_count;
+
+			reg_Am[rr - 1] = total_count > 0
+								 ? (reg_A1_sum + reg_A2_sum) / total_count
+								 : 0.0;
 
 			// Calculate regional real GDP
 			reg_GDP_r[rr - 1] = reg_Q1[rr - 1] * dim_mach + reg_Q2[rr - 1];
