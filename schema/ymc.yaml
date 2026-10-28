@@ -65,3 +65,6 @@ columns:
   - name: imit_within_count
   - name: imit_cross_count
   - name: H2
+  - name: Am_a
+  - name: Am1
+  - name: Am2

@@ -332,6 +332,34 @@ void MACRO(void)
 	ReplacementInvestment_n = SI_n.Sum();
 	Investment_r = ExpansionInvestment_r + ReplacementInvestment_r;
 	Investment_n = ExpansionInvestment_n + ReplacementInvestment_n;
+	// Regional real investment flows.
+	if (NR > 0)
+	{
+		for (int rr = 0; rr < NR; ++rr)
+		{
+			reg_EI[rr] = 0.0;
+			reg_SI[rr] = 0.0;
+		}
+
+		for (int jj = 1; jj <= N2; ++jj)
+		{
+			int rr = region_firm_assignment_C[jj - 1];
+
+			if (rr >= 1 && rr <= NR)
+			{
+				reg_EI[rr - 1] += EI(1, jj);
+				reg_SI[rr - 1] += SI(jj);
+			}
+		}
+
+		for (int rr = 0; rr < NR; ++rr)
+		{
+			reg_ReplacementInvestment_r[rr] = reg_SI[rr];
+			reg_Investment_r[rr] =
+				reg_EI[rr] + reg_SI[rr];
+		}
+	}
+
 	Q2tot = Q2.Sum();
 	Q2dtot = Qd.Sum();
 	D2tot = D2.Row(1).Sum();
@@ -508,11 +536,11 @@ void REGIONAL_UPDATE(void)
 			reg_K[rr] = 0;
 			reg_Investment[rr] = 0;
 			reg_Investment_n[rr] = 0;
-			reg_ReplacementInvestment_r[rr] = 0;
+			// reg_ReplacementInvestment_r[rr] = 0;
 			reg_EnergyPayments[rr] = 0;
 			reg_Wages[rr] = 0;
-			reg_EI[rr] = 0;
-			reg_SI[rr] = 0;
+			// reg_EI[rr] = 0;
+			// reg_SI[rr] = 0;
 			reg_Ld1[rr] = 0;
 			reg_Ld2[rr] = 0;
 			reg_Emiss1[rr] = 0;
@@ -582,9 +610,9 @@ void REGIONAL_UPDATE(void)
 				reg_K[rr - 1] += K(jj);
 				reg_Investment[rr - 1] += I(jj);
 				reg_Investment_n[rr - 1] += EI_n(jj) + SI_n(jj);
-				reg_EI[rr - 1] += EI(1, jj);
-				reg_ReplacementInvestment_r[rr - 1] += SI(jj);
-				reg_SI[rr - 1] += SI(jj);
+				// reg_EI[rr - 1] += EI(1, jj);
+				// reg_ReplacementInvestment_r[rr - 1] += SI(jj);
+				// reg_SI[rr - 1] += SI(jj);
 				reg_EnergyPayments[rr - 1] += EnergyPayments_2(jj);
 				reg_Wages[rr - 1] += Wages_2(jj);
 				reg_Ld2[rr - 1] += Ld2(jj);
@@ -788,8 +816,8 @@ void REGIONAL_UPDATE(void)
 			// Calculate regional real GDP
 			reg_GDP_r[rr - 1] = reg_Q1[rr - 1] * dim_mach + reg_Q2[rr - 1];
 
-			// Calculate regional real investment
-			reg_Investment_r[rr - 1] = reg_EI[rr - 1] + reg_SI[rr - 1];
+			// Calculate regional real investment --> Moved to Macro()
+			// reg_Investment_r[rr - 1] = reg_EI[rr - 1] + reg_SI[rr - 1];
 
 			// Aggregate regional labour DEMAND (firms + R&D + energy apportioned by firm-labour share).
 			// Regional labour SUPPLY is set separately below from sigma_r (state), not from demand.

@@ -66,11 +66,11 @@ importlib.reload(_rbr)
 
 
 DATA_ROOT = Path(
-    "C:/Users/P70087882/Documents/R-DSK/Code/SimulationResults/StylisedFacts"
+    "/Users/anmolsoni/Nextcloud/projects/Regionalised-SFC-DSK/stylised_facts/"
 )
 
 OUTPUT = Path(
-    "C:/Users/P70087882/Documents/R-DSK/Code/SimulationResults/Figures/StylisedFacts"
+    "/Users/anmolsoni/Nextcloud/projects/Regionalised-SFC-DSK/figures/stylised_facts/"
 )
 
 OUTPUT.mkdir(
@@ -3484,4 +3484,63 @@ print("\nOutputs written to:")
 print(OUTPUT)
 
 print("=" * 72)
+# %%
+
+import numpy as np
+import pandas as pd
+
+data = scenario_results[SCENARIO].copy()
+
+macro = data.loc[data["region"].astype(str) == "macro"].copy()
+
+metrics = ["Am", "Am_a", "Am1", "Am2"]
+
+# These columns are required after the output modification.
+missing = set(metrics) - set(macro.columns)
+if missing:
+    raise ValueError(f"Missing exported variables: {missing}")
+
+records = []
+
+for run, g in macro.groupby("run"):
+    g = g.sort_values("t")
+
+    cycles = {"GDP": filtered_bk_corr_series(g, "GDP_r")}
+
+    for var in metrics:
+        cycles[var] = filtered_bk_corr_series(g, var)
+
+    # Same BK-filtered observations for all four measures
+    aligned = pd.concat(cycles, axis=1).dropna()
+
+    if len(aligned) < 20:
+        continue
+
+    for var in metrics:
+        records.append(
+            {
+                "run": run,
+                "variable": var,
+                "correlation": aligned["GDP"].corr(aligned[var]),
+            }
+        )
+
+results = pd.DataFrame(records)
+
+summary = (
+    results.groupby("variable")["correlation"]
+    .agg(["mean", "std", "count"])
+    .reindex(metrics)
+)
+
+summary["CI_lower"] = summary["mean"] - 1.96 * summary["std"] / np.sqrt(
+    summary["count"]
+)
+
+summary["CI_upper"] = summary["mean"] + 1.96 * summary["std"] / np.sqrt(
+    summary["count"]
+)
+
+print(summary[["mean", "CI_lower", "CI_upper", "count"]].round(4))
+
 # %%

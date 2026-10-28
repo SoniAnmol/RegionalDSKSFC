@@ -9439,15 +9439,15 @@ void TECHANGEND(void)
   LD1rdtot = Ld1rd.Sum();
 
   // Report this period's regional imitation split and same-region share to the run log (flag only).
-  if (flag_regional_imitation == 1 && imit_period_total > 0)
-  {
-    double local_share = static_cast<double>(imit_period_local) / static_cast<double>(imit_period_total);
-    Errors << "[IMIT_DIAG] t=" << t
-           << " total=" << imit_period_total
-           << " local=" << imit_period_local
-           << " cross=" << imit_period_cross
-           << " local_share=" << local_share << std::endl;
-  }
+  // if (flag_regional_imitation == 1 && imit_period_total > 0)
+  // {
+  //   double local_share = static_cast<double>(imit_period_local) / static_cast<double>(imit_period_total);
+  //   Errors << "[IMIT_DIAG] t=" << t
+  //          << " total=" << imit_period_total
+  //          << " local=" << imit_period_local
+  //          << " cross=" << imit_period_cross
+  //          << " local_share=" << local_share << std::endl;
+  // }
 
   // Determine the best technologies in the system post-R&D
   A1top = A1(1);
@@ -10582,15 +10582,39 @@ void REGIONAL_CONSISTENCY_CHECK(void)
   }
 
   // Check Investment_r: Sum of regional Investment_r should equal national Investment_r
-  regional_sum = 0;
+  // regional_sum = 0;
+  // for (int rr = 0; rr < NR; ++rr)
+  // {
+  //   regional_sum += reg_Investment_r[rr];
+  // }
+  // national_value = Investment_r;
+  // if (fabs(national_value) > 1e-10)
+  // {
+  //   deviation = fabs((regional_sum - national_value) / national_value);
+  // }
+
+  // Verify national-regional real investment aggregation
+  regional_sum = 0.0;
+
   for (int rr = 0; rr < NR; ++rr)
   {
     regional_sum += reg_Investment_r[rr];
   }
+
   national_value = Investment_r;
-  if (fabs(national_value) > 1e-10)
+
+  deviation = fabs(regional_sum - national_value) /
+              std::max(1.0, fabs(national_value));
+
+  if (deviation > regionalaccountingtolerance)
   {
-    deviation = fabs((regional_sum - national_value) / national_value);
+    Errors << "Period " << t
+           << ": Regional Investment_r sum ("
+           << regional_sum
+           << ") does not match national Investment_r ("
+           << national_value
+           << "), deviation = "
+           << deviation << endl;
   }
 
   // Check D1_en (K-firm energy demand): Sum of regional D1_en should equal national D1_en_TOT
@@ -12163,7 +12187,14 @@ void SAVE(void)
     inv_ymc.width(60);
     inv_ymc << imit_cross_period; // 58
     inv_ymc.width(60);
-    inv_ymc << H2 << endl; // 59
+    inv_ymc << H2; // 59
+    inv_ymc.precision(10);
+    inv_ymc.width(60);
+    inv_ymc << Am_a; // 60
+    inv_ymc.width(60);
+    inv_ymc << Am1; // 61
+    inv_ymc.width(60);
+    inv_ymc << Am2 << endl; // 62
     inv_ymc.close();
   }
 }
