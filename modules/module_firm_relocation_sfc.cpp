@@ -119,18 +119,29 @@ void FIRM_RELOCATION_COMPUTATION(void)
         // --------------------------------------------------------
         // C-sector market opportunity
         // --------------------------------------------------------
-        double consumption_share =
-            ((int)reg_cons_share.size() == NR)
-                ? reg_cons_share[rr]
-                : 1.0 / static_cast<double>(NR);
-
-        if (consumption_share < 0.0)
+        double regional_consumption_budget;
+        if (flag_regional_bias == 2 &&
+            static_cast<int>(reg_Cons_demand.size()) == NR)
         {
-            consumption_share = 0.0;
+            // Flag 2: use the same ex ante regional budget that ALLOC() spends (local-first search).
+            regional_consumption_budget =
+                std::max(0.0, reg_Cons_demand[rr]);
         }
+        else
+        {
+            double consumption_share =
+                ((int)reg_cons_share.size() == NR)
+                    ? reg_cons_share[rr]
+                    : 1.0 / static_cast<double>(NR);
 
-        const double regional_consumption_budget =
-            Cons * consumption_share;
+            if (consumption_share < 0.0)
+            {
+                consumption_share = 0.0;
+            }
+
+            regional_consumption_budget =
+                Cons * consumption_share;
+        }
 
         const double number_C =
             std::max(reg_N2[rr], 1.0);

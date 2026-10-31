@@ -43,6 +43,8 @@ columns:
   - name: RegGov_PlannedAdapt
   - name: RegGov_BaseGrant
   - name: RegGov_TopupGrant
+  - name: Q1tot
+  - name: Q2tot
   - name: H1
   - name: H2
   - name: reg_w
@@ -53,9 +55,17 @@ columns:
   - name: mach_export_share
   - name: cons_import_share
   - name: cons_export_share
+  - name: within_region_imitation
+  - name: cross_region_imitation
   - name: mach_buy_from_R1
   - name: mach_buy_from_R2
   - name: mach_buy_from_R3
   - name: cons_buy_from_R1
   - name: cons_buy_from_R2
   - name: cons_buy_from_R3
+  - name: mig_prob_to_R1
+  - name: mig_prob_to_R2
+  - name: mig_prob_to_R3
+  - name: mig_count_to_R1
+  - name: mig_count_to_R2
+  - name: mig_count_to_R3

@@ -264,7 +264,13 @@ class ScenarioRunner:
         # Pattern to match output files created by this run
         # Using absolute paths to ensure correct matching regardless of working directory
         patterns = [
+            # Standard model outputs, which contain run name + seed
             str(model_output_dir / f"*_{run_name}_{seed}.txt"),
+
+            # Validation outputs, which contain only the seed
+            str(model_output_dir / f"validation*_{seed}.txt"),
+
+            # Error files
             str(model_output_dir / "errors" / f"*_{run_name}_{seed}.txt"),
         ]
 
@@ -419,37 +425,53 @@ class ScenarioRunner:
                 else:
                     failed += 1
         else:
-            # Parallel execution using a thread pool
-            # (subprocess.run releases the GIL; threads are sufficient)
-            with concurrent.futures.ThreadPoolExecutor(
-                max_workers=self.workers
-            ) as executor:
-                futures = {
-                    executor.submit(
-                        self._run_single_replication,
-                        scenario_name, input_file, rep_idx
-                    ): (scenario_name, rep_idx)
-                    for scenario_name, input_file, rep_idx in work_items
-                }
+            # Run scenarios sequentially, but replications within each
+            # scenario in parallel.
+            #
+            # This is required for validation runs because validation output
+            # filenames contain the seed but not the scenario/run name.
+            for scenario_name, input_file in scenario_files:
 
-                for future in concurrent.futures.as_completed(futures):
-                    scenario_name, rep_idx = futures[future]
-                    try:
-                        _, _, success, _ = future.result()
-                    except Exception as exc:
-                        success = False
-                        self._log(
-                            f"  [{scenario_name} rep {rep_idx:03d}] "
-                            f"Unexpected error: {exc}"
-                        )
-                    if success:
-                        completed += 1
-                    else:
-                        failed += 1
+                self._log(
+                    f"\nRunning scenario '{scenario_name}' "
+                    f"with {self.workers} parallel workers"
+                )
+
+                with concurrent.futures.ThreadPoolExecutor(
+                    max_workers=self.workers
+                ) as executor:
+
+                    futures = {
+                        executor.submit(
+                            self._run_single_replication,
+                            scenario_name,
+                            input_file,
+                            rep_idx
+                        ): rep_idx
+                        for rep_idx in range(1, self.n_replications + 1)
+                    }
+
+                    for future in concurrent.futures.as_completed(futures):
+                        rep_idx = futures[future]
+
+                        try:
+                            _, _, success, _ = future.result()
+
+                        except Exception as exc:
+                            success = False
+                            self._log(
+                                f"  [{scenario_name} rep {rep_idx:03d}] "
+                                f"Unexpected error: {exc}"
+                            )
+
+                        if success:
+                            completed += 1
+                        else:
+                            failed += 1
 
         # Summary
         print(f"\n{'='*70}")
-        print(f"Batch execution completed:")
+        print("Batch execution completed:")
         print(f"  Total runs: {total_runs}")
         print(f"  Successful: {completed}")
         print(f"  Failed: {failed}")

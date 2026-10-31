@@ -20,6 +20,8 @@ extern double Investment_n;
 
 // Regional market-opportunity inputs
 extern std::vector<double> reg_cons_share;
+extern std::vector<double> reg_Cons_demand;
+extern int flag_regional_bias;
 extern std::vector<double> reg_Investment_n;
 extern std::vector<double> reg_N1;
 extern std::vector<double> reg_N2;

@@ -9,6 +9,9 @@ from scipy import stats
 import seaborn as sns
 
 
+SCHEMA_DIR = Path(__file__).resolve().parent.parent / "schema"
+
+
 def infer_numeric_id(name):
     """Infer integer ID from a folder/file name by extracting the first digit group."""
     match = re.search(r"(\d+)", str(name))
@@ -191,9 +194,7 @@ def list_resultsexp_reg_files_for_run(run_folder, scenario_num, run_num):
 
 def list_ymc_files_for_run(run_folder, scenario_num, run_num):
     return [
-        file_path
-        for file_path in run_folder.iterdir()
-        if is_matching_ymc_filename(file_path, scenario_num, run_num)
+        file_path for file_path in run_folder.iterdir() if is_matching_ymc_filename(file_path, scenario_num, run_num)
     ]
 
 
@@ -246,23 +247,25 @@ def read_simple_yaml_column_names(yaml_path):
     return column_names
 
 
-def read_resultsexp_column_names(yaml_path="/Users/anmolsoni/Documents/RegionalDSKSFC/schema/resultsexp.yaml"):
+def read_resultsexp_column_names(
+    yaml_path=SCHEMA_DIR / "resultsexp.yaml",
+):
     return read_simple_yaml_column_names(yaml_path)
 
 
-def read_ymc_column_names(yaml_path="/Users/anmolsoni/Documents/RegionalDSKSFC/schema/ymc.yaml"):
+def read_ymc_column_names(yaml_path=SCHEMA_DIR / "ymc.yaml"):
     return read_simple_yaml_column_names(yaml_path)
 
 
-def read_ymc_reg_column_names(yaml_path="/Users/anmolsoni/Documents/RegionalDSKSFC/schema/ymc_reg.yaml"):
+def read_ymc_reg_column_names(yaml_path=SCHEMA_DIR / "ymc_reg.yaml"):
     return read_simple_yaml_column_names(yaml_path)
 
 
-def read_resultsexp_reg_column_names(yaml_path="/Users/anmolsoni/Documents/RegionalDSKSFC/schema/resultsexp_reg.yaml"):
+def read_resultsexp_reg_column_names(yaml_path=SCHEMA_DIR / "resultsexp_reg.yaml"):
     return read_simple_yaml_column_names(yaml_path)
 
 
-def read_shockpars_column_names(yaml_path="/Users/anmolsoni/Documents/RegionalDSKSFC/schema/shockpars.yaml", NR=None):
+def read_shockpars_column_names(yaml_path=SCHEMA_DIR / "shockpars.yaml", NR=None):
     """Generate shockpars columns from schema; NR is number of regions."""
     if yaml_path is None:
         return []
@@ -306,10 +309,7 @@ def apply_column_names(df, column_names, id_columns, verbose=False):
     actual_data_cols = df.shape[1] - len(id_columns)
     expected_data_cols = len(column_names)
     if actual_data_cols != expected_data_cols and verbose:
-        print(
-            "Column count mismatch: "
-            f"data_cols={actual_data_cols}, yaml_cols={expected_data_cols}."
-        )
+        print("Column count mismatch: " f"data_cols={actual_data_cols}, yaml_cols={expected_data_cols}.")
 
     if actual_data_cols > expected_data_cols:
         extra_cols = [f"col_{idx}" for idx in range(expected_data_cols, actual_data_cols)]
@@ -608,7 +608,7 @@ def load_simulation_results_matrix(base_path, verbose=True):
                     f"run={_df['run'].iloc[0] if 'run' in _df.columns else '?'}) "
                     f"has duplicate columns {_dupes}; dropping duplicates (keeping first)."
                 )
-                scenario_data_frames[_i] = _df.loc[:, ~_df.columns.duplicated(keep='first')]
+                scenario_data_frames[_i] = _df.loc[:, ~_df.columns.duplicated(keep="first")]
         scenario_df = pd.concat(scenario_data_frames, ignore_index=True)
 
         if scenario_shock_frames:
@@ -652,14 +652,14 @@ def load_simulation_results_matrix(base_path, verbose=True):
 def check_regional_consistency(
     df,
     cols=None,
-    group_keys=('scenario', 'run', 't'),
-    macro_label='macro',
+    group_keys=("scenario", "run", "t"),
+    macro_label="macro",
     alpha=0.05,
     rel_tol=0.01,
     abs_tol=1e-8,
-    aggregate='sum',
-    plot_style='violin',
-    test='cohens_d',
+    aggregate="sum",
+    plot_style="violin",
+    test="cohens_d",
     output=None,
 ):
     """
@@ -695,42 +695,101 @@ def check_regional_consistency(
     """
     group_keys = [k for k in group_keys if k in df.columns]
     if not group_keys:
-        raise ValueError('No valid group keys found in dataframe.')
+        raise ValueError("No valid group keys found in dataframe.")
     if cols is None:
-        shock_cols = ['X_a_1', 'X_b_1', 'X_a_2', 'X_b_2', 'X_a_3', 'X_b_3',
-                      'X_a_4', 'X_b_4', 'X_a_5', 'X_b_5', 'X_a_6', 'X_b_6', 'X_a_7', 'X_b_7',
-                      'X_a_8', 'X_b_8', 'X_a_9', 'X_b_9']
+        shock_cols = [
+            "X_a_1",
+            "X_b_1",
+            "X_a_2",
+            "X_b_2",
+            "X_a_3",
+            "X_b_3",
+            "X_a_4",
+            "X_b_4",
+            "X_a_5",
+            "X_b_5",
+            "X_a_6",
+            "X_b_6",
+            "X_a_7",
+            "X_b_7",
+            "X_a_8",
+            "X_b_8",
+            "X_a_9",
+            "X_b_9",
+        ]
         if df[shock_cols].notna().values.any():
-            cols = {'mean': ['CreditDemand_over_Supply',
-                             'exit_marketshare2', 'EmploymentRate',
-                             ],
-                    'aggregate': ['GDP_r', 'Consumption_r', 'CapitalStock',
-                                  'Loans_2', 'D_en_TOT', 'Emiss_TOT', 'LS',
-                                  'Emiss1_TOT', 'Emiss2_TOT', 'Emiss_en', 'K_tot', 'exit_payments2', 'exit_equity2', 'exiting_1', 'ReplacementInvestment_r', 'EnergyPayments',
-                                  'Pitot1', 'Pitot2', 'Dividends_1', 'Dividends_2',
-                                  'Consumption', 'exit_total', 'Pitot_total', 'Dividends_firms_real', 'Dividends_b', 'Am_en', 'Am_a', 'GDP_n',
-                                  ]}
+            cols = {
+                "mean": [
+                    "CreditDemand_over_Supply",
+                    "exit_marketshare2",
+                    "EmploymentRate",
+                ],
+                "aggregate": [
+                    "GDP_r",
+                    "Consumption_r",
+                    "CapitalStock",
+                    "Loans_2",
+                    "D_en_TOT",
+                    "Emiss_TOT",
+                    "LS",
+                    "Emiss1_TOT",
+                    "Emiss2_TOT",
+                    "Emiss_en",
+                    "K_tot",
+                    "exit_payments2",
+                    "exit_equity2",
+                    "exiting_1",
+                    "ReplacementInvestment_r",
+                    "EnergyPayments",
+                    "Pitot1",
+                    "Pitot2",
+                    "Dividends_1",
+                    "Dividends_2",
+                    "Consumption",
+                    "exit_total",
+                    "Pitot_total",
+                    "Dividends_firms_real",
+                    "Dividends_b",
+                    "Am_en",
+                    "Am_a",
+                    "GDP_n",
+                ],
+            }
         else:
             cols = {
-                'aggregate': ['GDP_r', 'Consumption_r', 'Loans_2', 'D_en_TOT',
-                              'Emiss_TOT', 'Q1tot', 'Q2tot', 'N1r', 'N2r', 'LS',
-                              'Q_ge', 'Q_de', 'Emiss1_TOT', 'Emiss2_TOT', 'Emiss_en'],
-                'mean': ['EmploymentRate']
+                "aggregate": [
+                    "GDP_r",
+                    "Consumption_r",
+                    "Loans_2",
+                    "D_en_TOT",
+                    "Emiss_TOT",
+                    "Q1tot",
+                    "Q2tot",
+                    "N1r",
+                    "N2r",
+                    "LS",
+                    "Q_ge",
+                    "Q_de",
+                    "Emiss1_TOT",
+                    "Emiss2_TOT",
+                    "Emiss_en",
+                ],
+                "mean": ["EmploymentRate"],
             }
 
     if not isinstance(cols, (list, tuple, dict)):
-        raise TypeError('cols must be a list/tuple or a dict with aggregate rules.')
+        raise TypeError("cols must be a list/tuple or a dict with aggregate rules.")
 
     if isinstance(cols, dict):
-        aggregate_cols = list(cols.get('aggregate', []))
-        mean_cols = list(cols.get('mean', []))
+        aggregate_cols = list(cols.get("aggregate", []))
+        mean_cols = list(cols.get("mean", []))
         requested_cols = aggregate_cols + mean_cols
     else:
         requested_cols = list(cols)
-        if aggregate not in ('sum', 'mean'):
+        if aggregate not in ("sum", "mean"):
             raise ValueError("aggregate must be either 'sum' or 'mean'.")
-        aggregate_cols = requested_cols if aggregate == 'sum' else []
-        mean_cols = requested_cols if aggregate == 'mean' else []
+        aggregate_cols = requested_cols if aggregate == "sum" else []
+        mean_cols = requested_cols if aggregate == "mean" else []
 
     missing_cols = sorted(set(requested_cols) - set(df.columns))
     if missing_cols:
@@ -741,9 +800,9 @@ def check_regional_consistency(
     required_cols = aggregate_cols + [c for c in mean_cols if c not in aggregate_cols]
 
     if not required_cols:
-        raise ValueError('None of the requested columns exist in dataframe.')
+        raise ValueError("None of the requested columns exist in dataframe.")
 
-    is_macro = df['region'].astype(str).eq(str(macro_label))
+    is_macro = df["region"].astype(str).eq(str(macro_label))
     macro_df = df.loc[is_macro, group_keys + required_cols].copy()
     regional_df = df.loc[~is_macro, group_keys + required_cols].copy()
 
@@ -751,29 +810,24 @@ def check_regional_consistency(
 
     if aggregate_cols:
         sum_df = regional_df.groupby(group_keys, as_index=False)[aggregate_cols].sum()
-        agg_df = agg_df.merge(sum_df, on=group_keys, how='left')
+        agg_df = agg_df.merge(sum_df, on=group_keys, how="left")
 
     if mean_cols:
         mean_df = regional_df.groupby(group_keys, as_index=False)[mean_cols].mean()
-        agg_df = agg_df.merge(mean_df, on=group_keys, how='left')
+        agg_df = agg_df.merge(mean_df, on=group_keys, how="left")
 
-    comp = agg_df.merge(
-        macro_df,
-        on=group_keys,
-        how='inner',
-        suffixes=('_agg_regions', '_macro')
-    )
+    comp = agg_df.merge(macro_df, on=group_keys, how="inner", suffixes=("_agg_regions", "_macro"))
 
     rows = []
     for col in required_cols:
-        x = comp[f'{col}_agg_regions'].astype(float)
-        y = comp[f'{col}_macro'].astype(float)
+        x = comp[f"{col}_agg_regions"].astype(float)
+        y = comp[f"{col}_macro"].astype(float)
         diff = x - y
         denom = np.maximum(np.abs(y), abs_tol)
         rel_diff = diff / denom
 
         try:
-            t_pvalue = stats.ttest_ind(x.dropna(), y.dropna(), equal_var=False, nan_policy='omit').pvalue
+            t_pvalue = stats.ttest_ind(x.dropna(), y.dropna(), equal_var=False, nan_policy="omit").pvalue
         except Exception:
             t_pvalue = np.nan
 
@@ -783,18 +837,18 @@ def check_regional_consistency(
         cohens_d = float(diff.mean() / d_std) if d_std > 0 else 0.0
 
         # Derive the primary pass/fail and label depending on chosen test
-        _use_ttest = str(test).lower() == 'ttest'
+        _use_ttest = str(test).lower() == "ttest"
         if _use_ttest:
-            stat_value  = float(t_pvalue) if pd.notna(t_pvalue) else np.nan
+            stat_value = float(t_pvalue) if pd.notna(t_pvalue) else np.nan
             passes_stat = bool(pd.notna(t_pvalue) and t_pvalue > alpha)
-            stat_label  = 'p'
+            stat_label = "p"
         else:
-            stat_value  = cohens_d
+            stat_value = cohens_d
             passes_stat = bool(abs(cohens_d) < 0.2)
-            stat_label  = 'd'
+            stat_label = "d"
 
         try:
-            ks_pvalue = stats.ks_2samp(x.dropna(), y.dropna(), method='asymp').pvalue
+            ks_pvalue = stats.ks_2samp(x.dropna(), y.dropna(), method="asymp").pvalue
         except Exception:
             ks_pvalue = np.nan
 
@@ -807,53 +861,55 @@ def check_regional_consistency(
         close_ratio = np.isclose(x, y, rtol=rel_tol, atol=abs_tol, equal_nan=True).mean()
         mean_abs_pct_err = (np.abs(rel_diff).mean()) * 100.0
 
-        rows.append({
-            'variable': col,
-            'n_obs': int(diff.notna().sum()),
-            'mean_bias': float(diff.mean()),
-            'mae': float(np.abs(diff).mean()),
-            'rmse': float(np.sqrt(np.mean(np.square(diff)))),
-            'mean_abs_pct_err': float(mean_abs_pct_err),
-            'max_abs_pct_err': float(np.abs(rel_diff).max() * 100.0),
-            'corr': corr,
-            'welch_t_pvalue': float(t_pvalue) if pd.notna(t_pvalue) else np.nan,
-            'cohens_d': cohens_d,
-            'ks_pvalue': float(ks_pvalue) if pd.notna(ks_pvalue) else np.nan,
-            'close_ratio': float(close_ratio),
-            'passes_tol_check': bool(close_ratio >= (1.0 - alpha)),
-            'passes_stat_check': passes_stat,
-        })
+        rows.append(
+            {
+                "variable": col,
+                "n_obs": int(diff.notna().sum()),
+                "mean_bias": float(diff.mean()),
+                "mae": float(np.abs(diff).mean()),
+                "rmse": float(np.sqrt(np.mean(np.square(diff)))),
+                "mean_abs_pct_err": float(mean_abs_pct_err),
+                "max_abs_pct_err": float(np.abs(rel_diff).max() * 100.0),
+                "corr": corr,
+                "welch_t_pvalue": float(t_pvalue) if pd.notna(t_pvalue) else np.nan,
+                "cohens_d": cohens_d,
+                "ks_pvalue": float(ks_pvalue) if pd.notna(ks_pvalue) else np.nan,
+                "close_ratio": float(close_ratio),
+                "passes_tol_check": bool(close_ratio >= (1.0 - alpha)),
+                "passes_stat_check": passes_stat,
+            }
+        )
 
-        comp[f'{col}_diff'] = diff
-        comp[f'{col}_rel_diff'] = rel_diff
+        comp[f"{col}_diff"] = diff
+        comp[f"{col}_rel_diff"] = rel_diff
 
-    summary_df = pd.DataFrame(rows).sort_values('variable').reset_index(drop=True)
+    summary_df = pd.DataFrame(rows).sort_values("variable").reset_index(drop=True)
 
-    _VALID_STYLES = ('violin', 'box')
+    _VALID_STYLES = ("violin", "box")
     _style = str(plot_style).lower() if plot_style else None
     if _style in _VALID_STYLES:
-        vars_to_plot = summary_df['variable'].tolist()
+        vars_to_plot = summary_df["variable"].tolist()
         n_vars = len(vars_to_plot)
         ncols = 3
         nrows = int(np.ceil(n_vars / ncols))
 
-        _colors = ['tab:blue', 'tab:orange']
-        _labels = ['macro', 'agg_regions']
+        _colors = ["tab:blue", "tab:orange"]
+        _labels = ["macro", "agg_regions"]
 
         fig, axes = plt.subplots(nrows, ncols, figsize=(4.5 * ncols, 4.2 * nrows))
         axes = np.array(axes).reshape(-1)
 
         for idx, var in enumerate(vars_to_plot):
             ax = axes[idx]
-            col_agg   = f'{var}_agg_regions'
-            col_macro = f'{var}_macro'
+            col_agg = f"{var}_agg_regions"
+            col_macro = f"{var}_macro"
 
             if col_agg not in comp.columns or col_macro not in comp.columns:
                 ax.set_visible(False)
                 continue
 
             macro_vals = comp[col_macro].replace([np.inf, -np.inf], np.nan).dropna().values
-            agg_vals   = comp[col_agg].replace([np.inf, -np.inf], np.nan).dropna().values
+            agg_vals = comp[col_agg].replace([np.inf, -np.inf], np.nan).dropna().values
 
             if len(macro_vals) == 0 or len(agg_vals) == 0:
                 ax.set_visible(False)
@@ -862,18 +918,15 @@ def check_regional_consistency(
             # Auto log10: apply when all values are strictly positive and
             # the combined range spans > 2 orders of magnitude (max/min > 100).
             all_raw = np.concatenate([macro_vals, agg_vals])
-            use_log = (
-                bool((all_raw > 0).all())
-                and float(all_raw.max()) / float(all_raw.min()) > 100
-            )
+            use_log = bool((all_raw > 0).all()) and float(all_raw.max()) / float(all_raw.min()) > 100
             if use_log:
                 macro_vals = np.log10(macro_vals)
-                agg_vals   = np.log10(agg_vals)
-            y_label = 'log₁₀(Value)' if use_log else 'Value'
+                agg_vals = np.log10(agg_vals)
+            y_label = "log₁₀(Value)" if use_log else "Value"
 
             data = [macro_vals, agg_vals]
 
-            if _style == 'violin':
+            if _style == "violin":
                 from scipy.stats import gaussian_kde
 
                 all_vals = np.concatenate([macro_vals, agg_vals])
@@ -886,90 +939,88 @@ def check_regional_consistency(
                 # Left half = macro, right half = agg_regions
                 for vals, sign, color in [
                     (macro_vals, -1, _colors[0]),
-                    (agg_vals,   +1, _colors[1]),
+                    (agg_vals, +1, _colors[1]),
                 ]:
                     if len(vals) < 2 or np.std(vals) == 0:
                         continue
                     density = gaussian_kde(vals)(y_grid)
                     density = density / density.max() * half_w
                     x_outer = sign * density
-                    ax.fill_betweenx(y_grid, 0, x_outer,
-                                     color=color, alpha=0.45)
-                    ax.plot(x_outer, y_grid,
-                            color=color, linewidth=0.9, alpha=0.85)
+                    ax.fill_betweenx(y_grid, 0, x_outer, color=color, alpha=0.45)
+                    ax.plot(x_outer, y_grid, color=color, linewidth=0.9, alpha=0.85)
 
                 # Central box: combined IQR extent + per-series median ticks
                 q25_L, med_L, q75_L = np.percentile(macro_vals, [25, 50, 75])
-                q25_R, med_R, q75_R = np.percentile(agg_vals,   [25, 50, 75])
+                q25_R, med_R, q75_R = np.percentile(agg_vals, [25, 50, 75])
                 q25_c = min(q25_L, q25_R)
                 q75_c = max(q75_L, q75_R)
                 iqr_c = q75_c - q25_c
                 lo_w = max(all_vals.min(), q25_c - 1.5 * iqr_c)
                 hi_w = min(all_vals.max(), q75_c + 1.5 * iqr_c)
 
-                ax.plot([0, 0], [lo_w, q25_c],
-                        color='black', linewidth=1.0, zorder=3)
-                ax.plot([0, 0], [q75_c, hi_w],
-                        color='black', linewidth=1.0, zorder=3)
+                ax.plot([0, 0], [lo_w, q25_c], color="black", linewidth=1.0, zorder=3)
+                ax.plot([0, 0], [q75_c, hi_w], color="black", linewidth=1.0, zorder=3)
 
                 box_hw = 0.045
                 rect = plt.Rectangle(
-                    (-box_hw, q25_c), 2 * box_hw, iqr_c,
-                    facecolor='white', edgecolor='black',
-                    linewidth=1.0, zorder=4,
+                    (-box_hw, q25_c),
+                    2 * box_hw,
+                    iqr_c,
+                    facecolor="white",
+                    edgecolor="black",
+                    linewidth=1.0,
+                    zorder=4,
                 )
                 ax.add_patch(rect)
                 # Left-half tick = macro median, right-half tick = agg_regions median
-                ax.plot([-box_hw, 0], [med_L, med_L],
-                        color=_colors[0], linewidth=2.2, zorder=5)
-                ax.plot([0, box_hw], [med_R, med_R],
-                        color=_colors[1], linewidth=2.2, zorder=5)
+                ax.plot([-box_hw, 0], [med_L, med_L], color=_colors[0], linewidth=2.2, zorder=5)
+                ax.plot([0, box_hw], [med_R, med_R], color=_colors[1], linewidth=2.2, zorder=5)
 
                 ax.set_xlim(-half_w - 0.08, half_w + 0.08)
                 ax.set_xticks([])
 
             else:  # 'box'
                 bp = ax.boxplot(
-                    data, positions=[1, 2], widths=0.55,
-                    patch_artist=True, notch=True,
-                    manage_ticks=False, showfliers=True,
+                    data,
+                    positions=[1, 2],
+                    widths=0.55,
+                    patch_artist=True,
+                    notch=True,
+                    manage_ticks=False,
+                    showfliers=True,
                     whiskerprops=dict(linewidth=1.3),
                     capprops=dict(linewidth=1.3),
                     medianprops=dict(linewidth=2.2),
-                    flierprops=dict(marker='o', markersize=3, alpha=0.45,
-                                    linestyle='none'),
+                    flierprops=dict(marker="o", markersize=3, alpha=0.45, linestyle="none"),
                 )
-                for patch, col in zip(bp['boxes'], _colors):
+                for patch, col in zip(bp["boxes"], _colors):
                     patch.set_facecolor(col)
                     patch.set_alpha(0.50)
                     patch.set_edgecolor(col)
                     patch.set_linewidth(1.5)
-                for i, w in enumerate(bp['whiskers']):
+                for i, w in enumerate(bp["whiskers"]):
                     w.set_color(_colors[i // 2])
-                for i, c in enumerate(bp['caps']):
+                for i, c in enumerate(bp["caps"]):
                     c.set_color(_colors[i // 2])
-                for i, m in enumerate(bp['medians']):
+                for i, m in enumerate(bp["medians"]):
                     m.set_color(_colors[i])
-                for i, f in enumerate(bp['fliers']):
+                for i, f in enumerate(bp["fliers"]):
                     f.set(markerfacecolor=_colors[i], markeredgecolor=_colors[i])
 
-            if _style != 'violin':
+            if _style != "violin":
                 ax.set_xticks([1, 2])
                 ax.set_xticklabels(_labels, fontsize=8)
-            ax.tick_params(axis='y', labelsize=7)
+            ax.tick_params(axis="y", labelsize=7)
             ax.set_ylabel(y_label, fontsize=8)
-            ax.grid(True, axis='y', linestyle='--', linewidth=0.5,
-                    color='grey', alpha=0.4)
+            ax.grid(True, axis="y", linestyle="--", linewidth=0.5, color="grey", alpha=0.4)
             ax.set_axisbelow(True)
 
-            row = summary_df.loc[summary_df['variable'] == var].iloc[0]
-            pass_tol  = '✓' if row['passes_tol_check'] else '✗'
-            pass_stat = '✓' if row['passes_stat_check'] else '✗'
-            _use_ttest = str(test).lower() == 'ttest'
+            row = summary_df.loc[summary_df["variable"] == var].iloc[0]
+            pass_tol = "✓" if row["passes_tol_check"] else "✗"
+            pass_stat = "✓" if row["passes_stat_check"] else "✗"
+            _use_ttest = str(test).lower() == "ttest"
             stat_str = (
-                f"p={row['welch_t_pvalue']:.2g}({pass_stat})"
-                if _use_ttest
-                else f"d={row['cohens_d']:.3g}({pass_stat})"
+                f"p={row['welch_t_pvalue']:.2g}({pass_stat})" if _use_ttest else f"d={row['cohens_d']:.3g}({pass_stat})"
             )
             ax.set_title(
                 f"{var}\nMAPE={row['mean_abs_pct_err']:.3g}%  ",
@@ -980,8 +1031,8 @@ def check_regional_consistency(
             # Legend on first subplot only
             if idx == 0:
                 handles = [
-                    plt.Rectangle((0, 0), 1, 1, fc=_colors[0], alpha=0.55, label='macro'),
-                    plt.Rectangle((0, 0), 1, 1, fc=_colors[1], alpha=0.55, label='agg_regions'),
+                    plt.Rectangle((0, 0), 1, 1, fc=_colors[0], alpha=0.55, label="macro"),
+                    plt.Rectangle((0, 0), 1, 1, fc=_colors[1], alpha=0.55, label="agg_regions"),
                 ]
                 ax.legend(handles=handles, frameon=False, fontsize=8)
 
@@ -995,7 +1046,7 @@ def check_regional_consistency(
         # )
         plt.tight_layout()
         if output is not None:
-            plt.savefig(output, dpi=300, format='pdf', bbox_inches='tight')
+            plt.savefig(output, dpi=300, format="pdf", bbox_inches="tight")
         plt.show()
     print(summary_df)
     return None

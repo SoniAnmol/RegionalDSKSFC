@@ -17,8 +17,10 @@ __pycache__/
 *.pyd
 .Python
 
+
 # IDE and editor files
 .vscode/
+.venv/
 .idea/
 *.swp
 *.swo
@@ -33,6 +35,9 @@ __pycache__/
 *.dylib
 *.dll
 *.exe
+.ninja_deps
+.ninja_log
+build.ninja
 
 # R session files
 .RData
